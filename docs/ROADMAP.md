@@ -28,6 +28,14 @@ Construire un outil simple pour gerer :
 - les alertes de reapprovisionnement,
 - les indicateurs de pilotage.
 
+## Decisions V1
+
+- Priorite V1 : stock + production.
+- Priorite suivante : caisse.
+- Outil de suivi projet : Trello.
+- Equipe : developpement seul.
+- V1 utilisable : creer et gerer les articles, gerer les matieres premieres, produire, voir les stocks.
+
 ## Phase 0 - Stabilisation de la base
 
 Priorite : rendre le socle fiable avant d'ajouter trop de features.
@@ -75,9 +83,26 @@ Critere de sortie :
 
 - On peut creer une recette, savoir combien on peut produire, produire, et voir les stocks evoluer correctement.
 
+Perimetre V1 :
+
+- Inclus :
+  - articles,
+  - matieres premieres,
+  - nomenclatures,
+  - capacite de production,
+  - production,
+  - visualisation des stocks,
+  - alertes de seuil simples.
+- Exclu de la V1 :
+  - caisse complete,
+  - ventes,
+  - commandes client,
+  - paiement en ligne,
+  - reporting avance.
+
 ## Phase 2 - Ventes et caisse
 
-Priorite : transformer les stocks en activite commerciale mesurable.
+Priorite apres V1 : transformer les stocks en activite commerciale mesurable.
 
 - Creer un module ventes cote API.
 - Creer une interface de caisse simple :
@@ -276,3 +301,10 @@ Critere de sortie :
 - Le projet doit-il fonctionner sur tablette/mobile en caisse ?
 - Quelle est la date cible pour une premiere version utilisable ?
 
+## Questions deja tranchees
+
+- Priorite V1 : stock + production.
+- Caisse : apres la V1.
+- Outil de gestion projet : Trello.
+- Taille equipe : solo.
+- Definition pratique de la V1 : creer/gerer articles, gerer matieres premieres, produire, voir les stocks.

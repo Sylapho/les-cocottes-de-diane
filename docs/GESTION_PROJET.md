@@ -4,6 +4,13 @@
 
 Mettre en place une organisation simple, lisible et durable pour faire avancer Localco sans perdre le fil entre les idees, le code, les tests et les livraisons.
 
+## Decisions d'organisation
+
+- Outil choisi : Trello.
+- Equipe : developpement solo.
+- Priorite produit actuelle : V1 stock + production.
+- La caisse arrive apres stabilisation de la V1.
+
 ## 1. Clarifier la vision produit
 
 A faire :
@@ -25,7 +32,7 @@ Livrable :
 
 A faire :
 
-- Creer un tableau Kanban avec 5 colonnes :
+- Creer un tableau Trello avec 5 colonnes :
   - Idee,
   - A specifier,
   - Pret,
@@ -206,21 +213,19 @@ Attention :
 
 Ordre conseille :
 
-1. Valider les questions ouvertes de la roadmap.
-2. Definir le perimetre exact de la V1.
-3. Creer le Kanban.
-4. Transformer la Phase 0 et la Phase 1 en tickets.
-5. Ajouter une Definition of Done dans le repo.
-6. Nettoyer les README.
-7. Mettre en place une CI minimale.
-8. Planifier une premiere livraison interne.
+1. Creer le tableau Trello.
+2. Ajouter les listes : Idee, A specifier, Pret, En cours, Fait.
+3. Importer les cartes proposees dans `docs/TRELLO_BACKLOG.md`.
+4. Commencer par les cartes P0 de stabilisation.
+5. Enchainer sur les cartes P1 stock + production.
+6. Ajouter une Definition of Done dans le repo.
+7. Nettoyer les README.
+8. Planifier une premiere livraison interne de la V1.
 
 ## Questions a trancher
 
-- Ou veux-tu gerer les tickets : GitHub Issues, Notion, Trello, Linear, autre ?
-- Veux-tu une organisation tres legere ou un suivi plus formel ?
-- Tu travailles seul, a deux, ou avec une equipe ?
+- Veux-tu une organisation Trello tres legere ou un suivi plus formel ?
 - Quelle est la frequence realiste de dev : quelques heures par semaine, plusieurs jours, temps plein ?
-- La priorite business est-elle plutot la caisse, les commandes, ou la production ?
-- Quelle serait une V1 "utilisable meme imparfaite" ?
-
+- Pour la V1, les alertes de seuil doivent-elles etre indispensables ou seulement utiles ?
+- Faut-il inclure la gestion des nomenclatures dans "gerer articles" des la V1 ?
+- Quelle date cible veux-tu viser pour une premiere V1 utilisable ?
