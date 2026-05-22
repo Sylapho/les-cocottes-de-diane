@@ -67,8 +67,8 @@ model Vente {
   tva       Float
   mode      String
   remise    Float        @default(0)
-  userId    Int
-  user      User         @relation(fields: [userId], references: [id])
+  userId    Int?
+  user      User?        @relation(fields: [userId], references: [id])
   lignes    LigneVente[]
 }
 

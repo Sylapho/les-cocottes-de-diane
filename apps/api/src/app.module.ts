@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module'
 import { ArticlesModule } from './articles/articles.module'
 import { MatieresPremieresModule } from './matieres-premieres/matieres-premieres.module'
 import { NomenclatureModule } from './nomenclatures/nomenclature.module'
+import { VentesModule } from './ventes/ventes.module'
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { NomenclatureModule } from './nomenclatures/nomenclature.module'
     ArticlesModule,
     MatieresPremieresModule,
     NomenclatureModule,
+    VentesModule,
   ],
 })
 export class AppModule {}
