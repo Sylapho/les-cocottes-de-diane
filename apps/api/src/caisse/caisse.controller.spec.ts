@@ -7,6 +7,7 @@ describe('CaisseController', () => {
 
   const caisseServiceMock = {
     getTodaySummary: jest.fn(),
+    findClosedDays: jest.fn(),
     closeToday: jest.fn(),
   }
 
@@ -53,5 +54,13 @@ describe('CaisseController', () => {
 
     await expect(controller.cloturer()).resolves.toEqual(result)
     expect(caisseServiceMock.closeToday).toHaveBeenCalled()
+  })
+
+  it('findClosedDays should return closed cash register days', async () => {
+    const result = [{ id: 1, totalTTC: 42 }]
+    caisseServiceMock.findClosedDays.mockResolvedValue(result)
+
+    await expect(controller.findClosedDays()).resolves.toEqual(result)
+    expect(caisseServiceMock.findClosedDays).toHaveBeenCalled()
   })
 })
