@@ -24,6 +24,14 @@ type CaisseTotals = {
 export class CaisseService {
   constructor(private readonly prisma: PrismaService) {}
 
+  findClosedDays() {
+    return this.prisma.journeeCaisse.findMany({
+      orderBy: {
+        date: 'desc',
+      },
+    })
+  }
+
   async getTodaySummary() {
     const bounds = getParisDayBounds(new Date())
     const [closedDay, totals] = await Promise.all([

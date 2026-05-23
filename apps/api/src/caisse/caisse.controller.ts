@@ -10,6 +10,11 @@ export class CaisseController {
     return this.caisseService.getTodaySummary()
   }
 
+  @Get('journees')
+  findClosedDays() {
+    return this.caisseService.findClosedDays()
+  }
+
   @Post('cloturer')
   cloturer() {
     return this.caisseService.closeToday()
