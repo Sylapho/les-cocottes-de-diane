@@ -65,11 +65,17 @@ pnpm install
 
 ## Variables d'environnement
 
-Crée les fichiers d'environnement nécessaires.
+Des fichiers d'exemple sont fournis pour chaque application.
 
 ### API
 
-Créer `apps/api/.env` :
+Créer `apps/api/.env` à partir de l'exemple :
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+Puis adapter les valeurs si nécessaire :
 
 ```env
 NODE_ENV=development
@@ -85,7 +91,13 @@ FRONTEND_URL=http://localhost:3000
 
 ### Web
 
-Créer `apps/web/.env.local` :
+Créer `apps/web/.env.local` à partir de l'exemple :
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Puis adapter les valeurs si nécessaire :
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:4000/api
@@ -101,7 +113,7 @@ Le projet utilise PostgreSQL via Docker Compose.
 Démarrer la base :
 
 ```bash
-docker compose up -d
+pnpm db:up
 ```
 
 La configuration locale par défaut est :
@@ -117,13 +129,13 @@ Password: localco_dev
 Arrêter la base :
 
 ```bash
-docker compose down
+pnpm db:down
 ```
 
-Supprimer la base et le volume local :
+Supprimer la base et le volume local, puis redémarrer PostgreSQL :
 
 ```bash
-docker compose down -v
+pnpm db:reset
 ```
 
 ## Prisma
@@ -133,25 +145,25 @@ Prisma est utilisé côté API pour les données métier de LocalCo.
 Générer le client Prisma :
 
 ```bash
-pnpm --filter @localco/api exec prisma generate
+pnpm db:generate
 ```
 
 Créer ou appliquer une migration en développement :
 
 ```bash
-pnpm --filter @localco/api exec prisma migrate dev
+pnpm db:migrate
 ```
 
 Appliquer les migrations en environnement CI ou production :
 
 ```bash
-pnpm --filter @localco/api exec prisma migrate deploy
+pnpm db:deploy
 ```
 
 Lancer le seed :
 
 ```bash
-pnpm --filter @localco/api seed
+pnpm db:seed
 ```
 
 ## Better Auth
@@ -185,7 +197,7 @@ Dans deux terminaux séparés :
 ### API
 
 ```bash
-pnpm --filter @localco/api start:dev
+pnpm dev:api
 ```
 
 L'API doit être disponible sur :
@@ -197,7 +209,7 @@ http://localhost:4000/api
 ### Web
 
 ```bash
-pnpm --filter web dev
+pnpm dev:web
 ```
 
 L'application web doit être disponible sur :
@@ -212,12 +224,29 @@ http://localhost:3000
 
 ```bash
 pnpm install
+
+pnpm dev
 pnpm dev:api
 pnpm dev:web
-pnpm test:api
+
+pnpm build
+pnpm build:api
 pnpm build:web
-pnpm prisma:generate
-pnpm prisma:migrate
+
+pnpm lint
+pnpm lint:api
+pnpm lint:web
+
+pnpm test
+pnpm test:api
+pnpm test:api:e2e
+
+pnpm db:up
+pnpm db:down
+pnpm db:reset
+pnpm db:generate
+pnpm db:migrate
+pnpm db:deploy
 pnpm db:seed
 ```
 
@@ -226,6 +255,7 @@ pnpm db:seed
 ```bash
 pnpm --filter @localco/api start:dev
 pnpm --filter @localco/api build
+pnpm --filter @localco/api lint
 pnpm --filter @localco/api test
 pnpm --filter @localco/api test:e2e
 pnpm --filter @localco/api seed
@@ -245,27 +275,33 @@ pnpm --filter web lint
 Lancer les tests API :
 
 ```bash
-pnpm --filter @localco/api test
+pnpm test:api
 ```
 
 Lancer les tests end-to-end API :
 
 ```bash
-pnpm --filter @localco/api test:e2e
+pnpm test:api:e2e
 ```
 
 ## Build
 
-Builder l'API :
+Builder tout le monorepo :
 
 ```bash
-pnpm --filter @localco/api build
+pnpm build
 ```
 
-Builder le front :
+Builder uniquement l'API :
 
 ```bash
-pnpm --filter web build
+pnpm build:api
+```
+
+Builder uniquement le front :
+
+```bash
+pnpm build:web
 ```
 
 ## Convention de développement
@@ -282,16 +318,14 @@ pnpm --filter web build
 
 Priorité actuelle :
 
-1. Stabiliser les scripts du monorepo.
-2. Créer les fichiers `.env.example`.
-3. Vérifier le démarrage API + Web.
-4. Stabiliser Prisma côté API.
-5. Clarifier les commandes Better Auth.
-6. Créer le CRUD `Article`.
-7. Ajouter une seed réaliste.
-8. Connecter le front au CRUD article.
-9. Ajouter l'authentification complète.
-10. Protéger les routes API et les pages dashboard.
+1. Vérifier le démarrage API + Web.
+2. Stabiliser Prisma côté API.
+3. Clarifier les commandes Better Auth.
+4. Créer le CRUD `Article`.
+5. Ajouter une seed réaliste.
+6. Connecter le front au CRUD article.
+7. Ajouter l'authentification complète.
+8. Protéger les routes API et les pages dashboard.
 
 ## Dépannage rapide
 
@@ -314,15 +348,15 @@ docker compose ps
 Puis relance la base :
 
 ```bash
-docker compose up -d
+pnpm db:up
 ```
 
 ### Prisma ne trouve pas le schéma
 
-Lance les commandes Prisma depuis le package API :
+Lance les commandes Prisma depuis le package API via les scripts root :
 
 ```bash
-pnpm --filter @localco/api exec prisma generate
+pnpm db:generate
 ```
 
 ### Le front ne trouve pas l'API
