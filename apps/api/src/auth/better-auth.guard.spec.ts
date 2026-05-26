@@ -10,6 +10,10 @@ type TestRequest = {
   userRole?: string
 }
 
+type GetSessionInput = {
+  headers: Headers
+}
+
 describe('BetterAuthGuard', () => {
   const getSession = jest.fn()
   const configMock = {
@@ -18,7 +22,9 @@ describe('BetterAuthGuard', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    configMock.get.mockReturnValue('postgresql://localco:localco_dev@localhost:5432/localco_db')
+    configMock.get.mockReturnValue(
+      'postgresql://localco:localco_dev@localhost:5432/localco_db',
+    )
   })
 
   function createContext(request: TestRequest): ExecutionContext {
@@ -52,9 +58,9 @@ describe('BetterAuthGuard', () => {
   it('should require a configured database url', () => {
     configMock.get.mockReturnValue(undefined)
 
-    expect(() => new BetterAuthGuard(configMock as unknown as ConfigService)).toThrow(
-      'DATABASE_URL est manquante',
-    )
+    expect(
+      () => new BetterAuthGuard(configMock as unknown as ConfigService),
+    ).toThrow('DATABASE_URL est manquante')
   })
 
   it('should read the configured database url', () => {
@@ -69,9 +75,9 @@ describe('BetterAuthGuard', () => {
       headers: {},
     }
 
-    await expect(guard.canActivate(createContext(request))).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    )
+    await expect(
+      guard.canActivate(createContext(request)),
+    ).rejects.toBeInstanceOf(UnauthorizedException)
     expect(getSession).not.toHaveBeenCalled()
   })
 
@@ -91,9 +97,12 @@ describe('BetterAuthGuard', () => {
     })
 
     await expect(guard.canActivate(createContext(request))).resolves.toBe(true)
-    expect(getSession).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
-    })
+
+    const [getSessionInput] = getSession.mock.calls[0] as [GetSessionInput]
+    expect(getSessionInput.headers).toBeInstanceOf(Headers)
+    expect(getSessionInput.headers.get('cookie')).toBe(
+      'better-auth.session_token=session-token',
+    )
     expect(request.userId).toBe('user_123')
     expect(request.userRole).toBe('gerant')
   })
@@ -126,8 +135,8 @@ describe('BetterAuthGuard', () => {
 
     getSession.mockResolvedValue(null)
 
-    await expect(guard.canActivate(createContext(request))).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    )
+    await expect(
+      guard.canActivate(createContext(request)),
+    ).rejects.toBeInstanceOf(UnauthorizedException)
   })
 })

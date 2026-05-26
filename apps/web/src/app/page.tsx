@@ -65,7 +65,7 @@ export default function Home() {
               </h1>
               <p className="mt-3 max-w-2xl text-zinc-600">
                 Pilote les ventes, la caisse, les articles et les matieres
-                premieres depuis un point d'entree simple.
+                premieres depuis un point d&apos;entree simple.
               </p>
             </div>
 
