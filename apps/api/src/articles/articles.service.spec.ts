@@ -1,7 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing'
-import { ArticlesService } from './articles.service'
-import { PrismaService } from '../prisma/prisma.service'
 import { BadRequestException } from '@nestjs/common'
+import { Test, TestingModule } from '@nestjs/testing'
+import { PrismaService } from '../prisma/prisma.service'
+import { ArticlesService } from './articles.service'
+import { CreateArticleDto } from './dto/create-article.dto'
 
 describe('ArticlesService', () => {
   let service: ArticlesService
@@ -20,6 +21,18 @@ describe('ArticlesService', () => {
     $transaction: jest.fn(),
   }
 
+  type TransactionClient = {
+    article: typeof prismaMock.article
+    matierePremiere: typeof prismaMock.matierePremiere
+  }
+
+  type TransactionCallback<T> = (tx: TransactionClient) => Promise<T>
+
+  const transactionClient: TransactionClient = {
+    article: prismaMock.article,
+    matierePremiere: prismaMock.matierePremiere,
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -34,11 +47,8 @@ describe('ArticlesService', () => {
     service = module.get<ArticlesService>(ArticlesService)
     jest.clearAllMocks()
 
-    prismaMock.$transaction.mockImplementation(async (callback) =>
-      callback({
-        article: prismaMock.article,
-        matierePremiere: prismaMock.matierePremiere,
-      }),
+    prismaMock.$transaction.mockImplementation(
+      <T>(callback: TransactionCallback<T>) => callback(transactionClient),
     )
   })
 
@@ -88,7 +98,7 @@ describe('ArticlesService', () => {
   })
 
   it('create should create an article with defaults', async () => {
-    const input = {
+    const input: CreateArticleDto = {
       nom: 'Pain au chocolat',
       prix: 1.5,
     }
@@ -105,7 +115,7 @@ describe('ArticlesService', () => {
 
     prismaMock.article.create.mockResolvedValue(created)
 
-    await expect(service.create(input as any)).resolves.toEqual(created)
+    await expect(service.create(input)).resolves.toEqual(created)
     expect(prismaMock.article.create).toHaveBeenCalledWith({
       data: {
         nom: 'Pain au chocolat',
