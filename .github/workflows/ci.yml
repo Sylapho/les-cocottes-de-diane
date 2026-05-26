@@ -70,8 +70,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate better-auth types
-        run: pnpm dlx auth@latest migrate --config ./apps/web/src/lib/auth.ts --yes
-
       - name: Build web
         run: pnpm --filter web build
