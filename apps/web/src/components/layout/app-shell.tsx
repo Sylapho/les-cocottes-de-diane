@@ -51,6 +51,13 @@ const navItems: NavItem[] = [
   },
 ]
 
+const adminNavItem: NavItem = {
+  label: 'Admin',
+  href: '/admin/users',
+  short: 'Admin',
+  description: 'Utilisateurs',
+}
+
 function isActive(pathname: string, href: string) {
   if (href === '/') {
     return pathname === '/'
@@ -71,6 +78,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const role = user?.role
   const isSignedIn = Boolean(session)
   const isLoaded = !isPending
+  const visibleNavItems =
+    role === 'gerant' ? [...navItems, adminNavItem] : navItems
 
   async function handleSignOut() {
     await authClient.signOut({
@@ -93,7 +102,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </Link>
 
         <nav className="lc-nav" aria-label="Navigation principale">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = isActive(pathname, item.href)
 
             return (
