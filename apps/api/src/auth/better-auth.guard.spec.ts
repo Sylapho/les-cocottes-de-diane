@@ -10,6 +10,10 @@ type TestRequest = {
   userRole?: string
 }
 
+type GetSessionInput = {
+  headers: Headers
+}
+
 describe('BetterAuthGuard', () => {
   const getSession = jest.fn()
   const configMock = {
@@ -91,9 +95,12 @@ describe('BetterAuthGuard', () => {
     })
 
     await expect(guard.canActivate(createContext(request))).resolves.toBe(true)
-    expect(getSession).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
-    })
+
+    const [getSessionInput] = getSession.mock.calls[0] as [GetSessionInput]
+    expect(getSessionInput.headers).toBeInstanceOf(Headers)
+    expect(getSessionInput.headers.get('cookie')).toBe(
+      'better-auth.session_token=session-token',
+    )
     expect(request.userId).toBe('user_123')
     expect(request.userRole).toBe('gerant')
   })
