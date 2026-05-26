@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { CreateVenteDto } from './dto/create-vente.dto'
 
 @Injectable()
 export class VentesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mouvementsStockService: MouvementsStockService,
+  ) {}
 
   findAll() {
     return this.prisma.vente.findMany({
@@ -130,7 +134,7 @@ export class VentesService {
         })
       }
 
-      return tx.vente.create({
+      const vente = await tx.vente.create({
         data: {
           mode: data.mode,
           remise,
@@ -156,6 +160,22 @@ export class VentesService {
           },
         },
       })
+
+      for (const ligne of lignesCalculees) {
+        await this.mouvementsStockService.recordArticleMovement(tx, {
+          articleId: ligne.article.id,
+          quantite: -ligne.quantite,
+          stockAvant: ligne.article.stock,
+          stockApres: ligne.article.stock - ligne.quantite,
+          type: 'vente',
+          motif: `Vente #${vente.id}`,
+          reference: `vente:${vente.id}`,
+          createdByUserId:
+            typeof data.userId === 'number' ? data.userId.toString() : undefined,
+        })
+      }
+
+      return vente
     })
   }
 }

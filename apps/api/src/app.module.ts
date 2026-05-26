@@ -7,6 +7,7 @@ import { NomenclatureModule } from './nomenclatures/nomenclature.module'
 import { VentesModule } from './ventes/ventes.module'
 import { CaisseModule } from './caisse/caisse.module'
 import { AuthModule } from './auth/auth.module'
+import { MouvementsStockModule } from './mouvements-stock/mouvements-stock.module'
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuthModule } from './auth/auth.module'
     NomenclatureModule,
     VentesModule,
     CaisseModule,
+    MouvementsStockModule,
   ],
 })
 export class AppModule {}

@@ -12,25 +12,25 @@ datasource db {
   provider = "postgresql"
 }
 
-
 model Article {
-  id          Int             @id @default(autoincrement())
-  nom         String
-  prix        Float
-  tva         Float           @default(0.055)
-  stock       Int             @default(0)
-  online      Boolean         @default(true)
-  emoji       String          @default("🥖")
-  description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  nomen       Nomenclature[]
-  lignesVente LigneVente[]
-  lignesCmd   LigneCommande[]
+  id              Int              @id @default(autoincrement())
+  nom             String
+  prix            Float
+  tva             Float            @default(0.055)
+  stock           Int              @default(0)
+  online          Boolean          @default(true)
+  emoji           String           @default("🥖")
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  nomen           Nomenclature[]
+  lignesVente     LigneVente[]
+  lignesCmd       LigneCommande[]
+  mouvementsStock MouvementStock[]
 }
 
 model MatierePremiere {
-  id              Int            @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   nom             String
   stock           Float
   unite           String
@@ -38,6 +38,7 @@ model MatierePremiere {
   seuil           Float
   conditionnement String
   nomen           Nomenclature[]
+  mouvementsStock MouvementStock[]
 }
 
 model Nomenclature {
@@ -46,6 +47,7 @@ model Nomenclature {
   quantite  Float
   article   Article         @relation(fields: [articleId], references: [id])
   mp        MatierePremiere @relation(fields: [mpId], references: [id])
+
   @@id([articleId, mpId])
 }
 
@@ -60,16 +62,16 @@ model User {
 }
 
 model Vente {
-  id        Int          @id @default(autoincrement())
-  date      DateTime     @default(now())
-  totalTTC  Float
-  totalHT   Float
-  tva       Float
-  mode      String
-  remise    Float        @default(0)
-  userId    Int?
-  user      User?        @relation(fields: [userId], references: [id])
-  lignes    LigneVente[]
+  id       Int          @id @default(autoincrement())
+  date     DateTime     @default(now())
+  totalTTC Float
+  totalHT  Float
+  tva      Float
+  mode     String
+  remise   Float        @default(0)
+  userId   Int?
+  user     User?        @relation(fields: [userId], references: [id])
+  lignes   LigneVente[]
 }
 
 model LigneVente {
@@ -119,4 +121,22 @@ model JourneeCaisse {
   marge     Float
   nbVentes  Int
   clotureeA DateTime @default(now())
+}
+
+model MouvementStock {
+  id              Int      @id @default(autoincrement())
+  type            String
+  cible           String
+  articleId       Int?
+  mpId            Int?
+  quantite        Float
+  stockAvant      Float
+  stockApres      Float
+  motif           String?
+  reference       String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  article Article?         @relation(fields: [articleId], references: [id])
+  mp      MatierePremiere? @relation(fields: [mpId], references: [id])
 }

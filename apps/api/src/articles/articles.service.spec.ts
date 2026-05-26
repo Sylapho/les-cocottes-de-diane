@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
+import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { ArticlesService } from './articles.service'
 import { CreateArticleDto } from './dto/create-article.dto'
@@ -19,6 +20,11 @@ describe('ArticlesService', () => {
       update: jest.fn(),
     },
     $transaction: jest.fn(),
+  }
+
+  const mouvementsStockServiceMock = {
+    recordArticleMovement: jest.fn(),
+    recordMatierePremiereMovement: jest.fn(),
   }
 
   type TransactionClient = {
@@ -41,6 +47,10 @@ describe('ArticlesService', () => {
           provide: PrismaService,
           useValue: prismaMock,
         },
+        {
+          provide: MouvementsStockService,
+          useValue: mouvementsStockServiceMock,
+        },
       ],
     }).compile()
 
@@ -50,6 +60,12 @@ describe('ArticlesService', () => {
     prismaMock.$transaction.mockImplementation(
       <T>(callback: TransactionCallback<T>) => callback(transactionClient),
     )
+    mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
+      id: 1,
+    })
+    mouvementsStockServiceMock.recordMatierePremiereMovement.mockResolvedValue({
+      id: 2,
+    })
   })
 
   it('should be defined', () => {
@@ -178,6 +194,7 @@ describe('ArticlesService', () => {
     const article = {
       id: 1,
       nom: 'Baguette',
+      stock: 1,
       nomen: [
         {
           mpId: 1,
@@ -278,6 +295,7 @@ describe('ArticlesService', () => {
     const article = {
       id: 1,
       nom: 'Baguette',
+      stock: 1,
       nomen: [
         {
           mpId: 1,
@@ -357,6 +375,39 @@ describe('ArticlesService', () => {
           },
         },
       },
+    })
+    expect(
+      mouvementsStockServiceMock.recordMatierePremiereMovement,
+    ).toHaveBeenNthCalledWith(1, transactionClient, {
+      mpId: 1,
+      quantite: -1.5,
+      stockAvant: 10,
+      stockApres: 8.5,
+      type: 'production',
+      motif: 'Production de 3 Baguette',
+      reference: 'production:article:1',
+    })
+    expect(
+      mouvementsStockServiceMock.recordMatierePremiereMovement,
+    ).toHaveBeenNthCalledWith(2, transactionClient, {
+      mpId: 2,
+      quantite: -0.30000000000000004,
+      stockAvant: 2,
+      stockApres: 1.7,
+      type: 'production',
+      motif: 'Production de 3 Baguette',
+      reference: 'production:article:1',
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(transactionClient, {
+      articleId: 1,
+      quantite: 3,
+      stockAvant: 1,
+      stockApres: 4,
+      type: 'production',
+      motif: 'Production de 3 Baguette',
+      reference: 'production:article:1',
     })
   })
 })
