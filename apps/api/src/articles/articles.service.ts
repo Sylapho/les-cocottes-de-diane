@@ -1,11 +1,15 @@
 import { Injectable, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { CreateArticleDto } from './dto/create-article.dto'
 import { UpdateArticleDto } from './dto/update-article.dto'
 
 @Injectable()
 export class ArticlesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly mouvementsStockService: MouvementsStockService,
+  ) {}
 
   findAll() {
     return this.prisma.article.findMany({
@@ -147,13 +151,25 @@ export class ArticlesService {
 
     return this.prisma.$transaction(async (tx) => {
       for (const line of article.nomen) {
+        const quantiteConsommee = line.quantite * quantite
+
         await tx.matierePremiere.update({
           where: { id: line.mpId },
           data: {
             stock: {
-              decrement: line.quantite * quantite,
+              decrement: quantiteConsommee,
             },
           },
+        })
+
+        await this.mouvementsStockService.recordMatierePremiereMovement(tx, {
+          mpId: line.mpId,
+          quantite: -quantiteConsommee,
+          stockAvant: line.mp.stock,
+          stockApres: line.mp.stock - quantiteConsommee,
+          type: 'production',
+          motif: `Production de ${quantite} ${article.nom}`,
+          reference: `production:article:${id}`,
         })
       }
 
@@ -171,6 +187,16 @@ export class ArticlesService {
             },
           },
         },
+      })
+
+      await this.mouvementsStockService.recordArticleMovement(tx, {
+        articleId: id,
+        quantite,
+        stockAvant: article.stock,
+        stockApres: article.stock + quantite,
+        type: 'production',
+        motif: `Production de ${quantite} ${article.nom}`,
+        reference: `production:article:${id}`,
       })
 
       return {

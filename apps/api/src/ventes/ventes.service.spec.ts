@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
+import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateVenteDto } from './dto/create-vente.dto'
 import { VentesService } from './ventes.service'
@@ -18,6 +19,10 @@ describe('VentesService', () => {
       create: jest.fn(),
     },
     $transaction: jest.fn(),
+  }
+
+  const mouvementsStockServiceMock = {
+    recordArticleMovement: jest.fn(),
   }
 
   type TransactionClient = {
@@ -40,6 +45,10 @@ describe('VentesService', () => {
           provide: PrismaService,
           useValue: prismaMock,
         },
+        {
+          provide: MouvementsStockService,
+          useValue: mouvementsStockServiceMock,
+        },
       ],
     }).compile()
 
@@ -49,6 +58,9 @@ describe('VentesService', () => {
     prismaMock.$transaction.mockImplementation(
       <T>(callback: TransactionCallback<T>) => callback(transactionClient),
     )
+    mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
+      id: 1,
+    })
   })
 
   it('should be defined', () => {
@@ -206,6 +218,30 @@ describe('VentesService', () => {
           },
         },
       },
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenNthCalledWith(1, transactionClient, {
+      articleId: 1,
+      quantite: -2,
+      stockAvant: 5,
+      stockApres: 3,
+      type: 'vente',
+      motif: 'Vente #10',
+      reference: 'vente:10',
+      createdByUserId: undefined,
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenNthCalledWith(2, transactionClient, {
+      articleId: 2,
+      quantite: -1,
+      stockAvant: 3,
+      stockApres: 2,
+      type: 'vente',
+      motif: 'Vente #10',
+      reference: 'vente:10',
+      createdByUserId: undefined,
     })
   })
 

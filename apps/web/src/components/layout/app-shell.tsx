@@ -39,9 +39,15 @@ const navItems: NavItem[] = [
   },
   {
     label: 'Stock',
-    href: '/matieres-premieres',
+    href: '/mouvements-stock',
     short: 'Stock',
-    description: 'Matieres premieres',
+    description: 'Mouvements',
+  },
+  {
+    label: 'Matieres',
+    href: '/matieres-premieres',
+    short: 'MP',
+    description: 'Catalogue stock',
   },
   {
     label: 'Historique',

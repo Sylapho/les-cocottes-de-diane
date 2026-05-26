@@ -433,3 +433,37 @@ export async function getJourneesCaisse(): Promise<JourneeCaisse[]> {
 
   return parseResponse<JourneeCaisse[]>(response)
 }
+
+export type MouvementStockType =
+  | 'vente'
+  | 'production'
+  | 'reception'
+  | 'ajustement'
+  | 'perte'
+
+export type MouvementStockCible = 'article' | 'matiere_premiere'
+
+export type MouvementStock = {
+  id: number
+  type: MouvementStockType
+  cible: MouvementStockCible
+  articleId?: number | null
+  mpId?: number | null
+  quantite: number
+  stockAvant: number
+  stockApres: number
+  motif?: string | null
+  reference?: string | null
+  createdByUserId?: string | null
+  createdAt: string
+  article?: Article | null
+  mp?: MatierePremiere | null
+}
+
+export async function getMouvementsStock(): Promise<MouvementStock[]> {
+  const response = await apiFetch('/mouvements-stock', {
+    cache: 'no-store',
+  })
+
+  return parseResponse<MouvementStock[]>(response)
+}
