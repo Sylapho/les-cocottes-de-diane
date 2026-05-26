@@ -2,11 +2,10 @@ import { Injectable, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateArticleDto } from './dto/create-article.dto'
 import { UpdateArticleDto } from './dto/update-article.dto'
-import { ProduceArticleDto } from './dto/produce-article.dto'
 
 @Injectable()
 export class ArticlesService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   findAll() {
     return this.prisma.article.findMany({
