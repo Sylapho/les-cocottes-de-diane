@@ -8,13 +8,79 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   api-tests:
     name: API tests
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: localco
+          POSTGRES_PASSWORD: localco_dev
+          POSTGRES_DB: localco_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U localco -d localco_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
+      NODE_ENV: test
       DATABASE_URL: postgresql://localco:localco_dev@localhost:5432/localco_db
+      BETTER_AUTH_SECRET: test_better_auth_secret_at_least_32_chars
+      BETTER_AUTH_URL: http://localhost:4000
+      FRONTEND_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Apply Prisma migrations
+        run: pnpm db:deploy
+
+      - name: Lint API
+        run: pnpm lint:api
+
+      - name: Run API tests
+        run: pnpm test:api -- --runInBand
+
+      - name: Build API
+        run: pnpm build:api
+
+  web-build:
+    name: Web build
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NEXT_PUBLIC_AUTH_URL: http://localhost:4000
       BETTER_AUTH_SECRET: test_better_auth_secret_at_least_32_chars
       BETTER_AUTH_URL: http://localhost:3000
 
@@ -32,43 +98,13 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: pnpm --filter @localco/api exec prisma generate
-
-      - name: Run API tests
-        run: pnpm --filter @localco/api test --runInBand
-
-  web-build:
-    name: Web build
-    runs-on: ubuntu-latest
-
-    env:
-      NEXT_PUBLIC_API_URL: http://localhost:4000/api
-      DATABASE_URL: postgresql://localco:localco_dev@localhost:5432/localco_db
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-      BETTER_AUTH_URL: http://localhost:3000
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Lint web
+        run: pnpm lint:web
 
       - name: Build web
-        run: pnpm --filter web build
+        run: pnpm build:web
