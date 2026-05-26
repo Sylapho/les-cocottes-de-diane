@@ -53,7 +53,7 @@ export default async function JourneesCaissePage() {
           <p className="mt-2 text-2xl font-bold">{journees.length}</p>
         </div>
         <div className="rounded border p-4">
-          <p className="text-sm text-gray-600">Chiffre d'affaires TTC</p>
+          <p className="text-sm text-gray-600">Chiffre d&apos;affaires TTC</p>
           <p className="mt-2 text-2xl font-bold">{formatCurrency(totalTTC)}</p>
         </div>
         <div className="rounded border p-4">
