@@ -2,12 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common'
+import type { Request } from 'express'
 import { BetterAuthGuard } from '../auth/better-auth.guard'
 import { ROLES } from '../auth/roles'
 import { Roles } from '../auth/roles.decorator'
@@ -19,6 +22,19 @@ import { UpdateCommandeStatutDto } from './dto/update-commande-statut.dto'
 @Controller('commandes')
 export class CommandesController {
   constructor(private readonly commandesService: CommandesService) {}
+
+  @Post('checkout')
+  createCheckout(@Body() body: CreateCommandeDto) {
+    return this.commandesService.createCheckout(body)
+  }
+
+  @Post('stripe/webhook')
+  handleStripeWebhook(
+    @Req() request: Request & { rawBody?: Buffer },
+    @Headers('stripe-signature') signature?: string | string[],
+  ) {
+    return this.commandesService.handleStripeWebhook(request.rawBody, signature)
+  }
 
   @Post()
   create(@Body() body: CreateCommandeDto) {

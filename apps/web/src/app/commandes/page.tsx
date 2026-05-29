@@ -7,6 +7,7 @@ const statusLabels: Record<CommandeStatut, string> = {
   preparee: 'Preparee',
   traitee: 'Traitee',
   annulee: 'Annulee',
+  paiement_a_verifier: 'Paiement a verifier',
 }
 
 const statusClasses: Record<CommandeStatut, string> = {
@@ -14,6 +15,7 @@ const statusClasses: Record<CommandeStatut, string> = {
   preparee: 'bg-blue-100 text-blue-800',
   traitee: 'bg-green-100 text-green-800',
   annulee: 'bg-red-100 text-red-800',
+  paiement_a_verifier: 'bg-purple-100 text-purple-800',
 }
 
 function formatCurrency(value: number) {

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { Test, TestingModule } from '@nestjs/testing'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -15,9 +16,11 @@ describe('CommandesService', () => {
     },
     commande: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     mouvementStock: {
       create: jest.fn(),
@@ -55,6 +58,12 @@ describe('CommandesService', () => {
           provide: MouvementsStockService,
           useValue: mouvementsStockServiceMock,
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(),
+          },
+        },
       ],
     }).compile()
 
@@ -75,6 +84,11 @@ describe('CommandesService', () => {
 
     await expect(service.findAll()).resolves.toEqual(commandes)
     expect(prismaMock.commande.findMany).toHaveBeenCalledWith({
+      where: {
+        statut: {
+          not: 'paiement_en_attente',
+        },
+      },
       include: {
         lignes: {
           include: {

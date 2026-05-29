@@ -65,6 +65,28 @@ export default function CommandeStatusActions({
     return null
   }
 
+  if (statut === 'paiement_a_verifier') {
+    return (
+      <div className="grid gap-2">
+        <p className="max-w-md text-sm text-amber-700">
+          Paiement recu, mais le stock est insuffisant. Verifiez la commande
+          avant de contacter le client.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => updateStatus('annulee')}
+          disabled={Boolean(loadingStatus)}
+          className="w-fit rounded border px-3 py-2 text-sm text-red-700 disabled:opacity-50"
+        >
+          {loadingStatus === 'annulee' ? 'Annulation...' : 'Annuler'}
+        </button>
+
+        {error ? <p className="max-w-md text-sm text-red-600">{error}</p> : null}
+      </div>
+    )
+  }
+
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap gap-2">

@@ -9,6 +9,8 @@ describe('CommandesController', () => {
 
   const commandesServiceMock = {
     create: jest.fn(),
+    createCheckout: jest.fn(),
+    handleStripeWebhook: jest.fn(),
     findAll: jest.fn(),
     findOne: jest.fn(),
     updateStatut: jest.fn(),
@@ -52,6 +54,21 @@ describe('CommandesController', () => {
 
     await expect(controller.create(body)).resolves.toEqual(result)
     expect(commandesServiceMock.create).toHaveBeenCalledWith(body)
+  })
+
+  it('createCheckout should create a checkout session', async () => {
+    const body: CreateCommandeDto = {
+      nom: 'Marie Dupont',
+      email: 'marie@example.fr',
+      lieu: 'En boutique',
+      lignes: [{ articleId: 1, quantite: 2 }],
+    }
+    const result = { url: 'https://checkout.stripe.com/test' }
+
+    commandesServiceMock.createCheckout.mockResolvedValue(result)
+
+    await expect(controller.createCheckout(body)).resolves.toEqual(result)
+    expect(commandesServiceMock.createCheckout).toHaveBeenCalledWith(body)
   })
 
   it('findAll should return commandes', async () => {

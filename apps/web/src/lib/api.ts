@@ -382,6 +382,7 @@ export type CommandeStatut =
   | 'preparee'
   | 'traitee'
   | 'annulee'
+  | 'paiement_a_verifier'
 
 export type LigneCommande = {
   id: number
