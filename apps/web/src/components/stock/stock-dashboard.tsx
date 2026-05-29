@@ -9,6 +9,7 @@ import type {
   MouvementStockCible,
   MouvementStockType,
 } from '@/lib/api'
+import ArticleImage from '@/components/articles/article-image'
 import AdjustStockForm from './adjust-stock-form'
 import ProduceLotForm from './produce-lot-form'
 import ReceptionMatiereForm from './reception-matiere-form'
@@ -35,6 +36,7 @@ const typeLabels: Record<MouvementStockType, string> = {
   reception: 'Reception',
   ajustement: 'Ajustement',
   perte: 'Perte',
+  commande: 'Commande',
 }
 
 const cibleLabels: Record<MouvementStockCible, string> = {
@@ -441,8 +443,13 @@ export default function StockDashboard({
                   return (
                     <tr key={article.id} className="border-b last:border-b-0">
                       <td className="py-3 pr-4">
-                        <span className="mr-2">{article.emoji}</span>
-                        <span className="font-medium">{article.nom}</span>
+                        <div className="flex items-center gap-2">
+                          <ArticleImage
+                            article={article}
+                            className="h-8 w-8 overflow-hidden rounded border bg-gray-100"
+                          />
+                          <span className="font-medium">{article.nom}</span>
+                        </div>
                       </td>
                       <td className="py-3 pr-4">{article.stock}</td>
                       <td className="py-3 pr-4">{formatCurrency(article.prix)}</td>

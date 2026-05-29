@@ -13,7 +13,7 @@ export default function NewArticlePage() {
   const [nom, setNom] = useState('')
   const [prix, setPrix] = useState('')
   const [stock, setStock] = useState('')
-  const [emoji, setEmoji] = useState('🥖')
+  const [imageUrl, setImageUrl] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -34,7 +34,7 @@ export default function NewArticlePage() {
           prix: Number(prix),
           stock: Number(stock || 0),
           online: true,
-          emoji,
+          imageUrl: imageUrl || undefined,
           description: description || undefined,
         }),
       })
@@ -96,16 +96,6 @@ export default function NewArticlePage() {
         </div>
 
         <div className="grid gap-1">
-          <label htmlFor="emoji">Emoji</label>
-          <input
-            id="emoji"
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value)}
-            className="rounded border px-3 py-2"
-          />
-        </div>
-
-        <div className="grid gap-1">
           <label htmlFor="description">Description</label>
           <textarea
             id="description"
@@ -114,6 +104,22 @@ export default function NewArticlePage() {
             className="rounded border px-3 py-2"
             rows={4}
           />
+        </div>
+
+        <div className="grid gap-1">
+          <label htmlFor="imageUrl">Image</label>
+          <input
+            id="imageUrl"
+            type="url"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            className="rounded border px-3 py-2"
+            placeholder="https://exemple.fr/photo.jpg"
+          />
+          <p className="text-sm text-gray-600">
+            Pour le moment, colle une URL d&apos;image. On pourra ajouter
+            l&apos;upload de fichier ensuite.
+          </p>
         </div>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}

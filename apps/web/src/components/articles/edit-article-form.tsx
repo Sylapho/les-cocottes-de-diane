@@ -20,7 +20,7 @@ export default function EditArticleForm({
   const [nom, setNom] = useState(article.nom)
   const [prix, setPrix] = useState(String(article.prix))
   const [stock, setStock] = useState(String(article.stock))
-  const [emoji, setEmoji] = useState(article.emoji)
+  const [imageUrl, setImageUrl] = useState(article.imageUrl ?? '')
   const [description, setDescription] = useState(article.description ?? '')
   const [online, setOnline] = useState(article.online)
   const [loading, setLoading] = useState(false)
@@ -41,7 +41,7 @@ export default function EditArticleForm({
           nom,
           prix: Number(prix),
           stock: Number(stock),
-          emoji,
+          imageUrl: imageUrl || null,
           description: description || undefined,
           online,
         }),
@@ -102,16 +102,6 @@ export default function EditArticleForm({
       </div>
 
       <div className="grid gap-1">
-        <label htmlFor="emoji">Emoji</label>
-        <input
-          id="emoji"
-          value={emoji}
-          onChange={(e) => setEmoji(e.target.value)}
-          className="rounded border px-3 py-2"
-        />
-      </div>
-
-      <div className="grid gap-1">
         <label htmlFor="description">Description</label>
         <textarea
           id="description"
@@ -119,6 +109,18 @@ export default function EditArticleForm({
           onChange={(e) => setDescription(e.target.value)}
           className="rounded border px-3 py-2"
           rows={4}
+        />
+      </div>
+
+      <div className="grid gap-1">
+        <label htmlFor="imageUrl">Image</label>
+        <input
+          id="imageUrl"
+          type="url"
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value)}
+          className="rounded border px-3 py-2"
+          placeholder="https://exemple.fr/photo.jpg"
         />
       </div>
 

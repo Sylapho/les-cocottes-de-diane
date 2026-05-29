@@ -24,9 +24,9 @@ export class CreateArticleDto {
 
   @IsOptional()
   @IsString()
-  emoji?: string
+  description?: string
 
   @IsOptional()
   @IsString()
-  description?: string
+  imageUrl?: string | null
 }

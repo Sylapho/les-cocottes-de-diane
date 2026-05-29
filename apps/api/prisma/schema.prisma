@@ -20,6 +20,7 @@ model Article {
   stock           Int              @default(0)
   online          Boolean          @default(true)
   emoji           String           @default("🥖")
+  imageUrl        String?
   description     String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt

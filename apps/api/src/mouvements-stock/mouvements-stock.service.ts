@@ -9,6 +9,7 @@ export type MouvementStockType =
   | 'reception'
   | 'ajustement'
   | 'perte'
+  | 'commande'
 
 export type MouvementStockCible = 'article' | 'matiere_premiere'
 

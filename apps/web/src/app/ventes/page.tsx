@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import ArticleImage from '@/components/articles/article-image'
 import { getVentes } from '@/lib/api'
 
 const modeLabels = {
@@ -100,8 +101,13 @@ export default async function VentesPage() {
                     {vente.lignes.map((ligne) => (
                       <tr key={ligne.id} className="border-b last:border-b-0">
                         <td className="py-2 pr-3">
-                          <span className="mr-2">{ligne.article.emoji}</span>
-                          {ligne.article.nom}
+                          <div className="flex items-center gap-2">
+                            <ArticleImage
+                              article={ligne.article}
+                              className="h-8 w-8 overflow-hidden rounded border bg-gray-100"
+                            />
+                            <span>{ligne.article.nom}</span>
+                          </div>
                         </td>
                         <td className="py-2 pr-3">{ligne.quantite}</td>
                         <td className="py-2 pr-3">

@@ -31,7 +31,7 @@ export type Article = {
   tva: number
   stock: number
   online: boolean
-  emoji: string
+  imageUrl?: string | null
   description?: string | null
   createdAt: string
   updatedAt: string
@@ -42,7 +42,7 @@ export type ArticlePayload = {
   prix: number
   stock?: number
   online?: boolean
-  emoji?: string
+  imageUrl?: string | null
   description?: string
   tva?: number
 }
@@ -377,6 +377,43 @@ export async function createVente(data: VentePayload): Promise<Vente> {
   return parseResponse<Vente>(response)
 }
 
+export type CommandeStatut =
+  | 'nouvelle'
+  | 'preparee'
+  | 'traitee'
+  | 'annulee'
+
+export type LigneCommande = {
+  id: number
+  commandeId: number
+  articleId: number
+  quantite: number
+  prixUnit: number
+  article: Article
+}
+
+export type Commande = {
+  id: number
+  nom: string
+  email: string
+  tel?: string | null
+  totalTTC: number
+  lieu: string
+  dateRetrait?: string | null
+  statut: CommandeStatut
+  stripeId?: string | null
+  createdAt: string
+  lignes: LigneCommande[]
+}
+
+export async function getCommandes(): Promise<Commande[]> {
+  const response = await apiFetch('/commandes', {
+    cache: 'no-store',
+  })
+
+  return parseResponse<Commande[]>(response)
+}
+
 export type JourneeCaisse = {
   id: number
   date: string
@@ -440,6 +477,7 @@ export type MouvementStockType =
   | 'reception'
   | 'ajustement'
   | 'perte'
+  | 'commande'
 
 export type MouvementStockCible = 'article' | 'matiere_premiere'
 

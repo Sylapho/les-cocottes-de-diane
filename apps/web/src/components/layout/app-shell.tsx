@@ -32,6 +32,12 @@ const navItems: NavItem[] = [
     description: 'Encaissement',
   },
   {
+    label: 'Commandes',
+    href: '/commandes',
+    short: 'Cmd',
+    description: 'En ligne',
+  },
+  {
     label: 'Articles',
     href: '/articles',
     short: 'Arts',

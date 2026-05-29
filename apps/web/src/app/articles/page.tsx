@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import ArticleImage from '@/components/articles/article-image'
 import { getArticles } from '@/lib/api'
 
 export default async function ArticlesPage() {
@@ -23,7 +24,7 @@ export default async function ArticlesPage() {
           {articles.map((article) => (
             <li key={article.id} className="rounded border p-4 shadow-sm">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">{article.emoji}</span>
+                <ArticleImage article={article} />
                 <h2 className="text-lg font-semibold">{article.nom}</h2>
               </div>
 

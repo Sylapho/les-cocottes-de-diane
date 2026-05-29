@@ -28,9 +28,7 @@ export default async function EditArticlePage({ params }: PageProps) {
         </Link>
       </div>
 
-      <h1 className="mb-6 text-2xl font-bold">
-        Modifier : {article.emoji} {article.nom}
-      </h1>
+      <h1 className="mb-6 text-2xl font-bold">Modifier : {article.nom}</h1>
 
       <EditArticleForm article={article} />
     </main>

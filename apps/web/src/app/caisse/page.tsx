@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import ArticleImage from '@/components/articles/article-image'
 import CloseCaisseButton from '@/components/caisse/close-caisse-button'
 import {
   getCaisseToday,
@@ -42,7 +43,7 @@ function getTopArticles(ventes: Vente[]) {
     number,
     {
       nom: string
-      emoji: string
+      imageUrl?: string | null
       quantite: number
       totalTTC: number
     }
@@ -52,7 +53,7 @@ function getTopArticles(ventes: Vente[]) {
     for (const ligne of vente.lignes) {
       const current = articles.get(ligne.articleId) ?? {
         nom: ligne.article.nom,
-        emoji: ligne.article.emoji,
+        imageUrl: ligne.article.imageUrl,
         quantite: 0,
         totalTTC: 0,
       }
@@ -214,8 +215,13 @@ export default async function CaissePage() {
                 >
                   <div>
                     <p className="font-medium">
-                      <span className="mr-2">{article.emoji}</span>
-                      {article.nom}
+                      <span className="flex items-center gap-2">
+                        <ArticleImage
+                          article={article}
+                          className="h-8 w-8 overflow-hidden rounded border bg-gray-100"
+                        />
+                        <span>{article.nom}</span>
+                      </span>
                     </p>
                     <p className="text-sm text-gray-600">
                       {article.quantite} vendu(s)

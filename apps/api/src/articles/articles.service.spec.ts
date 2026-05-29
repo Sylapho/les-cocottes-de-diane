@@ -126,7 +126,7 @@ describe('ArticlesService', () => {
       tva: 0.055,
       stock: 0,
       online: true,
-      emoji: '🥖',
+      imageUrl: null,
     }
 
     prismaMock.article.create.mockResolvedValue(created)
@@ -139,8 +139,8 @@ describe('ArticlesService', () => {
         tva: 0.055,
         stock: 0,
         online: true,
-        emoji: '🥖',
         description: undefined,
+        imageUrl: undefined,
       },
     })
   })

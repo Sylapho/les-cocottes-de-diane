@@ -38,7 +38,7 @@ export default async function ArticleNomenclaturePage({ params }: PageProps) {
       </div>
 
       <h1 className="mb-6 text-2xl font-bold">
-        Nomenclature : {article.emoji} {article.nom}
+        Nomenclature : {article.nom}
       </h1>
 
       <ArticleNomenclature

@@ -41,8 +41,8 @@ export class ArticlesService {
         tva: data.tva ?? 0.055,
         stock: data.stock ?? 0,
         online: data.online ?? true,
-        emoji: data.emoji ?? '🥖',
         description: data.description,
+        imageUrl: data.imageUrl,
       },
     })
   }

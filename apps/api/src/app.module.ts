@@ -8,6 +8,7 @@ import { VentesModule } from './ventes/ventes.module'
 import { CaisseModule } from './caisse/caisse.module'
 import { AuthModule } from './auth/auth.module'
 import { MouvementsStockModule } from './mouvements-stock/mouvements-stock.module'
+import { CommandesModule } from './commandes/commandes.module'
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MouvementsStockModule } from './mouvements-stock/mouvements-stock.modul
     VentesModule,
     CaisseModule,
     MouvementsStockModule,
+    CommandesModule,
   ],
 })
 export class AppModule {}

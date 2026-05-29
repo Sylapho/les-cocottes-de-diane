@@ -5,6 +5,7 @@ import {
   getProductionCapacity,
 } from '@/lib/api'
 import DeleteArticleButton from '@/components/articles/delete-article-button'
+import ArticleImage from '@/components/articles/article-image'
 import ProduceArticleForm from '@/components/articles/produce-article-form'
 
 type PageProps = {
@@ -53,7 +54,10 @@ export default async function ArticleDetailPage({ params }: PageProps) {
 
       <div className="rounded border p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
-          <span className="text-4xl">{article.emoji}</span>
+          <ArticleImage
+            article={article}
+            className="h-24 w-24 overflow-hidden rounded border bg-gray-100"
+          />
           <div>
             <h1 className="text-2xl font-bold">{article.nom}</h1>
             <p className="text-sm text-gray-500">ID : {article.id}</p>
