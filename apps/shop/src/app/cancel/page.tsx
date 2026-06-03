@@ -7,13 +7,13 @@ export default function CancelPage() {
       <section className="mx-auto grid min-h-screen max-w-xl place-items-center px-4 py-10 text-center">
         <div className="rounded-lg border bg-white p-8 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-[#b5006e]">
-            Paiement annule
+            Paiement annulé
           </p>
           <h1 className="mt-2 text-3xl font-bold">
-            Votre commande n&apos;est pas finalisee.
+            Votre commande n&apos;est pas finalisée.
           </h1>
           <p className="mt-3 text-sm text-zinc-600">
-            Aucun paiement n&apos;a ete confirme. Vous pouvez retourner a la
+            Aucun paiement n&apos;a été confirmé. Vous pouvez retourner à la
             boutique et relancer votre commande.
           </p>
 
@@ -22,7 +22,7 @@ export default function CancelPage() {
               href="/"
               className="rounded bg-[#b5006e] px-4 py-2 font-semibold text-white"
             >
-              Revenir a la boutique
+              Revenir à la boutique
             </Link>
           </div>
         </div>

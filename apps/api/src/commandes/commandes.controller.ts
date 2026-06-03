@@ -48,6 +48,13 @@ export class CommandesController {
     return this.commandesService.findAll()
   }
 
+  @Post('cleanup-abandoned')
+  @UseGuards(BetterAuthGuard, RolesGuard)
+  @Roles(ROLES.GERANT)
+  cleanupAbandoned() {
+    return this.commandesService.cleanupAbandonedCommandes()
+  }
+
   @Get(':id')
   @UseGuards(BetterAuthGuard, RolesGuard)
   @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE)

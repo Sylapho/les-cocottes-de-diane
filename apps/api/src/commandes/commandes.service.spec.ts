@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Test, TestingModule } from '@nestjs/testing'
+import { EmailsService } from '../emails/emails.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { CommandesService } from './commandes.service'
@@ -22,6 +23,9 @@ describe('CommandesService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    commandeStatutHistorique: {
+      create: jest.fn(),
+    },
     mouvementStock: {
       create: jest.fn(),
     },
@@ -32,9 +36,14 @@ describe('CommandesService', () => {
     recordArticleMovement: jest.fn(),
   }
 
+  const emailsServiceMock = {
+    sendOrderConfirmation: jest.fn(),
+  }
+
   type TransactionClient = {
     article: typeof prismaMock.article
     commande: typeof prismaMock.commande
+    commandeStatutHistorique: typeof prismaMock.commandeStatutHistorique
     mouvementStock: typeof prismaMock.mouvementStock
   }
 
@@ -43,6 +52,7 @@ describe('CommandesService', () => {
   const transactionClient: TransactionClient = {
     article: prismaMock.article,
     commande: prismaMock.commande,
+    commandeStatutHistorique: prismaMock.commandeStatutHistorique,
     mouvementStock: prismaMock.mouvementStock,
   }
 
@@ -64,6 +74,10 @@ describe('CommandesService', () => {
             get: jest.fn(),
           },
         },
+        {
+          provide: EmailsService,
+          useValue: emailsServiceMock,
+        },
       ],
     }).compile()
 
@@ -73,17 +87,33 @@ describe('CommandesService', () => {
     prismaMock.$transaction.mockImplementation(
       <T>(callback: TransactionCallback<T>) => callback(transactionClient),
     )
+    prismaMock.commande.findMany.mockResolvedValue([])
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       id: 1,
     })
+    emailsServiceMock.sendOrderConfirmation.mockResolvedValue(undefined)
   })
 
   it('findAll should return commandes ordered by date desc', async () => {
     const commandes = [{ id: 1, statut: 'nouvelle' }]
-    prismaMock.commande.findMany.mockResolvedValue(commandes)
+    prismaMock.commande.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(commandes)
 
     await expect(service.findAll()).resolves.toEqual(commandes)
-    expect(prismaMock.commande.findMany).toHaveBeenCalledWith({
+    expect(prismaMock.commande.findMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        statut: 'paiement_en_attente',
+        createdAt: {
+          lt: expect.any(Date) as Date,
+        },
+      },
+      select: {
+        id: true,
+        statut: true,
+      },
+    })
+    expect(prismaMock.commande.findMany).toHaveBeenNthCalledWith(2, {
       where: {
         statut: {
           not: 'paiement_en_attente',
@@ -188,6 +218,14 @@ describe('CommandesService', () => {
       motif: 'Commande en ligne #12',
       reference: 'commande:12',
     })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 12,
+        ancienStatut: null,
+        nouveauStatut: 'nouvelle',
+        motif: 'creation_directe',
+      },
+    })
   })
 
   it('create should reject insufficient stock', async () => {
@@ -237,6 +275,14 @@ describe('CommandesService', () => {
         },
       },
     })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 1,
+        ancienStatut: 'nouvelle',
+        nouveauStatut: 'preparee',
+        motif: 'statut_modifie',
+      },
+    })
   })
 
   it('updateStatut should restore stock when cancelling', async () => {
@@ -283,6 +329,43 @@ describe('CommandesService', () => {
       type: 'commande',
       motif: 'Annulation commande #1',
       reference: 'commande:1:annulation',
+    })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 1,
+        ancienStatut: 'nouvelle',
+        nouveauStatut: 'annulee',
+        motif: 'annulation',
+      },
+    })
+  })
+
+  it('cleanupAbandonedCommandes should cancel old pending commandes', async () => {
+    prismaMock.commande.findMany.mockResolvedValue([
+      {
+        id: 9,
+        statut: 'paiement_en_attente',
+      },
+    ])
+    prismaMock.commande.update.mockResolvedValue({
+      id: 9,
+      statut: 'annulee',
+    })
+
+    await expect(service.cleanupAbandonedCommandes()).resolves.toEqual({
+      count: 1,
+    })
+    expect(prismaMock.commande.update).toHaveBeenCalledWith({
+      where: { id: 9 },
+      data: { statut: 'annulee' },
+    })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 9,
+        ancienStatut: 'paiement_en_attente',
+        nouveauStatut: 'annulee',
+        motif: 'commande_abandonnee',
+      },
     })
   })
 })

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Stripe from 'stripe'
+import { EmailsService } from '../emails/emails.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCommandeDto } from './dto/create-commande.dto'
@@ -9,14 +10,18 @@ import { CommandeStatut } from './dto/update-commande-statut.dto'
 @Injectable()
 export class CommandesService {
   private stripe: InstanceType<typeof Stripe> | null = null
+  private readonly abandonedDelayMinutes = 60
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly mouvementsStockService: MouvementsStockService,
     private readonly configService: ConfigService,
+    private readonly emailsService: EmailsService,
   ) {}
 
-  findAll() {
+  async findAll() {
+    await this.cleanupAbandonedCommandes()
+
     return this.prisma.commande.findMany({
       where: {
         statut: {
@@ -36,13 +41,20 @@ export class CommandesService {
     })
   }
 
-  findOne(id: number) {
+  async findOne(id: number) {
+    await this.cleanupAbandonedCommandes()
+
     return this.prisma.commande.findUniqueOrThrow({
       where: { id },
       include: {
         lignes: {
           include: {
             article: true,
+          },
+        },
+        historique: {
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },
@@ -88,6 +100,13 @@ export class CommandesService {
         },
       })
 
+      await this.recordStatusHistory(tx, {
+        commandeId: commande.id,
+        ancienStatut: null,
+        nouveauStatut: 'nouvelle',
+        motif: 'creation_directe',
+      })
+
       for (const ligne of lignesAgregees) {
         const article = articles.find((item) => item.id === ligne.articleId)!
 
@@ -118,31 +137,47 @@ export class CommandesService {
   async createCheckout(data: CreateCommandeDto) {
     const stripe = this.getStripe()
     const shopUrl =
-      this.configService.get<string>('SHOP_PUBLIC_URL') ?? 'http://localhost:3001'
+      this.configService.get<string>('SHOP_PUBLIC_URL') ??
+      'http://localhost:3001'
     const { lignesAgregees, articles, totalTTC } =
       await this.prepareCommande(data)
 
-    const commande = await this.prisma.commande.create({
-      data: {
-        nom: data.nom,
-        email: data.email,
-        tel: data.tel,
-        lieu: data.lieu,
-        dateRetrait: data.dateRetrait ? new Date(data.dateRetrait) : undefined,
-        totalTTC,
-        statut: 'paiement_en_attente',
-        lignes: {
-          create: lignesAgregees.map((ligne) => {
-            const article = articles.find((item) => item.id === ligne.articleId)!
+    const commande = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.commande.create({
+        data: {
+          nom: data.nom,
+          email: data.email,
+          tel: data.tel,
+          lieu: data.lieu,
+          dateRetrait: data.dateRetrait
+            ? new Date(data.dateRetrait)
+            : undefined,
+          totalTTC,
+          statut: 'paiement_en_attente',
+          lignes: {
+            create: lignesAgregees.map((ligne) => {
+              const article = articles.find(
+                (item) => item.id === ligne.articleId,
+              )!
 
-            return {
-              articleId: article.id,
-              quantite: ligne.quantite,
-              prixUnit: article.prix,
-            }
-          }),
+              return {
+                articleId: article.id,
+                quantite: ligne.quantite,
+                prixUnit: article.prix,
+              }
+            }),
+          },
         },
-      },
+      })
+
+      await this.recordStatusHistory(tx, {
+        commandeId: created.id,
+        ancienStatut: null,
+        nouveauStatut: 'paiement_en_attente',
+        motif: 'checkout_cree',
+      })
+
+      return created
     })
 
     const session = await stripe.checkout.sessions.create({
@@ -176,7 +211,9 @@ export class CommandesService {
     })
 
     if (!session.url) {
-      throw new BadRequestException('Impossible de creer la session de paiement')
+      throw new BadRequestException(
+        'Impossible de créer la session de paiement',
+      )
     }
 
     await this.prisma.commande.update({
@@ -192,7 +229,9 @@ export class CommandesService {
     signature: string | string[] | undefined,
   ) {
     const stripe = this.getStripe()
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET')
+    const webhookSecret = this.configService.get<string>(
+      'STRIPE_WEBHOOK_SECRET',
+    )
     const stripeSignature = Array.isArray(signature) ? signature[0] : signature
 
     if (!webhookSecret || !stripeSignature || !rawBody) {
@@ -206,7 +245,13 @@ export class CommandesService {
     )
 
     if (event.type === 'checkout.session.completed') {
-      await this.confirmPaidCommande(event.data.object.id)
+      const confirmedOrder = await this.confirmPaidCommande(
+        event.data.object.id,
+      )
+
+      if (confirmedOrder) {
+        await this.emailsService.sendOrderConfirmation(confirmedOrder)
+      }
     }
 
     if (event.type === 'checkout.session.expired') {
@@ -220,36 +265,90 @@ export class CommandesService {
     const commande = await this.findOne(id)
 
     if (commande.statut === 'annulee') {
-      throw new BadRequestException('Une commande annulee ne peut plus changer')
+      throw new BadRequestException('Une commande annulée ne peut plus changer')
     }
 
     if (commande.statut === 'traitee') {
-      throw new BadRequestException('Une commande traitee ne peut plus changer')
+      throw new BadRequestException('Une commande traitée ne peut plus changer')
     }
 
     if (commande.statut === 'paiement_en_attente' && statut !== 'annulee') {
-      throw new BadRequestException('Le paiement de cette commande est en attente')
+      throw new BadRequestException(
+        'Le paiement de cette commande est en attente',
+      )
     }
 
     if (commande.statut === 'paiement_a_verifier' && statut !== 'annulee') {
-      throw new BadRequestException('Le stock de cette commande doit etre verifie')
+      throw new BadRequestException(
+        'Le stock de cette commande doit être vérifié',
+      )
     }
 
     if (statut === 'annulee') {
       return this.cancelCommande(id)
     }
 
-    return this.prisma.commande.update({
-      where: { id },
-      data: { statut },
-      include: {
-        lignes: {
-          include: {
-            article: true,
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.commande.update({
+        where: { id },
+        data: { statut },
+        include: {
+          lignes: {
+            include: {
+              article: true,
+            },
           },
         },
+      })
+
+      await this.recordStatusHistory(tx, {
+        commandeId: id,
+        ancienStatut: commande.statut,
+        nouveauStatut: statut,
+        motif: 'statut_modifie',
+      })
+
+      return updated
+    })
+  }
+
+  async cleanupAbandonedCommandes() {
+    const cutoff = new Date(Date.now() - this.abandonedDelayMinutes * 60 * 1000)
+
+    const commandes = await this.prisma.commande.findMany({
+      where: {
+        statut: 'paiement_en_attente',
+        createdAt: {
+          lt: cutoff,
+        },
+      },
+      select: {
+        id: true,
+        statut: true,
       },
     })
+
+    if (commandes.length === 0) {
+      return { count: 0 }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const commande of commandes) {
+        await tx.commande.update({
+          where: { id: commande.id },
+          data: { statut: 'annulee' },
+        })
+
+        await this.recordStatusHistory(tx, {
+          commandeId: commande.id,
+          ancienStatut: commande.statut,
+          nouveauStatut: 'annulee',
+          motif: 'commande_abandonnee',
+        })
+      }
+    })
+
+    return { count: commandes.length }
   }
 
   private async cancelCommande(id: number) {
@@ -259,16 +358,27 @@ export class CommandesService {
       commande.statut === 'paiement_en_attente' ||
       commande.statut === 'paiement_a_verifier'
     ) {
-      return this.prisma.commande.update({
-        where: { id },
-        data: { statut: 'annulee' },
-        include: {
-          lignes: {
-            include: {
-              article: true,
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.commande.update({
+          where: { id },
+          data: { statut: 'annulee' },
+          include: {
+            lignes: {
+              include: {
+                article: true,
+              },
             },
           },
-        },
+        })
+
+        await this.recordStatusHistory(tx, {
+          commandeId: id,
+          ancienStatut: commande.statut,
+          nouveauStatut: 'annulee',
+          motif: 'annulation',
+        })
+
+        return updated
       })
     }
 
@@ -294,7 +404,7 @@ export class CommandesService {
         })
       }
 
-      return tx.commande.update({
+      const updated = await tx.commande.update({
         where: { id },
         data: { statut: 'annulee' },
         include: {
@@ -305,6 +415,15 @@ export class CommandesService {
           },
         },
       })
+
+      await this.recordStatusHistory(tx, {
+        commandeId: id,
+        ancienStatut: commande.statut,
+        nouveauStatut: 'annulee',
+        motif: 'annulation',
+      })
+
+      return updated
     })
   }
 
@@ -324,7 +443,7 @@ export class CommandesService {
       return
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const articleIds = commande.lignes.map((ligne) => ligne.articleId)
       const articles = await tx.article.findMany({
         where: {
@@ -356,7 +475,14 @@ export class CommandesService {
           data: { statut: 'paiement_a_verifier' },
         })
 
-        return
+        await this.recordStatusHistory(tx, {
+          commandeId: commande.id,
+          ancienStatut: commande.statut,
+          nouveauStatut: 'paiement_a_verifier',
+          motif: 'stock_insuffisant_apres_paiement',
+        })
+
+        return null
       }
 
       for (const ligne of commande.lignes) {
@@ -377,27 +503,83 @@ export class CommandesService {
           stockAvant: article.stock,
           stockApres: article.stock - ligne.quantite,
           type: 'commande',
-          motif: `Commande payee #${commande.id}`,
+          motif: `Commande payée #${commande.id}`,
           reference: `commande:${commande.id}`,
         })
       }
 
-      await tx.commande.update({
+      const updated = await tx.commande.update({
         where: { id: commande.id },
         data: { statut: 'nouvelle' },
+        include: {
+          lignes: {
+            include: {
+              article: true,
+            },
+          },
+        },
       })
+
+      await this.recordStatusHistory(tx, {
+        commandeId: commande.id,
+        ancienStatut: commande.statut,
+        nouveauStatut: 'nouvelle',
+        motif: 'paiement_confirme',
+      })
+
+      return updated
     })
   }
 
   private async expirePendingCommande(stripeId: string) {
-    await this.prisma.commande.updateMany({
+    const commandes = await this.prisma.commande.findMany({
       where: {
         stripeId,
         statut: 'paiement_en_attente',
       },
-      data: {
-        statut: 'annulee',
-      },
+    })
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const commande of commandes) {
+        await tx.commande.update({
+          where: { id: commande.id },
+          data: { statut: 'annulee' },
+        })
+
+        await this.recordStatusHistory(tx, {
+          commandeId: commande.id,
+          ancienStatut: commande.statut,
+          nouveauStatut: 'annulee',
+          motif: 'checkout_expire',
+        })
+      }
+    })
+  }
+
+  private async recordStatusHistory(
+    tx: {
+      commandeStatutHistorique: {
+        create: (args: {
+          data: {
+            commandeId: number
+            ancienStatut?: string | null
+            nouveauStatut: string
+            motif?: string
+            createdByUserId?: string
+          }
+        }) => Promise<unknown>
+      }
+    },
+    data: {
+      commandeId: number
+      ancienStatut?: string | null
+      nouveauStatut: string
+      motif?: string
+      createdByUserId?: string
+    },
+  ) {
+    await tx.commandeStatutHistorique.create({
+      data,
     })
   }
 

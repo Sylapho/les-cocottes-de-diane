@@ -110,7 +110,7 @@ export default function ShopClient({
 
       if (!response.ok) {
         const text = await response.text()
-        throw new Error(text || 'Impossible de preparer le paiement')
+        throw new Error(text || 'Impossible de préparer le paiement')
       }
 
       const checkout = (await response.json()) as {
@@ -137,7 +137,7 @@ export default function ShopClient({
           <h1 className="mt-1 text-3xl font-bold">Les Cocottes de Diane</h1>
           <p className="mt-2 max-w-2xl text-sm text-zinc-600">
             Choisissez vos produits, puis indiquez votre lieu et date de
-            retrait. Le paiement securise se fait en ligne.
+            retrait. Le paiement sécurisé se fait en ligne.
           </p>
         </div>
 
@@ -175,7 +175,7 @@ export default function ShopClient({
                         <p className="text-xs text-zinc-500">
                           {article.stock > 0
                             ? `${article.stock} disponible(s)`
-                            : 'Epuise'}
+                            : 'Épuisé'}
                         </p>
                       </div>
 
@@ -271,7 +271,7 @@ export default function ShopClient({
               </div>
 
               <div className="grid gap-1">
-                <label htmlFor="nom">Nom / Prenom *</label>
+                <label htmlFor="nom">Nom / Prénom *</label>
                 <input
                   id="nom"
                   value={nom}
@@ -294,7 +294,7 @@ export default function ShopClient({
               </div>
 
               <div className="grid gap-1">
-                <label htmlFor="tel">Telephone</label>
+                <label htmlFor="tel">Téléphone</label>
                 <input
                   id="tel"
                   type="tel"
@@ -321,7 +321,7 @@ export default function ShopClient({
               </div>
 
               <div className="grid gap-1">
-                <label htmlFor="dateRetrait">Date souhaitee *</label>
+                <label htmlFor="dateRetrait">Date souhaitée *</label>
                 <input
                   id="dateRetrait"
                   type="date"
@@ -334,7 +334,7 @@ export default function ShopClient({
               </div>
 
               <p className="rounded bg-[#fceef6] p-3 text-xs text-[#8c0055]">
-                Vos informations sont utilisees uniquement pour traiter cette
+                Vos informations sont utilisées uniquement pour traiter cette
                 commande.
               </p>
 
@@ -345,7 +345,7 @@ export default function ShopClient({
                 disabled={loading || lines.length === 0}
                 className="rounded bg-[#b5006e] px-4 py-3 font-semibold text-white disabled:opacity-40"
               >
-                {loading ? 'Preparation du paiement...' : 'Payer ma commande'}
+                {loading ? 'Préparation du paiement...' : 'Payer ma commande'}
               </button>
             </form>
           </aside>

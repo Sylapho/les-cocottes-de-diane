@@ -14,6 +14,7 @@ describe('CommandesController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     updateStatut: jest.fn(),
+    cleanupAbandonedCommandes: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -85,6 +86,14 @@ describe('CommandesController', () => {
 
     await expect(controller.findOne(1)).resolves.toEqual(result)
     expect(commandesServiceMock.findOne).toHaveBeenCalledWith(1)
+  })
+
+  it('cleanupAbandoned should cleanup pending commandes', async () => {
+    const result = { count: 2 }
+    commandesServiceMock.cleanupAbandonedCommandes.mockResolvedValue(result)
+
+    await expect(controller.cleanupAbandoned()).resolves.toEqual(result)
+    expect(commandesServiceMock.cleanupAbandonedCommandes).toHaveBeenCalled()
   })
 
   it('updateStatut should update commande status', async () => {
