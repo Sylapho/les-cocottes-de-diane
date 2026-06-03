@@ -23,6 +23,7 @@ export default function ReceptionMatiereForm({
   const authenticatedFetch = useAuthenticatedFetch()
   const [matiereId, setMatiereId] = useState(matieres[0]?.id.toString() ?? '')
   const [quantite, setQuantite] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
   const [motif, setMotif] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -49,6 +50,7 @@ export default function ReceptionMatiereForm({
           },
           body: JSON.stringify({
             quantite: Number(quantite),
+            expiresAt: expiresAt || undefined,
             motif: motif.trim() || undefined,
           }),
         },
@@ -60,6 +62,7 @@ export default function ReceptionMatiereForm({
       }
 
       setQuantite('')
+      setExpiresAt('')
       setMotif('')
       setMessage('Réception enregistrée.')
       router.refresh()
@@ -71,7 +74,10 @@ export default function ReceptionMatiereForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4 rounded border bg-white p-4 shadow-sm">
+    <form
+      onSubmit={handleSubmit}
+      className="grid gap-4 rounded border bg-white p-4 shadow-sm"
+    >
       <div>
         <h2 className="text-lg font-semibold">Réception de matière</h2>
         <p className="mt-1 text-sm text-gray-600">
@@ -112,6 +118,17 @@ export default function ReceptionMatiereForm({
             required
           />
         </div>
+      </div>
+
+      <div className="grid gap-1">
+        <label htmlFor="reception-dlc">DLC</label>
+        <input
+          id="reception-dlc"
+          type="date"
+          value={expiresAt}
+          onChange={(event) => setExpiresAt(event.target.value)}
+          className="rounded border px-3 py-2"
+        />
       </div>
 
       <div className="grid gap-1">

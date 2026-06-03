@@ -20,6 +20,7 @@ export default function ProduceLotForm({ articles }: ProduceLotFormProps) {
   const authenticatedFetch = useAuthenticatedFetch()
   const [articleId, setArticleId] = useState(articles[0]?.id.toString() ?? '')
   const [quantite, setQuantite] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -40,6 +41,7 @@ export default function ProduceLotForm({ articles }: ProduceLotFormProps) {
           },
           body: JSON.stringify({
             quantite: Number(quantite),
+            expiresAt: expiresAt || undefined,
           }),
         },
       )
@@ -103,6 +105,17 @@ export default function ProduceLotForm({ articles }: ProduceLotFormProps) {
             required
           />
         </div>
+      </div>
+
+      <div className="grid gap-1">
+        <label htmlFor="lot-dlc">DLC</label>
+        <input
+          id="lot-dlc"
+          type="date"
+          value={expiresAt}
+          onChange={(event) => setExpiresAt(event.target.value)}
+          className="rounded border px-3 py-2"
+        />
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

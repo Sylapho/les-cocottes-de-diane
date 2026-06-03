@@ -9,6 +9,8 @@ describe('MouvementsStockController', () => {
 
   const mouvementsStockServiceMock = {
     findAll: jest.fn(),
+    findLots: jest.fn(),
+    markLotAsLoss: jest.fn(),
     createAjustement: jest.fn(),
     createReceptionMatiere: jest.fn(),
   }
@@ -44,6 +46,26 @@ describe('MouvementsStockController', () => {
     mouvementsStockServiceMock.findAll.mockResolvedValue(result)
 
     await expect(controller.findAll()).resolves.toEqual(result)
+  })
+
+  it('findLots should return stock lots', async () => {
+    const result = [{ id: 1, remainingQuantity: 4 }]
+    mouvementsStockServiceMock.findLots.mockResolvedValue(result)
+
+    await expect(controller.findLots()).resolves.toEqual(result)
+  })
+
+  it('markLotAsLoss should pass lot id and user id to service', async () => {
+    const result = { id: 1, type: 'perte' }
+    mouvementsStockServiceMock.markLotAsLoss.mockResolvedValue(result)
+
+    await expect(
+      controller.markLotAsLoss(7, { userId: 'user_123' }),
+    ).resolves.toEqual(result)
+    expect(mouvementsStockServiceMock.markLotAsLoss).toHaveBeenCalledWith(
+      7,
+      'user_123',
+    )
   })
 
   it('createAjustement should pass body and user id to service', async () => {

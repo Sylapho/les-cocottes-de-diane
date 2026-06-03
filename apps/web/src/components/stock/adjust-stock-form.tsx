@@ -35,6 +35,7 @@ export default function AdjustStockForm({
   const [cible, setCible] = useState<CibleStock>('matiere_premiere')
   const [cibleId, setCibleId] = useState(matieres[0]?.id.toString() ?? '')
   const [quantite, setQuantite] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
   const [motif, setMotif] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -45,6 +46,8 @@ export default function AdjustStockForm({
     () => options.find((item) => item.id === Number(cibleId)),
     [cibleId, options],
   )
+  const quantity = Number(quantite)
+  const isPositiveAdjustment = Number.isFinite(quantity) && quantity > 0
 
   function handleCibleChange(nextCible: CibleStock) {
     setCible(nextCible)
@@ -54,6 +57,7 @@ export default function AdjustStockForm({
         : matieres[0]?.id.toString() ?? '',
     )
     setQuantite('')
+    setExpiresAt('')
     setMessage('')
     setError('')
   }
@@ -75,7 +79,8 @@ export default function AdjustStockForm({
           body: JSON.stringify({
             cible,
             cibleId: Number(cibleId),
-            quantite: Number(quantite),
+            quantite: quantity,
+            expiresAt: isPositiveAdjustment ? expiresAt || undefined : undefined,
             motif: motif.trim() || undefined,
           }),
         },
@@ -87,6 +92,7 @@ export default function AdjustStockForm({
       }
 
       setQuantite('')
+      setExpiresAt('')
       setMotif('')
       setMessage('Ajustement enregistré.')
       router.refresh()
@@ -98,7 +104,10 @@ export default function AdjustStockForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4 rounded border bg-white p-4 shadow-sm">
+    <form
+      onSubmit={handleSubmit}
+      className="grid gap-4 rounded border bg-white p-4 shadow-sm"
+    >
       <div>
         <h2 className="text-lg font-semibold">Ajustement manuel</h2>
         <p className="mt-1 text-sm text-gray-600">
@@ -170,6 +179,19 @@ export default function AdjustStockForm({
           ) : null}
         </div>
       </div>
+
+      {isPositiveAdjustment ? (
+        <div className="grid gap-1">
+          <label htmlFor="adjust-dlc">DLC</label>
+          <input
+            id="adjust-dlc"
+            type="date"
+            value={expiresAt}
+            onChange={(event) => setExpiresAt(event.target.value)}
+            className="rounded border px-3 py-2"
+          />
+        </div>
+      ) : null}
 
       <div className="grid gap-1">
         <label htmlFor="adjust-motif">Motif</label>

@@ -519,10 +519,33 @@ export type MouvementStock = {
   mp?: MatierePremiere | null
 }
 
+export type StockLot = {
+  id: number
+  target: MouvementStockCible
+  articleId?: number | null
+  mpId?: number | null
+  initialQuantity: number
+  remainingQuantity: number
+  expiresAt?: string | null
+  reference?: string | null
+  createdAt: string
+  updatedAt: string
+  article?: Article | null
+  mp?: MatierePremiere | null
+}
+
 export async function getMouvementsStock(): Promise<MouvementStock[]> {
   const response = await apiFetch('/mouvements-stock', {
     cache: 'no-store',
   })
 
   return parseResponse<MouvementStock[]>(response)
+}
+
+export async function getStockLots(): Promise<StockLot[]> {
+  const response = await apiFetch('/mouvements-stock/lots', {
+    cache: 'no-store',
+  })
+
+  return parseResponse<StockLot[]>(response)
 }

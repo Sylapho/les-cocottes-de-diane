@@ -14,10 +14,19 @@ describe('MouvementsStockService', () => {
     mouvementStock: {
       create: jest.fn(),
     },
+    stockLot: {
+      findMany: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
   }
 
   const prismaMock = {
     mouvementStock: {
+      findMany: jest.fn(),
+    },
+    stockLot: {
       findMany: jest.fn(),
     },
     $transaction: jest.fn((callback: (transaction: typeof tx) => unknown) =>
@@ -29,6 +38,7 @@ describe('MouvementsStockService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    tx.stockLot.findMany.mockResolvedValue([])
     service = new MouvementsStockService(prismaMock as never)
   })
 
@@ -45,6 +55,25 @@ describe('MouvementsStockService', () => {
       orderBy: {
         createdAt: 'desc',
       },
+    })
+  })
+
+  it('findLots should return remaining lots ordered by DLC', async () => {
+    const result = [{ id: 1, remainingQuantity: 2 }]
+    prismaMock.stockLot.findMany.mockResolvedValue(result)
+
+    await expect(service.findLots()).resolves.toEqual(result)
+    expect(prismaMock.stockLot.findMany).toHaveBeenCalledWith({
+      where: {
+        remainingQuantity: {
+          gt: 0,
+        },
+      },
+      include: {
+        article: true,
+        mp: true,
+      },
+      orderBy: [{ expiresAt: 'asc' }, { createdAt: 'asc' }],
     })
   })
 

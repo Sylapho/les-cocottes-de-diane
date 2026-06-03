@@ -41,7 +41,7 @@ export class ArticlesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: ProduceArticleDto,
   ) {
-    return this.articlesService.produce(id, body.quantite)
+    return this.articlesService.produce(id, body)
   }
 
   @Get(':id')

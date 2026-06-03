@@ -1,4 +1,11 @@
-import { IsIn, IsInt, IsNumber, IsOptional, IsString } from 'class-validator'
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator'
 
 export class CreateAjustementStockDto {
   @IsIn(['article', 'matiere_premiere'])
@@ -13,4 +20,8 @@ export class CreateAjustementStockDto {
   @IsOptional()
   @IsString()
   motif?: string
+
+  @IsOptional()
+  @IsDateString()
+  expiresAt?: string
 }

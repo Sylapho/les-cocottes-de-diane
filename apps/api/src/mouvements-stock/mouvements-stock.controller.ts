@@ -33,6 +33,12 @@ export class MouvementsStockController {
     return this.mouvementsStockService.findAll()
   }
 
+  @Get('lots')
+  @Roles(ROLES.GERANT, ROLES.STOCK, ROLES.PRODUCTION, ROLES.COMPTABLE)
+  findLots() {
+    return this.mouvementsStockService.findLots()
+  }
+
   @Post('ajustement')
   @Roles(ROLES.GERANT, ROLES.STOCK)
   createAjustement(
@@ -54,5 +60,14 @@ export class MouvementsStockController {
       body,
       request.userId,
     )
+  }
+
+  @Post('lots/:id/perte')
+  @Roles(ROLES.GERANT, ROLES.STOCK)
+  markLotAsLoss(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: RequestWithUser,
+  ) {
+    return this.mouvementsStockService.markLotAsLoss(id, request.userId)
   }
 }
