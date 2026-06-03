@@ -45,6 +45,10 @@ describe('CommandesService', () => {
     sendOrderConfirmation: jest.fn(),
   }
 
+  const emailsServiceMock = {
+    sendOrderConfirmation: jest.fn(),
+  }
+
   type TransactionClient = {
     article: typeof prismaMock.article
     commande: typeof prismaMock.commande
