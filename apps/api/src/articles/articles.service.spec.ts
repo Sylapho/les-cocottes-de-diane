@@ -261,7 +261,7 @@ describe('ArticlesService', () => {
       nomen: [],
     })
 
-    await expect(service.produce(1, 2)).rejects.toBeInstanceOf(
+    await expect(service.produce(1, { quantite: 2 })).rejects.toBeInstanceOf(
       BadRequestException,
     )
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
@@ -285,7 +285,7 @@ describe('ArticlesService', () => {
       ],
     })
 
-    await expect(service.produce(1, 2)).rejects.toBeInstanceOf(
+    await expect(service.produce(1, { quantite: 2 })).rejects.toBeInstanceOf(
       BadRequestException,
     )
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
@@ -327,7 +327,7 @@ describe('ArticlesService', () => {
     prismaMock.article.findUniqueOrThrow.mockResolvedValue(article)
     prismaMock.article.update.mockResolvedValue(updatedArticle)
 
-    await expect(service.produce(1, 3)).resolves.toEqual({
+    await expect(service.produce(1, { quantite: 3 })).resolves.toEqual({
       article: updatedArticle,
       produced: 3,
       consumed: [

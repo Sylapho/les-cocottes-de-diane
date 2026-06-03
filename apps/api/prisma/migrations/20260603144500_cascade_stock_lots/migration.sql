@@ -1,0 +1,5 @@
+ALTER TABLE "StockLot" DROP CONSTRAINT "StockLot_articleId_fkey";
+ALTER TABLE "StockLot" DROP CONSTRAINT "StockLot_mpId_fkey";
+
+ALTER TABLE "StockLot" ADD CONSTRAINT "StockLot_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "Article"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "StockLot" ADD CONSTRAINT "StockLot_mpId_fkey" FOREIGN KEY ("mpId") REFERENCES "MatierePremiere"("id") ON DELETE CASCADE ON UPDATE CASCADE;

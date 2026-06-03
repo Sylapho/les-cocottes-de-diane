@@ -13,6 +13,8 @@ export type MouvementStockType =
 
 export type MouvementStockCible = 'article' | 'matiere_premiere'
 
+type StockLotTarget = MouvementStockCible
+
 type MouvementStockCreateData = {
   type: MouvementStockType
   cible: MouvementStockCible
@@ -26,6 +28,23 @@ type MouvementStockCreateData = {
   createdByUserId?: string
 }
 
+type StockLotData = {
+  target: StockLotTarget
+  articleId?: number
+  mpId?: number
+  initialQuantity: number
+  remainingQuantity: number
+  expiresAt?: Date
+  reference?: string
+}
+
+type StockLotRecord = {
+  id: number
+  remainingQuantity: number
+  expiresAt: Date | null
+  createdAt: Date
+}
+
 type MouvementStockTransaction = {
   mouvementStock: {
     create: (args: {
@@ -34,6 +53,29 @@ type MouvementStockTransaction = {
         article: boolean
         mp: boolean
       }
+    }) => Promise<unknown>
+  }
+  stockLot: {
+    findMany: (args: {
+      where: {
+        target: StockLotTarget
+        articleId?: number
+        mpId?: number
+        remainingQuantity: {
+          gt: number
+        }
+      }
+      select: {
+        id: true
+        remainingQuantity: true
+        expiresAt: true
+        createdAt: true
+      }
+    }) => Promise<StockLotRecord[]>
+    create: (args: { data: StockLotData }) => Promise<unknown>
+    update: (args: {
+      where: { id: number }
+      data: { remainingQuantity: number }
     }) => Promise<unknown>
   }
 }
@@ -54,6 +96,21 @@ export class MouvementsStockService {
     })
   }
 
+  findLots() {
+    return this.prisma.stockLot.findMany({
+      where: {
+        remainingQuantity: {
+          gt: 0,
+        },
+      },
+      include: {
+        article: true,
+        mp: true,
+      },
+      orderBy: [{ expiresAt: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
   async createAjustement(
     data: CreateAjustementStockDto,
     createdByUserId?: string,
@@ -68,6 +125,7 @@ export class MouvementsStockService {
         quantite: data.quantite,
         type: 'ajustement',
         motif: data.motif,
+        expiresAt: this.parseOptionalDate(data.expiresAt),
         createdByUserId,
       })
     }
@@ -77,6 +135,7 @@ export class MouvementsStockService {
       quantite: data.quantite,
       type: 'ajustement',
       motif: data.motif,
+      expiresAt: this.parseOptionalDate(data.expiresAt),
       createdByUserId,
     })
   }
@@ -92,11 +151,12 @@ export class MouvementsStockService {
       type: 'reception',
       motif: data.motif,
       reference: `matiere-premiere:${mpId}`,
+      expiresAt: this.parseOptionalDate(data.expiresAt),
       createdByUserId,
     })
   }
 
-  recordArticleMovement(
+  async recordArticleMovement(
     tx: MouvementStockTransaction,
     data: {
       articleId: number
@@ -106,9 +166,18 @@ export class MouvementsStockService {
       type: MouvementStockType
       motif?: string
       reference?: string
+      expiresAt?: Date
       createdByUserId?: string
     },
   ) {
+    await this.applyLotMovement(tx, {
+      target: 'article',
+      targetId: data.articleId,
+      quantity: data.quantite,
+      expiresAt: data.expiresAt,
+      reference: data.reference,
+    })
+
     return tx.mouvementStock.create({
       data: {
         type: data.type,
@@ -124,7 +193,7 @@ export class MouvementsStockService {
     })
   }
 
-  recordMatierePremiereMovement(
+  async recordMatierePremiereMovement(
     tx: MouvementStockTransaction,
     data: {
       mpId: number
@@ -134,9 +203,18 @@ export class MouvementsStockService {
       type: MouvementStockType
       motif?: string
       reference?: string
+      expiresAt?: Date
       createdByUserId?: string
     },
   ) {
+    await this.applyLotMovement(tx, {
+      target: 'matiere_premiere',
+      targetId: data.mpId,
+      quantity: data.quantite,
+      expiresAt: data.expiresAt,
+      reference: data.reference,
+    })
+
     return tx.mouvementStock.create({
       data: {
         type: data.type,
@@ -158,6 +236,7 @@ export class MouvementsStockService {
     type: MouvementStockType
     motif?: string
     reference?: string
+    expiresAt?: Date
     createdByUserId?: string
   }) {
     if (!Number.isInteger(data.quantite)) {
@@ -186,6 +265,14 @@ export class MouvementsStockService {
         },
       })
 
+      await this.applyLotMovement(tx, {
+        target: 'article',
+        targetId: data.articleId,
+        quantity: data.quantite,
+        expiresAt: data.expiresAt,
+        reference: data.reference,
+      })
+
       return tx.mouvementStock.create({
         data: {
           type: data.type,
@@ -212,6 +299,7 @@ export class MouvementsStockService {
     type: MouvementStockType
     motif?: string
     reference?: string
+    expiresAt?: Date
     createdByUserId?: string
   }) {
     return this.prisma.$transaction(async (tx) => {
@@ -234,6 +322,14 @@ export class MouvementsStockService {
         },
       })
 
+      await this.applyLotMovement(tx, {
+        target: 'matiere_premiere',
+        targetId: data.mpId,
+        quantity: data.quantite,
+        expiresAt: data.expiresAt,
+        reference: data.reference,
+      })
+
       return tx.mouvementStock.create({
         data: {
           type: data.type,
@@ -252,5 +348,99 @@ export class MouvementsStockService {
         },
       })
     })
+  }
+
+  private async applyLotMovement(
+    tx: MouvementStockTransaction,
+    data: {
+      target: StockLotTarget
+      targetId: number
+      quantity: number
+      expiresAt?: Date
+      reference?: string
+    },
+  ) {
+    if (data.quantity > 0) {
+      if (!data.expiresAt) return
+
+      await tx.stockLot.create({
+        data: {
+          target: data.target,
+          articleId: data.target === 'article' ? data.targetId : undefined,
+          mpId: data.target === 'matiere_premiere' ? data.targetId : undefined,
+          initialQuantity: data.quantity,
+          remainingQuantity: data.quantity,
+          expiresAt: data.expiresAt,
+          reference: data.reference,
+        },
+      })
+      return
+    }
+
+    if (data.quantity < 0) {
+      await this.consumeLots(
+        tx,
+        data.target,
+        data.targetId,
+        Math.abs(data.quantity),
+      )
+    }
+  }
+
+  private async consumeLots(
+    tx: MouvementStockTransaction,
+    target: StockLotTarget,
+    targetId: number,
+    quantity: number,
+  ) {
+    let remainingToConsume = quantity
+    const lots = await tx.stockLot.findMany({
+      where: {
+        target,
+        articleId: target === 'article' ? targetId : undefined,
+        mpId: target === 'matiere_premiere' ? targetId : undefined,
+        remainingQuantity: {
+          gt: 0,
+        },
+      },
+      select: {
+        id: true,
+        remainingQuantity: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+    })
+
+    const sortedLots = lots.sort((a, b) => {
+      if (a.expiresAt && b.expiresAt) {
+        return a.expiresAt.getTime() - b.expiresAt.getTime()
+      }
+
+      if (a.expiresAt) return -1
+      if (b.expiresAt) return 1
+
+      return a.createdAt.getTime() - b.createdAt.getTime()
+    })
+
+    for (const lot of sortedLots) {
+      if (remainingToConsume <= 0) return
+
+      const consumed = Math.min(lot.remainingQuantity, remainingToConsume)
+
+      await tx.stockLot.update({
+        where: { id: lot.id },
+        data: {
+          remainingQuantity: lot.remainingQuantity - consumed,
+        },
+      })
+
+      remainingToConsume -= consumed
+    }
+  }
+
+  private parseOptionalDate(value?: string) {
+    if (!value) return undefined
+
+    return new Date(value)
   }
 }

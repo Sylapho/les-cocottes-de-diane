@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { CreateArticleDto } from './dto/create-article.dto'
+import { ProduceArticleDto } from './dto/produce-article.dto'
 import { UpdateArticleDto } from './dto/update-article.dto'
 
 @Injectable()
@@ -108,7 +109,9 @@ export class ArticlesService {
     }
   }
 
-  async produce(id: number, quantite: number) {
+  async produce(id: number, data: ProduceArticleDto) {
+    const quantite = data.quantite
+    const expiresAt = data.expiresAt ? new Date(data.expiresAt) : undefined
     const article = await this.prisma.article.findUniqueOrThrow({
       where: { id },
       include: {
@@ -189,7 +192,9 @@ export class ArticlesService {
         },
       })
 
-      await this.mouvementsStockService.recordArticleMovement(tx, {
+      const articleMovement: Parameters<
+        MouvementsStockService['recordArticleMovement']
+      >[1] = {
         articleId: id,
         quantite,
         stockAvant: article.stock,
@@ -197,7 +202,16 @@ export class ArticlesService {
         type: 'production',
         motif: `Production de ${quantite} ${article.nom}`,
         reference: `production:article:${id}`,
-      })
+      }
+
+      if (expiresAt) {
+        articleMovement.expiresAt = expiresAt
+      }
+
+      await this.mouvementsStockService.recordArticleMovement(
+        tx,
+        articleMovement,
+      )
 
       return {
         article: updatedArticle,

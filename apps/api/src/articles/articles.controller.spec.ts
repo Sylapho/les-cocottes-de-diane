@@ -108,6 +108,8 @@ describe('ArticlesController', () => {
     await expect(controller.produce(1, { quantite: 2 })).resolves.toEqual(
       result,
     )
-    expect(articlesServiceMock.produce).toHaveBeenCalledWith(1, 2)
+    expect(articlesServiceMock.produce).toHaveBeenCalledWith(1, {
+      quantite: 2,
+    })
   })
 })

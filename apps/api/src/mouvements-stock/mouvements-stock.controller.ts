@@ -33,6 +33,12 @@ export class MouvementsStockController {
     return this.mouvementsStockService.findAll()
   }
 
+  @Get('lots')
+  @Roles(ROLES.GERANT, ROLES.STOCK, ROLES.PRODUCTION, ROLES.COMPTABLE)
+  findLots() {
+    return this.mouvementsStockService.findLots()
+  }
+
   @Post('ajustement')
   @Roles(ROLES.GERANT, ROLES.STOCK)
   createAjustement(

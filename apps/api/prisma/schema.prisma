@@ -28,6 +28,7 @@ model Article {
   lignesVente     LigneVente[]
   lignesCmd       LigneCommande[]
   mouvementsStock MouvementStock[]
+  stockLots       StockLot[]
 }
 
 model MatierePremiere {
@@ -40,6 +41,7 @@ model MatierePremiere {
   conditionnement String
   nomen           Nomenclature[]
   mouvementsStock MouvementStock[]
+  stockLots       StockLot[]
 }
 
 model Nomenclature {
@@ -150,6 +152,26 @@ model MouvementStock {
   createdByUserId String?
   createdAt       DateTime @default(now())
 
+  article Article?         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  mp      MatierePremiere? @relation(fields: [mpId], references: [id], onDelete: Cascade)
+}
+
+model StockLot {
+  id                Int      @id @default(autoincrement())
+  target            String
+  articleId         Int?
+  mpId              Int?
+  initialQuantity   Float
+  remainingQuantity Float
+  expiresAt         DateTime?
+  reference         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
   article Article?         @relation(fields: [articleId], references: [id])
   mp      MatierePremiere? @relation(fields: [mpId], references: [id])
+
+  @@index([target, expiresAt])
+  @@index([articleId])
+  @@index([mpId])
 }
