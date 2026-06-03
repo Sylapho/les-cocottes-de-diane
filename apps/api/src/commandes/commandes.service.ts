@@ -452,19 +452,23 @@ export class CommandesService {
           },
         },
       })
+      const sellableStockByArticle =
+        await this.mouvementsStockService.getSellableArticleStock(articles)
 
       const insufficientStock = commande.lignes
         .map((ligne) => {
           const article = articles.find((item) => item.id === ligne.articleId)
 
           if (!article) return null
+          const sellableStock = sellableStockByArticle.get(article.id) ?? 0
 
           return {
             articleId: article.id,
             nom: article.nom,
             stock: article.stock,
+            sellableStock,
             requested: ligne.quantite,
-            missing: Math.max(0, ligne.quantite - article.stock),
+            missing: Math.max(0, ligne.quantite - sellableStock),
           }
         })
         .filter((item) => item && item.missing > 0)
@@ -529,123 +533,6 @@ export class CommandesService {
 
       return updated
     })
-  }
-
-  private async expirePendingCommande(stripeId: string) {
-    const commandes = await this.prisma.commande.findMany({
-      where: {
-        stripeId,
-        statut: 'paiement_en_attente',
-      },
-    })
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const commande of commandes) {
-        await tx.commande.update({
-          where: { id: commande.id },
-          data: { statut: 'annulee' },
-        })
-
-        await this.recordStatusHistory(tx, {
-          commandeId: commande.id,
-          ancienStatut: commande.statut,
-          nouveauStatut: 'annulee',
-          motif: 'checkout_expire',
-        })
-      }
-    })
-  }
-
-  private async recordStatusHistory(
-    tx: {
-      commandeStatutHistorique: {
-        create: (args: {
-          data: {
-            commandeId: number
-            ancienStatut?: string | null
-            nouveauStatut: string
-            motif?: string
-            createdByUserId?: string
-          }
-        }) => Promise<unknown>
-      }
-    },
-    data: {
-      commandeId: number
-      ancienStatut?: string | null
-      nouveauStatut: string
-      motif?: string
-      createdByUserId?: string
-    },
-  ) {
-    await tx.commandeStatutHistorique.create({
-      data,
-    })
-  }
-
-  private getStripe() {
-    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY')
-
-    if (!secretKey) {
-      throw new BadRequestException('STRIPE_SECRET_KEY est manquant')
-    }
-
-    if (!this.stripe) {
-      this.stripe = new Stripe(secretKey)
-    }
-
-    return this.stripe
-  }
-
-  private async prepareCommande(data: CreateCommandeDto) {
-    const lignesAgregees = this.aggregateLines(data.lignes)
-    const articleIds = lignesAgregees.map((ligne) => ligne.articleId)
-
-    const articles = await this.prisma.article.findMany({
-      where: {
-        id: {
-          in: articleIds,
-        },
-        online: true,
-      },
-    })
-
-    if (articles.length !== articleIds.length) {
-      throw new BadRequestException(
-        'Un ou plusieurs articles sont introuvables ou indisponibles',
-      )
-    }
-
-    const insufficientStock = lignesAgregees
-      .map((ligne) => {
-        const article = articles.find((item) => item.id === ligne.articleId)
-
-        if (!article) return null
-
-        return {
-          articleId: article.id,
-          nom: article.nom,
-          stock: article.stock,
-          requested: ligne.quantite,
-          missing: Math.max(0, ligne.quantite - article.stock),
-        }
-      })
-      .filter((item) => item && item.missing > 0)
-
-    if (insufficientStock.length > 0) {
-      throw new BadRequestException({
-        message: 'Stock insuffisant pour une ou plusieurs lignes',
-        insufficientStock,
-      })
-    }
-
-    const totalTTC = lignesAgregees.reduce((total, ligne) => {
-      const article = articles.find((item) => item.id === ligne.articleId)!
-
-      return total + article.prix * ligne.quantite
-    }, 0)
-
-    return { lignesAgregees, articles, totalTTC }
   }
 
   private async expirePendingCommande(stripeId: string) {
