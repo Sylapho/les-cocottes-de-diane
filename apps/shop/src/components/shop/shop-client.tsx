@@ -1,98 +1,102 @@
 'use client'
 
-import type { CreateCommandePayload, ShopArticle } from '@/lib/api'
+import type { ShopArticle } from '@/lib/api'
+import {
+  buildCartLines,
+  formatCurrency,
+  getCartCount,
+  readStoredCart,
+  writeStoredCart,
+  type Cart,
+} from '@/lib/cart'
 import { formatPickupPoint, pickupPoints } from '@/lib/pickup-points'
 import ArticleImage from './article-image'
+import ProductInfoPopover from './product-info-popover'
 import Image from 'next/image'
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 
 type ShopClientProps = {
   articles: ShopArticle[]
-  apiUrl: string
 }
 
-type Cart = Record<number, number>
+type Category = 'Tous' | 'Plats' | 'Desserts' | 'Offres du moment'
 
-type SortMode = 'recommended' | 'price-asc' | 'price-desc'
+const categories: Category[] = ['Tous', 'Plats', 'Desserts', 'Offres du moment']
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value)
+function getArticleCategory(article: ShopArticle): Exclude<Category, 'Tous'> {
+  const text = `${article.nom} ${article.description ?? ''}`.toLowerCase()
+
+  if (
+    text.includes('dessert') ||
+    text.includes('tarte') ||
+    text.includes('gâteau') ||
+    text.includes('gateau') ||
+    text.includes('cookie') ||
+    text.includes('chocolat') ||
+    text.includes('sucré') ||
+    text.includes('sucre')
+  ) {
+    return 'Desserts'
+  }
+
+  if (article.stock > 0 && article.stock <= 4) {
+    return 'Offres du moment'
+  }
+
+  return 'Plats'
 }
 
-function todayInputValue() {
-  const now = new Date()
-  const timezoneOffset = now.getTimezoneOffset() * 60_000
-  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10)
+function getAvailabilityLabel(stock: number) {
+  if (stock <= 0) return 'Épuisé aujourd’hui'
+  if (stock <= 3) return `Plus que ${stock} disponible${stock > 1 ? 's' : ''}`
+
+  return 'Disponible au retrait'
 }
 
-function normalizeSearch(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .trim()
-}
-
-export default function ShopClient({ articles, apiUrl }: ShopClientProps) {
+export default function ShopClient({ articles }: ShopClientProps) {
   const [cart, setCart] = useState<Cart>({})
+  const [cartReady, setCartReady] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [nom, setNom] = useState('')
-  const [email, setEmail] = useState('')
-  const [tel, setTel] = useState('')
-  const [lieu, setLieu] = useState(formatPickupPoint(pickupPoints[0]))
-  const [dateRetrait, setDateRetrait] = useState(todayInputValue())
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [sortMode, setSortMode] = useState<SortMode>('recommended')
+  const [category, setCategory] = useState<Category>('Tous')
   const [onlyAvailable, setOnlyAvailable] = useState(false)
 
-  const articlesById = useMemo(
-    () => new Map(articles.map((article) => [article.id, article])),
-    [articles],
-  )
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setCart(readStoredCart())
+      setCartReady(true)
+    }, 0)
 
-  const lines = Object.entries(cart)
-    .map(([articleId, quantite]) => {
-      const article = articlesById.get(Number(articleId))
+    return () => window.clearTimeout(handle)
+  }, [])
 
-      if (!article) return null
+  useEffect(() => {
+    if (!cartReady) return
 
-      return {
-        article,
-        quantite,
-        total: article.prix * quantite,
-      }
-    })
-    .filter((line): line is NonNullable<typeof line> => Boolean(line))
+    writeStoredCart(cart)
+  }, [cart, cartReady])
 
+  const lines = useMemo(() => buildCartLines(cart, articles), [cart, articles])
   const total = lines.reduce((sum, line) => sum + line.total, 0)
-  const count = lines.reduce((sum, line) => sum + line.quantite, 0)
+  const count = getCartCount(cart)
 
-  const filteredArticles = useMemo(() => {
-    const query = normalizeSearch(search)
+  const filteredArticles = articles.filter((article) => {
+    const searchValue = search.trim().toLowerCase()
 
-    const filtered = articles.filter((article) => {
-      const searchable = normalizeSearch(
-        `${article.nom} ${article.description ?? ''}`,
-      )
+    const matchesSearch = searchValue
+      ? `${article.nom} ${article.description ?? ''}`
+          .toLowerCase()
+          .includes(searchValue)
+      : true
 
-      const matchesSearch = query.length === 0 || searchable.includes(query)
-      const matchesAvailability = !onlyAvailable || article.stock > 0
+    const matchesCategory =
+      category === 'Tous' ? true : getArticleCategory(article) === category
 
-      return matchesSearch && matchesAvailability
-    })
+    const matchesAvailability = onlyAvailable ? article.stock > 0 : true
 
-    return filtered.sort((a, b) => {
-      if (sortMode === 'price-asc') return a.prix - b.prix
-      if (sortMode === 'price-desc') return b.prix - a.prix
-
-      return Number(b.stock > 0) - Number(a.stock > 0)
-    })
-  }, [articles, onlyAvailable, search, sortMode])
+    return matchesSearch && matchesCategory && matchesAvailability
+  })
 
   function updateCart(article: ShopArticle, delta: number) {
     setCart((current) => {
@@ -100,6 +104,7 @@ export default function ShopClient({ articles, apiUrl }: ShopClientProps) {
         0,
         Math.min(article.stock, (current[article.id] ?? 0) + delta),
       )
+
       const next = { ...current }
 
       if (nextQuantity === 0) {
@@ -112,222 +117,186 @@ export default function ShopClient({ articles, apiUrl }: ShopClientProps) {
     })
   }
 
-  function removeFromCart(articleId: number) {
+  function removeFromCart(article: ShopArticle) {
     setCart((current) => {
       const next = { ...current }
-      delete next[articleId]
+      delete next[article.id]
       return next
     })
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setLoading(true)
-
-    if (lines.length === 0) {
-      setError('Votre panier est vide.')
-      setLoading(false)
-      return
-    }
-
-    try {
-      const payload: CreateCommandePayload = {
-        nom,
-        email,
-        tel: tel || undefined,
-        lieu,
-        dateRetrait,
-        lignes: lines.map((line) => ({
-          articleId: line.article.id,
-          quantite: line.quantite,
-        })),
-      }
-
-      const response = await fetch(`${apiUrl}/commandes/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const text = await response.text()
-        throw new Error(text || 'Impossible de préparer le paiement')
-      }
-
-      const checkout = (await response.json()) as {
-        url: string
-      }
-
-      window.location.assign(checkout.url)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <main className="min-h-screen bg-[#fffaf5] pb-28 text-stone-950 sm:pb-0">
-      <Header
-        count={count}
-        total={total}
-        onCartClick={() => setPanelOpen(true)}
-      />
+    <main className="min-h-screen bg-[#faf7f8]">
+      <Header count={count} onCartClick={() => setPanelOpen(true)} />
 
-      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch lg:px-6 lg:py-12">
-        <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
-          <div className="grid min-h-full gap-8 p-6 sm:p-8 lg:p-10">
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-              <Image
-                src="/logo.svg"
-                alt="Les Cocottes de Diane"
-                width={116}
-                height={116}
-                priority
-                className="h-24 w-24 rounded-full border border-stone-200 bg-white object-contain p-2 shadow-sm sm:h-28 sm:w-28"
-              />
+      <section className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-14">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#b5006e]">
+            Commande locale premium
+          </p>
 
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-800">
-                  Boutique en ligne
-                </p>
+          <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-[#181014] sm:text-5xl">
+            Des produits frais, prêts à retirer sans perdre de temps.
+          </h1>
 
-                <h1 className="font-display mt-4 max-w-2xl text-5xl font-semibold leading-none tracking-tight text-stone-950 sm:text-6xl">
-                  Les Cocottes de Diane
-                </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-[#4a3d43]">
+            Choisissez vos produits, sélectionnez votre créneau de retrait, puis
+            payez en ligne. Une expérience courte, élégante et pensée pour les
+            commandes alimentaires locales.
+          </p>
 
-                <p className="mt-5 max-w-xl text-sm leading-7 text-stone-600 sm:text-base">
-                  Commandez vos produits en ligne, choisissez votre lieu de
-                  retrait, puis validez votre paiement de manière sécurisée.
-                </p>
-              </div>
-            </div>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <a
+              href="#produits"
+              className="rounded-full bg-[#b5006e] px-6 py-3 text-center text-sm font-bold text-white shadow-sm transition hover:bg-[#8c0055]"
+            >
+              Commander maintenant
+            </a>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <StepCard
-                number="01"
-                title="Sélection"
-                text="Choisissez les produits qui vous intéressent."
-              />
-              <StepCard
-                number="02"
-                title="Retrait"
-                text="Indiquez le lieu et la date souhaités."
-              />
-              <StepCard
-                number="03"
-                title="Paiement"
-                text="Finalisez votre commande en ligne."
-              />
-            </div>
+            <a
+              href="#retrait"
+              className="rounded-full border border-[#e8e1e4] bg-white px-6 py-3 text-center text-sm font-bold text-[#5a0037] transition hover:border-[#b5006e]"
+            >
+              Voir les points de retrait
+            </a>
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {['Paiement sécurisé', 'Stocks en temps réel', 'Retrait local'].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-[#f0dbe6] bg-white/80 px-4 py-3 text-sm font-semibold text-[#4a3d43]"
+                >
+                  {item}
+                </div>
+              ),
+            )}
           </div>
         </div>
 
-        <aside className="rounded-[2rem] border border-stone-200 bg-[#2f211d] p-6 text-white shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-100">
-            Informations retrait
-          </p>
+        <div className="rounded-[2rem] bg-[#fceef6] p-5 shadow-sm lg:p-8">
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logo.svg"
+              alt="Les Cocottes de Diane"
+              width={112}
+              height={112}
+              className="h-28 w-28 rounded-full bg-white object-contain p-3 shadow-sm"
+            />
 
-          <h2 className="font-display mt-4 text-4xl font-semibold">
-            Une commande simple, un retrait local.
-          </h2>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-[#b5006e]">
+                Les Cocottes de Diane
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-[#181014]">
+                Boutique en ligne
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#4a3d43]">
+                Une sélection courte, lisible et mise à jour selon les stocks
+                disponibles.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-          <p className="mt-4 text-sm leading-7 text-white/75">
-            Les produits sont proposés selon les disponibilités du moment. La
-            réservation est confirmée après validation de la commande.
-          </p>
+      <section id="retrait" className="mx-auto max-w-6xl px-4 pb-4">
+        <div className="rounded-[1.5rem] border border-[#f0dbe6] bg-white p-5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wide text-[#b5006e]">
+                Retrait
+              </p>
+              <h2 className="text-2xl font-black text-[#181014]">
+                Choisissez votre point de retrait au paiement
+              </h2>
+            </div>
 
-          <div className="mt-6 grid gap-3">
+            <p className="text-sm text-[#7a6d73]">
+              Marchés, ferme et AMAP selon disponibilité.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3 text-sm text-[#4a3d43] sm:grid-cols-2 lg:grid-cols-4">
             {pickupPoints.slice(0, 4).map((point) => (
               <div
                 key={formatPickupPoint(point)}
-                className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3"
+                className="rounded-2xl bg-[#faf7f8] px-4 py-3"
               >
-                <p className="font-semibold">{point.label}</p>
-                <p className="mt-1 text-sm text-white/65">{point.schedule}</p>
+                <p className="font-bold text-[#181014]">{point.label}</p>
+                <p className="mt-1 text-[#7a6d73]">{point.schedule}</p>
               </div>
             ))}
           </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <InfoPill label="Retrait" value="Boutique / marchés" />
-            <InfoPill label="Paiement" value="Sécurisé" />
-          </div>
-        </aside>
+        </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pb-12 lg:px-6">
-        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <section id="produits" className="mx-auto max-w-6xl px-4 py-8">
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-800">
-              Nos produits
+            <p className="text-sm font-bold uppercase tracking-wide text-[#b5006e]">
+              Catalogue
             </p>
-            <h2 className="font-display mt-2 text-4xl font-semibold text-stone-950">
-              Sélection du moment
+            <h2 className="text-3xl font-black text-[#181014]">
+              Produits disponibles
             </h2>
+            <p className="mt-2 max-w-2xl text-sm text-[#7a6d73]">
+              Filtrez rapidement, ajoutez au panier, puis finalisez votre retrait
+              sur une page dédiée.
+            </p>
           </div>
 
-          <p className="max-w-md text-sm leading-6 text-stone-500">
-            Parcourez les articles disponibles à la commande et ajoutez-les à
-            votre panier.
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row lg:min-w-[520px]">
+            <label className="sr-only" htmlFor="search">
+              Rechercher un produit
+            </label>
+
+            <input
+              id="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher une tarte, un plat, un dessert..."
+              className="min-h-11 flex-1 rounded-full border border-[#e8e1e4] bg-white px-4 text-sm shadow-sm"
+            />
+
+            <button
+              type="button"
+              onClick={() => setOnlyAvailable((value) => !value)}
+              className={`min-h-11 rounded-full border px-4 text-sm font-bold ${
+                onlyAvailable
+                  ? 'border-[#b5006e] bg-[#fceef6] text-[#8c0055]'
+                  : 'border-[#e8e1e4] bg-white text-[#4a3d43]'
+              }`}
+            >
+              Disponible aujourd’hui
+            </button>
+          </div>
         </div>
 
-        <div className="sticky top-[80px] z-20 mb-6 rounded-3xl border border-stone-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-          <div className="grid gap-3 lg:grid-cols-[1fr_220px_auto] lg:items-center">
-            <label className="block">
-              <span className="sr-only">Rechercher un produit</span>
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Rechercher un produit..."
-                className="h-12 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 text-sm outline-none transition focus:border-rose-800 focus:bg-white"
-              />
-            </label>
-
-            <label className="block">
-              <span className="sr-only">Trier les produits</span>
-              <select
-                value={sortMode}
-                onChange={(event) =>
-                  setSortMode(event.target.value as SortMode)
-                }
-                className="h-12 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 text-sm outline-none transition focus:border-rose-800 focus:bg-white"
-              >
-                <option value="recommended">Tri recommandé</option>
-                <option value="price-asc">Prix croissant</option>
-                <option value="price-desc">Prix décroissant</option>
-              </select>
-            </label>
-
-            <label className="flex h-12 items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 text-sm font-medium text-stone-700 lg:justify-start">
-              <input
-                type="checkbox"
-                checked={onlyAvailable}
-                onChange={(event) => setOnlyAvailable(event.target.checked)}
-                className="h-4 w-4 accent-rose-800"
-              />
-              Articles disponibles
-            </label>
-          </div>
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+          {categories.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setCategory(item)}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${
+                category === item
+                  ? 'bg-[#b5006e] text-white'
+                  : 'border border-[#e8e1e4] bg-white text-[#4a3d43] hover:border-[#b5006e]'
+              }`}
+            >
+              {item}
+            </button>
+          ))}
         </div>
 
         {articles.length === 0 ? (
-          <EmptyState
-            title="Aucun article disponible"
-            text="La boutique n’a pas encore de produits en ligne pour le moment."
-          />
+          <EmptyState message="Aucun article disponible pour le moment." />
         ) : filteredArticles.length === 0 ? (
-          <EmptyState
-            title="Aucun produit trouvé"
-            text="Essayez de modifier votre recherche ou de retirer le filtre."
-          />
+          <EmptyState message="Aucun produit ne correspond à cette recherche." />
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredArticles.map((article) => {
               const quantity = cart[article.id] ?? 0
               const disabled = article.stock <= 0
@@ -335,40 +304,50 @@ export default function ShopClient({ articles, apiUrl }: ShopClientProps) {
               return (
                 <article
                   key={article.id}
-                  className="group overflow-hidden rounded-[1.75rem] border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-stone-200/70"
+                  className="group overflow-hidden rounded-[1.35rem] border border-[#eee2e7] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="relative">
-                    <ArticleImage article={article} />
+                  <ArticleImage article={article} />
 
-                    <div className="absolute left-4 top-4">
-                      <AvailabilityBadge available={article.stock > 0} />
-                    </div>
-                  </div>
-
-                  <div className="grid min-h-[245px] gap-5 p-5">
+                  <div className="grid gap-4 p-4">
                     <div>
-                      <h3 className="font-display text-2xl font-semibold leading-tight text-stone-950">
-                        {article.nom}
-                      </h3>
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="text-lg font-black text-[#181014]">
+                          {article.nom}
+                        </h3>
+
+                        <span className="rounded-full bg-[#fff4d6] px-2.5 py-1 text-xs font-bold text-[#7c5c13]">
+                          {getArticleCategory(article)}
+                        </span>
+                      </div>
 
                       {article.description ? (
-                        <p className="mt-3 line-clamp-3 text-sm leading-6 text-stone-600">
+                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#7a6d73]">
                           {article.description}
                         </p>
-                      ) : (
-                        <p className="mt-3 text-sm leading-6 text-stone-500">
-                          Produit disponible à la commande en ligne.
-                        </p>
-                      )}
+                      ) : null}
                     </div>
 
-                    <div className="mt-auto grid gap-4">
+                    <ProductInfoPopover
+                      ingredients={article.ingredients}
+                      allergenes={article.allergenes}
+                    />
+
+                    <div className="flex items-end justify-between gap-3">
                       <div>
-                        <p className="text-xl font-semibold text-rose-800">
+                        <p className="text-xl font-black text-[#b5006e]">
                           {formatCurrency(article.prix)}
                         </p>
-                        <p className="mt-1 text-xs text-stone-500">
-                          Prix TTC · Retrait sur place
+
+                        <p
+                          className={`text-xs font-semibold ${
+                            article.stock <= 0
+                              ? 'text-red-600'
+                              : article.stock <= 3
+                                ? 'text-amber-700'
+                                : 'text-green-700'
+                          }`}
+                        >
+                          {getAvailabilityLabel(article.stock)}
                         </p>
                       </div>
 
@@ -377,40 +356,17 @@ export default function ShopClient({ articles, apiUrl }: ShopClientProps) {
                           type="button"
                           onClick={() => updateCart(article, 1)}
                           disabled={disabled}
-                          className="h-12 rounded-full bg-stone-950 px-5 text-sm font-semibold text-white transition hover:bg-rose-900 disabled:bg-stone-200 disabled:text-stone-500"
+                          className="rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#8c0055] disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {disabled ? 'Indisponible' : 'Ajouter au panier'}
+                          Ajouter
                         </button>
                       ) : (
-                        <div className="flex h-12 items-center justify-between rounded-full border border-rose-100 bg-rose-50 px-2">
-                          <button
-                            type="button"
-                            onClick={() => updateCart(article, -1)}
-                            className="grid h-9 w-9 place-items-center rounded-full bg-white font-semibold text-rose-800 shadow-sm"
-                            aria-label={`Retirer ${article.nom}`}
-                          >
-                            −
-                          </button>
-
-                          <div className="text-center">
-                            <p className="text-sm font-semibold text-rose-900">
-                              {quantity}
-                            </p>
-                            <p className="text-[10px] uppercase tracking-wide text-rose-700">
-                              au panier
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => updateCart(article, 1)}
-                            disabled={quantity >= article.stock}
-                            className="grid h-9 w-9 place-items-center rounded-full bg-white font-semibold text-rose-800 shadow-sm disabled:opacity-40"
-                            aria-label={`Ajouter ${article.nom}`}
-                          >
-                            +
-                          </button>
-                        </div>
+                        <QuantityStepper
+                          quantity={quantity}
+                          max={article.stock}
+                          onDecrease={() => updateCart(article, -1)}
+                          onIncrease={() => updateCart(article, 1)}
+                        />
                       )}
                     </div>
                   </div>
@@ -425,35 +381,21 @@ export default function ShopClient({ articles, apiUrl }: ShopClientProps) {
         <button
           type="button"
           onClick={() => setPanelOpen(true)}
-          className="fixed inset-x-4 bottom-4 z-30 flex items-center justify-between rounded-full bg-stone-950 px-5 py-4 text-sm font-semibold text-white shadow-2xl shadow-stone-950/25 sm:hidden"
+          className="fixed bottom-4 left-4 right-4 z-30 rounded-full bg-[#181014] px-5 py-3 text-sm font-bold text-white shadow-lg sm:hidden"
         >
-          <span>
-            Voir le panier · {count} article{count > 1 ? 's' : ''}
-          </span>
-          <span>{formatCurrency(total)}</span>
+          Voir le panier · {count} article{count > 1 ? 's' : ''} ·{' '}
+          {formatCurrency(total)}
         </button>
       ) : null}
 
       {panelOpen ? (
-        <CartPanel
+        <CartDrawer
           lines={lines}
           total={total}
-          loading={loading}
-          error={error}
-          nom={nom}
-          email={email}
-          tel={tel}
-          lieu={lieu}
-          dateRetrait={dateRetrait}
           onClose={() => setPanelOpen(false)}
-          onSubmit={handleSubmit}
-          onNomChange={setNom}
-          onEmailChange={setEmail}
-          onTelChange={setTel}
-          onLieuChange={setLieu}
-          onDateRetraitChange={setDateRetrait}
-          onUpdateCart={updateCart}
-          onRemoveFromCart={removeFromCart}
+          onDecrease={(article) => updateCart(article, -1)}
+          onIncrease={(article) => updateCart(article, 1)}
+          onRemove={removeFromCart}
         />
       ) : null}
     </main>
@@ -462,130 +404,100 @@ export default function ShopClient({ articles, apiUrl }: ShopClientProps) {
 
 function Header({
   count,
-  total,
   onCartClick,
 }: {
   count: number
-  total: number
   onCartClick: () => void
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 lg:px-6">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#5a0037] text-white shadow-sm">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <Link href="/" className="flex items-center gap-3">
           <Image
             src="/logo.svg"
             alt=""
             width={48}
             height={48}
-            className="h-12 w-12 rounded-full border border-stone-200 bg-white object-contain p-1"
+            className="h-12 w-12 rounded-full bg-white object-contain p-1"
             aria-hidden="true"
           />
 
           <div>
-            <p className="font-display text-xl font-semibold leading-none text-stone-950">
-              Les Cocottes de Diane
+            <p className="font-black leading-tight">
+              Les Cocottes de <span className="text-[#fde68a]">Diane</span>
             </p>
-            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-stone-500">
-              Boutique en ligne
-            </p>
+            <p className="text-xs text-white/70">Commande en ligne</p>
           </div>
-        </div>
+        </Link>
+
+        <nav className="hidden items-center gap-5 text-sm font-semibold text-white/80 md:flex">
+          <a href="#produits" className="hover:text-white">
+            Boutique
+          </a>
+          <a href="#retrait" className="hover:text-white">
+            Retrait
+          </a>
+          <Link href="/compte" className="hover:text-white">
+            Compte
+          </Link>
+        </nav>
 
         <button
           type="button"
           onClick={onCartClick}
-          className="rounded-full border border-stone-200 bg-stone-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-900"
+          className="rounded-full border border-white/25 bg-white/15 px-4 py-2 text-sm font-bold transition hover:bg-white/25"
         >
           Panier ({count})
-          {count > 0 ? (
-            <span className="ml-2 hidden text-white/75 sm:inline">
-              · {formatCurrency(total)}
-            </span>
-          ) : null}
         </button>
       </div>
     </header>
   )
 }
 
-function StepCard({
-  number,
-  title,
-  text,
+function QuantityStepper({
+  quantity,
+  max,
+  onDecrease,
+  onIncrease,
 }: {
-  number: string
-  title: string
-  text: string
+  quantity: number
+  max: number
+  onDecrease: () => void
+  onIncrease: () => void
 }) {
   return (
-    <div className="rounded-3xl border border-stone-200 bg-stone-50 p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-rose-800">
-        {number}
-      </p>
-      <p className="font-display mt-3 text-2xl font-semibold text-stone-950">
-        {title}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-stone-600">{text}</p>
+    <div className="flex items-center gap-2 rounded-full border border-[#e8e1e4] bg-white p-1">
+      <button
+        type="button"
+        onClick={onDecrease}
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold"
+        aria-label="Retirer un produit"
+      >
+        -
+      </button>
+
+      <span className="min-w-5 text-center text-sm font-black">{quantity}</span>
+
+      <button
+        type="button"
+        onClick={onIncrease}
+        disabled={quantity >= max}
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Ajouter un produit"
+      >
+        +
+      </button>
     </div>
   )
 }
 
-function InfoPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-      <p className="text-xs uppercase tracking-wide text-white/45">{label}</p>
-      <p className="mt-1 font-semibold text-white">{value}</p>
-    </div>
-  )
-}
-
-function AvailabilityBadge({ available }: { available: boolean }) {
-  if (!available) {
-    return (
-      <span className="rounded-full bg-stone-950/85 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-        Indisponible
-      </span>
-    )
-  }
-
-  return (
-    <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-stone-900 shadow-sm backdrop-blur">
-      Disponible
-    </span>
-  )
-}
-
-function EmptyState({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="rounded-[1.75rem] border border-dashed border-stone-300 bg-white p-10 text-center">
-      <p className="font-display text-3xl font-semibold text-stone-950">
-        {title}
-      </p>
-      <p className="mt-2 text-sm text-stone-600">{text}</p>
-    </div>
-  )
-}
-
-function CartPanel({
+function CartDrawer({
   lines,
   total,
-  loading,
-  error,
-  nom,
-  email,
-  tel,
-  lieu,
-  dateRetrait,
   onClose,
-  onSubmit,
-  onNomChange,
-  onEmailChange,
-  onTelChange,
-  onLieuChange,
-  onDateRetraitChange,
-  onUpdateCart,
-  onRemoveFromCart,
+  onDecrease,
+  onIncrease,
+  onRemove,
 }: {
   lines: {
     article: ShopArticle
@@ -593,249 +505,123 @@ function CartPanel({
     total: number
   }[]
   total: number
-  loading: boolean
-  error: string
-  nom: string
-  email: string
-  tel: string
-  lieu: string
-  dateRetrait: string
   onClose: () => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
-  onNomChange: (value: string) => void
-  onEmailChange: (value: string) => void
-  onTelChange: (value: string) => void
-  onLieuChange: (value: string) => void
-  onDateRetraitChange: (value: string) => void
-  onUpdateCart: (article: ShopArticle, delta: number) => void
-  onRemoveFromCart: (articleId: number) => void
+  onDecrease: (article: ShopArticle) => void
+  onIncrease: (article: ShopArticle) => void
+  onRemove: (article: ShopArticle) => void
 }) {
-  const count = lines.reduce((sum, line) => sum + line.quantite, 0)
-
   return (
     <div className="fixed inset-0 z-40">
       <button
         type="button"
         aria-label="Fermer le panier"
-        className="absolute inset-0 bg-stone-950/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/45"
         onClick={onClose}
       />
 
-      <aside className="absolute right-0 top-0 flex h-full w-full max-w-xl flex-col overflow-hidden bg-[#fffaf5] shadow-2xl">
-        <div className="border-b border-stone-200 bg-white p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-800">
-                Votre commande
-              </p>
-              <h2 className="font-display mt-1 text-4xl font-semibold text-stone-950">
-                Mon panier
-              </h2>
-              <p className="mt-1 text-sm text-stone-500">
-                {count} article{count > 1 ? 's' : ''} sélectionné
-                {count > 1 ? 's' : ''}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-semibold transition hover:bg-stone-50"
-            >
-              Fermer
-            </button>
+      <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-[#eee2e7] p-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#b5006e]">
+              Panier
+            </p>
+            <h2 className="text-xl font-black text-[#181014]">Votre commande</h2>
           </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-[#e8e1e4] px-4 py-2 text-sm font-bold text-[#4a3d43]"
+          >
+            Fermer
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid gap-5 p-4 sm:p-5">
-            {lines.length === 0 ? (
-              <EmptyState
-                title="Votre panier est vide"
-                text="Ajoutez un produit pour commencer votre commande."
-              />
-            ) : (
-              <div className="grid gap-3">
-                {lines.map((line) => (
-                  <div
-                    key={line.article.id}
-                    className="rounded-3xl border border-stone-200 bg-white p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-display text-xl font-semibold text-stone-950">
-                          {line.article.nom}
-                        </p>
-                        <p className="mt-1 text-sm text-stone-600">
-                          {formatCurrency(line.article.prix)} l’unité
-                        </p>
-                      </div>
-
-                      <p className="font-semibold text-rose-800">
-                        {formatCurrency(line.total)}
+        <div className="flex-1 overflow-y-auto p-4">
+          {lines.length === 0 ? (
+            <div className="rounded-2xl bg-[#faf7f8] p-5 text-sm text-[#7a6d73]">
+              Votre panier est vide. Ajoutez un produit pour commencer votre
+              commande.
+            </div>
+          ) : (
+            <ul className="grid gap-3">
+              {lines.map((line) => (
+                <li
+                  key={line.article.id}
+                  className="grid gap-3 rounded-2xl border border-[#eee2e7] p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-[#181014]">
+                        {line.article.nom}
+                      </p>
+                      <p className="text-sm text-[#7a6d73]">
+                        {line.quantite} x {formatCurrency(line.article.prix)}
                       </p>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onUpdateCart(line.article, -1)}
-                          className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 bg-white font-semibold text-rose-800"
-                          aria-label={`Retirer ${line.article.nom}`}
-                        >
-                          −
-                        </button>
-
-                        <span className="min-w-6 text-center font-semibold">
-                          {line.quantite}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => onUpdateCart(line.article, 1)}
-                          disabled={line.quantite >= line.article.stock}
-                          className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 bg-white font-semibold text-rose-800 disabled:opacity-40"
-                          aria-label={`Ajouter ${line.article.nom}`}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => onRemoveFromCart(line.article.id)}
-                        className="text-sm font-semibold text-stone-500 underline-offset-4 hover:text-red-700 hover:underline"
-                      >
-                        Supprimer
-                      </button>
-                    </div>
+                    <p className="font-black text-[#b5006e]">
+                      {formatCurrency(line.total)}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
 
-            <form onSubmit={onSubmit} className="grid gap-4">
-              <div className="rounded-3xl border border-rose-100 bg-rose-50 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-rose-900">
-                    Total TTC
-                  </span>
-                  <strong className="text-2xl text-rose-900">
-                    {formatCurrency(total)}
-                  </strong>
-                </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <QuantityStepper
+                      quantity={line.quantite}
+                      max={line.article.stock}
+                      onDecrease={() => onDecrease(line.article)}
+                      onIncrease={() => onIncrease(line.article)}
+                    />
 
-                <p className="mt-2 text-xs leading-5 text-rose-800">
-                  Le paiement est préparé après validation. Vos informations
-                  sont utilisées uniquement pour traiter cette commande.
-                </p>
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(line.article)}
+                      className="text-sm font-bold text-red-600"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Nom / Prénom *" htmlFor="nom">
-                  <input
-                    id="nom"
-                    value={nom}
-                    onChange={(event) => onNomChange(event.target.value)}
-                    className="h-12 rounded-2xl border border-stone-200 bg-white px-4 outline-none transition focus:border-rose-800"
-                    required
-                  />
-                </Field>
-
-                <Field label="Email *" htmlFor="email">
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => onEmailChange(event.target.value)}
-                    className="h-12 rounded-2xl border border-stone-200 bg-white px-4 outline-none transition focus:border-rose-800"
-                    required
-                  />
-                </Field>
-              </div>
-
-              <Field label="Téléphone" htmlFor="tel">
-                <input
-                  id="tel"
-                  type="tel"
-                  value={tel}
-                  onChange={(event) => onTelChange(event.target.value)}
-                  className="h-12 rounded-2xl border border-stone-200 bg-white px-4 outline-none transition focus:border-rose-800"
-                />
-              </Field>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Lieu de retrait *" htmlFor="lieu">
-                  <select
-                    id="lieu"
-                    value={lieu}
-                    onChange={(event) => onLieuChange(event.target.value)}
-                    className="h-12 rounded-2xl border border-stone-200 bg-white px-4 outline-none transition focus:border-rose-800"
-                  >
-                    {pickupPoints.map((point) => {
-                      const value = formatPickupPoint(point)
-
-                      return (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      )
-                    })}
-                  </select>
-                </Field>
-
-                <Field label="Date souhaitée *" htmlFor="dateRetrait">
-                  <input
-                    id="dateRetrait"
-                    type="date"
-                    min={todayInputValue()}
-                    value={dateRetrait}
-                    onChange={(event) =>
-                      onDateRetraitChange(event.target.value)
-                    }
-                    className="h-12 rounded-2xl border border-stone-200 bg-white px-4 outline-none transition focus:border-rose-800"
-                    required
-                  />
-                </Field>
-              </div>
-
-              {error ? (
-                <p className="rounded-2xl bg-red-50 p-3 text-sm font-medium text-red-700">
-                  {error}
-                </p>
-              ) : null}
-
-              <button
-                type="submit"
-                disabled={loading || lines.length === 0}
-                className="rounded-full bg-stone-950 px-5 py-4 font-semibold text-white transition hover:bg-rose-900 disabled:bg-stone-200 disabled:text-stone-500"
-              >
-                {loading ? 'Préparation du paiement...' : 'Payer ma commande'}
-              </button>
-            </form>
+        <div className="grid gap-4 border-t border-[#eee2e7] p-4">
+          <div className="rounded-2xl bg-[#fceef6] p-3 text-xs leading-5 text-[#8c0055]">
+            Le choix du point de retrait, la date et vos informations client se
+            font à l’étape suivante.
           </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#7a6d73]">
+              Total TTC
+            </span>
+            <strong className="text-2xl text-[#181014]">
+              {formatCurrency(total)}
+            </strong>
+          </div>
+
+          <Link
+            href="/checkout"
+            className={`rounded-full px-4 py-3 text-center font-black text-white ${
+              lines.length === 0
+                ? 'pointer-events-none bg-[#181014]/30'
+                : 'bg-[#b5006e] hover:bg-[#8c0055]'
+            }`}
+          >
+            Continuer vers le paiement
+          </Link>
         </div>
       </aside>
     </div>
   )
 }
 
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string
-  htmlFor: string
-  children: ReactNode
-}) {
+function EmptyState({ message }: { message: string }) {
   return (
-    <div className="grid gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-semibold text-stone-800">
-        {label}
-      </label>
-      {children}
+    <div className="rounded-[1.5rem] border border-[#eee2e7] bg-white p-8 text-center text-sm text-[#7a6d73]">
+      {message}
     </div>
   )
 }

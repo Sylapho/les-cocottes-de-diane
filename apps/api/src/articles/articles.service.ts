@@ -43,6 +43,8 @@ export class ArticlesService {
         stock: data.stock ?? 0,
         online: data.online ?? true,
         description: data.description,
+        ingredients: data.ingredients,
+        allergenes: data.allergenes,
         imageUrl: data.imageUrl,
       },
     })

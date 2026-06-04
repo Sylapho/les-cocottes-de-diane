@@ -309,8 +309,88 @@ async function seedShopCatalogue(prisma: PrismaClient) {
         .slice(0, 3)
         .toUpperCase(),
       description,
+      ingredients: getShopArticleIngredients(nom),
+      allergenes: getShopArticleAllergenes(nom),
     })),
   })
+}
+
+function getShopArticleIngredients(nom: string) {
+  const lowerName = nom.toLowerCase()
+
+  if (lowerName.includes('œufs')) {
+    return 'Œufs de poules élevées en plein air.'
+  }
+
+  if (lowerName.includes('pack')) {
+    return 'Assortiment de volailles, saucisses et brochettes.'
+  }
+
+  if (lowerName.includes('camembert')) {
+    return 'Volaille, camembert, assaisonnement.'
+  }
+
+  if (lowerName.includes('bacon')) {
+    return 'Volaille, bacon, assaisonnement.'
+  }
+
+  if (lowerName.includes('chorizo')) {
+    return 'Volaille, chorizo, assaisonnement.'
+  }
+
+  if (lowerName.includes('cordon bleu')) {
+    return 'Volaille, fromage, panure.'
+  }
+
+  if (lowerName.includes('milanaise') || lowerName.includes('chicken')) {
+    return 'Volaille, panure, assaisonnement.'
+  }
+
+  if (lowerName.includes('brochette')) {
+    return 'Volaille marinée, assaisonnement.'
+  }
+
+  if (lowerName.includes('saucisse') || lowerName.includes('merguez')) {
+    return 'Volaille, assaisonnement.'
+  }
+
+  if (
+    lowerName.includes('terrine') ||
+    lowerName.includes('rillettes') ||
+    lowerName.includes('mousse') ||
+    lowerName.includes('gésiers')
+  ) {
+    return 'Volaille, assaisonnement.'
+  }
+
+  return 'Volaille.'
+}
+
+function getShopArticleAllergenes(nom: string) {
+  const lowerName = nom.toLowerCase()
+  const allergenes = new Set<string>()
+
+  if (lowerName.includes('œufs')) {
+    allergenes.add('Œufs')
+  }
+
+  if (
+    lowerName.includes('camembert') ||
+    lowerName.includes('cordon bleu') ||
+    lowerName.includes('fromage')
+  ) {
+    allergenes.add('Lait')
+  }
+
+  if (
+    lowerName.includes('cordon bleu') ||
+    lowerName.includes('milanaise') ||
+    lowerName.includes('chicken')
+  ) {
+    allergenes.add('Gluten')
+  }
+
+  return allergenes.size > 0 ? Array.from(allergenes).join(', ') : null
 }
 
 async function seedStockLots(prisma: PrismaClient, catalogue: SeedCatalogue) {
