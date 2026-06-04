@@ -9,6 +9,8 @@ export type ShopArticle = {
   online: boolean
   imageUrl?: string | null
   description?: string | null
+  ingredients?: string | null
+  allergenes?: string | null
 }
 
 export type CreateCommandePayload = {

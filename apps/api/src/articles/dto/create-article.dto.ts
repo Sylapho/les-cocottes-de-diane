@@ -28,5 +28,13 @@ export class CreateArticleDto {
 
   @IsOptional()
   @IsString()
+  ingredients?: string | null
+
+  @IsOptional()
+  @IsString()
+  allergenes?: string | null
+
+  @IsOptional()
+  @IsString()
   imageUrl?: string | null
 }

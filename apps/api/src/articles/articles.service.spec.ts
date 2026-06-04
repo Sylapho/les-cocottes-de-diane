@@ -145,6 +145,8 @@ describe('ArticlesService', () => {
         stock: 0,
         online: true,
         description: undefined,
+        ingredients: undefined,
+        allergenes: undefined,
         imageUrl: undefined,
       },
     })

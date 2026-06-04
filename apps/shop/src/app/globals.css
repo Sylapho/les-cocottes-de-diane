@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #1a1a1a;
+  --background: #faf7f8;
+  --foreground: #181014;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -22,9 +26,19 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
 button:focus-visible,
+a:focus-visible,
 input:focus-visible,
 select:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(181, 0, 110, 0.18);
+}
+
+::selection {
+  background: #fceef6;
+  color: #5a0037;
 }

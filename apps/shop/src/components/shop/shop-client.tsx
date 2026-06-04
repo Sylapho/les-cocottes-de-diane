@@ -1,64 +1,144 @@
 'use client'
 
-import type { CreateCommandePayload, ShopArticle } from '@/lib/api'
+import type { ShopArticle } from '@/lib/api'
+import {
+  buildCartLines,
+  formatCurrency,
+  getCartCount,
+  readStoredCart,
+  writeStoredCart,
+  type Cart,
+} from '@/lib/cart'
 import { formatPickupPoint, pickupPoints } from '@/lib/pickup-points'
-import ArticleImage from './article-image'
-import { FormEvent, useMemo, useState } from 'react'
+import ProductInfoPopover from './product-info-popover'
 import Image from 'next/image'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 
 type ShopClientProps = {
   articles: ShopArticle[]
-  apiUrl: string
 }
 
-type Cart = Record<number, number>
+type ProductCategory =
+  | 'Bocaux'
+  | 'Découpes'
+  | 'Préparations'
+  | 'Brochettes'
+  | 'Œufs'
+  | 'Packs'
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value)
+type CategoryFilter = 'Toutes' | ProductCategory
+
+const productCategories: ProductCategory[] = [
+  'Bocaux',
+  'Découpes',
+  'Préparations',
+  'Brochettes',
+  'Œufs',
+  'Packs',
+]
+
+const categories: CategoryFilter[] = ['Toutes', ...productCategories]
+
+function getArticleCategory(article: ShopArticle): ProductCategory {
+  const text = `${article.nom} ${article.description ?? ''}`.toLowerCase()
+
+  if (text.includes('pack')) {
+    return 'Packs'
+  }
+
+  if (text.includes('œuf') || text.includes('oeuf')) {
+    return 'Œufs'
+  }
+
+  if (
+    text.includes('terrine') ||
+    text.includes('rillettes') ||
+    text.includes('mousse') ||
+    text.includes('gésiers') ||
+    text.includes('gesiers')
+  ) {
+    return 'Bocaux'
+  }
+
+  if (text.includes('brochette')) {
+    return 'Brochettes'
+  }
+
+  if (
+    text.includes('saucisse') ||
+    text.includes('merguez') ||
+    text.includes('paupiette') ||
+    text.includes('ballotine') ||
+    text.includes('cordon bleu') ||
+    text.includes('chicken') ||
+    text.includes('milanaise')
+  ) {
+    return 'Préparations'
+  }
+
+  return 'Découpes'
 }
 
-function todayInputValue() {
-  return new Date().toISOString().slice(0, 10)
+function getAvailabilityLabel(stock: number) {
+  if (stock <= 0) return 'Épuisé aujourd’hui'
+  if (stock <= 3) return `Plus que ${stock} disponible${stock > 1 ? 's' : ''}`
+
+  return null
 }
 
-export default function ShopClient({
-  articles,
-  apiUrl,
-}: ShopClientProps) {
+export default function ShopClient({ articles }: ShopClientProps) {
   const [cart, setCart] = useState<Cart>({})
+  const [cartReady, setCartReady] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [nom, setNom] = useState('')
-  const [email, setEmail] = useState('')
-  const [tel, setTel] = useState('')
-  const [lieu, setLieu] = useState(formatPickupPoint(pickupPoints[0]))
-  const [dateRetrait, setDateRetrait] = useState(todayInputValue())
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<CategoryFilter>('Toutes')
+  const [onlyAvailable, setOnlyAvailable] = useState(false)
 
-  const articlesById = useMemo(
-    () => new Map(articles.map((article) => [article.id, article])),
-    [articles],
-  )
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setCart(readStoredCart())
+      setCartReady(true)
+    }, 0)
 
-  const lines = Object.entries(cart)
-    .map(([articleId, quantite]) => {
-      const article = articlesById.get(Number(articleId))
+    return () => window.clearTimeout(handle)
+  }, [])
 
-      if (!article) return null
+  useEffect(() => {
+    if (!cartReady) return
 
-      return {
-        article,
-        quantite,
-        total: article.prix * quantite,
-      }
-    })
-    .filter((line): line is NonNullable<typeof line> => Boolean(line))
+    writeStoredCart(cart)
+  }, [cart, cartReady])
 
+  const lines = useMemo(() => buildCartLines(cart, articles), [cart, articles])
   const total = lines.reduce((sum, line) => sum + line.total, 0)
-  const count = lines.reduce((sum, line) => sum + line.quantite, 0)
+  const count = getCartCount(cart)
+
+  const filteredArticles = articles.filter((article) => {
+    const searchValue = search.trim().toLowerCase()
+
+    const matchesSearch = searchValue
+      ? `${article.nom} ${article.description ?? ''} ${article.ingredients ?? ''} ${article.allergenes ?? ''}`
+          .toLowerCase()
+          .includes(searchValue)
+      : true
+
+    const matchesCategory =
+      category === 'Toutes' ? true : getArticleCategory(article) === category
+
+    const matchesAvailability = onlyAvailable ? article.stock > 0 : true
+
+    return matchesSearch && matchesCategory && matchesAvailability
+  })
+
+  const groupedArticles = productCategories
+    .map((item) => ({
+      category: item,
+      articles: filteredArticles.filter(
+        (article) => getArticleCategory(article) === item,
+      ),
+    }))
+    .filter((group) => group.articles.length > 0)
 
   function updateCart(article: ShopArticle, delta: number) {
     setCart((current) => {
@@ -66,6 +146,7 @@ export default function ShopClient({
         0,
         Math.min(article.stock, (current[article.id] ?? 0) + delta),
       )
+
       const next = { ...current }
 
       if (nextQuantity === 0) {
@@ -78,309 +159,239 @@ export default function ShopClient({
     })
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setLoading(true)
-
-    if (lines.length === 0) {
-      setError('Votre panier est vide.')
-      setLoading(false)
-      return
-    }
-
-    try {
-      const payload: CreateCommandePayload = {
-        nom,
-        email,
-        tel: tel || undefined,
-        lieu,
-        dateRetrait,
-        lignes: lines.map((line) => ({
-          articleId: line.article.id,
-          quantite: line.quantite,
-        })),
-      }
-
-      const response = await fetch(`${apiUrl}/commandes/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const text = await response.text()
-        throw new Error(text || 'Impossible de préparer le paiement')
-      }
-
-      const checkout = (await response.json()) as {
-        url: string
-      }
-
-      window.location.assign(checkout.url)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-    } finally {
-      setLoading(false)
-    }
+  function removeFromCart(article: ShopArticle) {
+    setCart((current) => {
+      const next = { ...current }
+      delete next[article.id]
+      return next
+    })
   }
 
   return (
-    <main>
+    <main className="min-h-screen bg-[#faf7f8]">
       <Header count={count} onCartClick={() => setPanelOpen(true)} />
 
-      <section className="mx-auto max-w-5xl px-4 py-6">
-        <div className="mb-5 rounded-lg bg-[#fceef6] p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Image
-              src="/logo.svg"
-              alt="Les Cocottes de Diane"
-              width={96}
-              height={96}
-              className="h-24 w-24 rounded-full bg-white object-contain p-2 shadow-sm"
-            />
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-[#b5006e]">
-                Commande en ligne
-              </p>
-              <h1 className="mt-1 text-3xl font-bold">
-                Les Cocottes de Diane
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-                Choisissez vos produits, puis indiquez votre lieu et date de
-                retrait. Le paiement sécurisé se fait en ligne.
-              </p>
-            </div>
+      <section className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-14">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#b5006e]">
+            Commande locale premium
+          </p>
+
+          <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-[#181014] sm:text-5xl">
+            Des produits frais, prêts à retirer sans perdre de temps.
+          </h1>
+
+          <p className="mt-4 max-w-2xl text-base leading-7 text-[#4a3d43]">
+            Choisissez vos produits, sélectionnez votre créneau de retrait, puis
+            payez en ligne. Une expérience courte, élégante et pensée pour les
+            commandes alimentaires locales.
+          </p>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <a
+              href="#produits"
+              className="rounded-full bg-[#b5006e] px-6 py-3 text-center text-sm font-bold text-white shadow-sm transition hover:bg-[#8c0055]"
+            >
+              Commander maintenant
+            </a>
+
+            <a
+              href="#retrait"
+              className="rounded-full border border-[#e8e1e4] bg-white px-6 py-3 text-center text-sm font-bold text-[#5a0037] transition hover:border-[#b5006e]"
+            >
+              Voir les points de retrait
+            </a>
           </div>
-          <div className="mt-4 grid gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-            {pickupPoints.slice(0, 4).map((point) => (
-              <p
-                key={formatPickupPoint(point)}
-                className="rounded bg-white/70 px-3 py-2"
-              >
-                <span className="font-medium">{point.label}</span>
-                <br />
-                <span>{point.schedule}</span>
-              </p>
-            ))}
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {['Paiement sécurisé', 'Stocks en temps réel', 'Retrait local'].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-[#f0dbe6] bg-white/80 px-4 py-3 text-sm font-semibold text-[#4a3d43]"
+                >
+                  {item}
+                </div>
+              ),
+            )}
           </div>
         </div>
 
-        {articles.length === 0 ? (
-          <div className="rounded-lg border bg-white p-6 text-sm text-zinc-600">
-            Aucun article disponible pour le moment.
+        <div className="rounded-[2rem] bg-[#fceef6] p-5 shadow-sm lg:p-8">
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logo.svg"
+              alt="Les Cocottes de Diane"
+              width={112}
+              height={112}
+              className="h-28 w-28 rounded-full bg-white object-contain p-3 shadow-sm"
+            />
+
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-[#b5006e]">
+                Les Cocottes de Diane
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-[#181014]">
+                Boutique en ligne
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#4a3d43]">
+                Une sélection courte, lisible et mise à jour selon les stocks
+                disponibles.
+              </p>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section id="retrait" className="mx-auto max-w-6xl px-4 pb-4">
+        <div className="rounded-[1.5rem] border border-[#f0dbe6] bg-white p-5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wide text-[#b5006e]">
+                Retrait
+              </p>
+              <h2 className="text-2xl font-black text-[#181014]">
+                Choisissez votre point de retrait au paiement
+              </h2>
+            </div>
+
+            <p className="text-sm text-[#7a6d73]">
+              Marchés, ferme et AMAP selon disponibilité.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3 text-sm text-[#4a3d43] sm:grid-cols-2 lg:grid-cols-4">
+            {pickupPoints.slice(0, 4).map((point) => (
+              <div
+                key={formatPickupPoint(point)}
+                className="rounded-2xl bg-[#faf7f8] px-4 py-3"
+              >
+                <p className="font-bold text-[#181014]">{point.label}</p>
+                <p className="mt-1 text-[#7a6d73]">{point.schedule}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="produits" className="mx-auto max-w-6xl px-4 py-8">
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wide text-[#b5006e]">
+              Catalogue
+            </p>
+            <h2 className="text-3xl font-black text-[#181014]">
+              Produits disponibles
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-[#7a6d73]">
+              Filtrez rapidement, ajoutez au panier, puis finalisez votre retrait
+              sur une page dédiée.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row lg:min-w-[520px]">
+            <label className="sr-only" htmlFor="search">
+              Rechercher un produit
+            </label>
+
+            <input
+              id="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher un produit, un ingrédient, un allergène..."
+              className="min-h-11 flex-1 rounded-full border border-[#e8e1e4] bg-white px-4 text-sm shadow-sm"
+            />
+
+            <button
+              type="button"
+              onClick={() => setOnlyAvailable((value) => !value)}
+              className={`min-h-11 rounded-full border px-4 text-sm font-bold ${
+                onlyAvailable
+                  ? 'border-[#b5006e] bg-[#fceef6] text-[#8c0055]'
+                  : 'border-[#e8e1e4] bg-white text-[#4a3d43]'
+              }`}
+            >
+              En stock uniquement
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+          {categories.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setCategory(item)}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${
+                category === item
+                  ? 'bg-[#b5006e] text-white'
+                  : 'border border-[#e8e1e4] bg-white text-[#4a3d43] hover:border-[#b5006e]'
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        {articles.length === 0 ? (
+          <EmptyState message="Aucun article disponible pour le moment." />
+        ) : filteredArticles.length === 0 ? (
+          <EmptyState message="Aucun produit ne correspond à cette recherche." />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {articles.map((article) => {
-              const quantity = cart[article.id] ?? 0
-              const disabled = article.stock <= 0
+          <div className="grid gap-5">
+            {groupedArticles.map((group) => (
+              <section
+                key={group.category}
+                className="overflow-hidden rounded-[1.5rem] border border-[#eee2e7] bg-white shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-[#eee2e7] bg-[#fffafb] px-4 py-3">
+                  <h3 className="text-lg font-black text-[#181014]">
+                    {group.category}
+                  </h3>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#7a6d73]">
+                    {group.articles.length} produit
+                    {group.articles.length > 1 ? 's' : ''}
+                  </span>
+                </div>
 
-              return (
-                <article
-                  key={article.id}
-                  className="overflow-hidden rounded-lg border bg-white shadow-sm"
-                >
-                  <ArticleImage article={article} />
-                  <div className="grid gap-3 p-4">
-                    <div>
-                      <h2 className="font-semibold">{article.nom}</h2>
-                      {article.description ? (
-                        <p className="mt-1 line-clamp-2 text-sm text-zinc-600">
-                          {article.description}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-bold text-[#b5006e]">
-                          {formatCurrency(article.prix)}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {article.stock > 0
-                            ? `${article.stock} disponible(s)`
-                            : 'Épuisé'}
-                        </p>
-                      </div>
-
-                      {quantity === 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => updateCart(article, 1)}
-                          disabled={disabled}
-                          className="rounded bg-[#b5006e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
-                        >
-                          Ajouter
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateCart(article, -1)}
-                            className="grid h-8 w-8 place-items-center rounded-full border"
-                          >
-                            -
-                          </button>
-                          <span className="min-w-4 text-center font-semibold">
-                            {quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateCart(article, 1)}
-                            disabled={quantity >= article.stock}
-                            className="grid h-8 w-8 place-items-center rounded-full border disabled:opacity-40"
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              )
-            })}
+                <div className="divide-y divide-[#eee2e7]">
+                  {group.articles.map((article) => (
+                    <ProductRow
+                      key={article.id}
+                      article={article}
+                      quantity={cart[article.id] ?? 0}
+                      availabilityLabel={getAvailabilityLabel(article.stock)}
+                      onDecrease={() => updateCart(article, -1)}
+                      onIncrease={() => updateCart(article, 1)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </section>
 
+      {count > 0 ? (
+        <button
+          type="button"
+          onClick={() => setPanelOpen(true)}
+          className="fixed bottom-4 left-4 right-4 z-30 rounded-full bg-[#181014] px-5 py-3 text-sm font-bold text-white shadow-lg sm:hidden"
+        >
+          Voir le panier · {count} article{count > 1 ? 's' : ''} ·{' '}
+          {formatCurrency(total)}
+        </button>
+      ) : null}
+
       {panelOpen ? (
-        <div className="fixed inset-0 z-40">
-          <button
-            type="button"
-            aria-label="Fermer le panier"
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setPanelOpen(false)}
-          />
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b p-4">
-              <h2 className="text-lg font-semibold">Mon panier</h2>
-              <button
-                type="button"
-                onClick={() => setPanelOpen(false)}
-                className="rounded border px-3 py-1"
-              >
-                Fermer
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4">
-              {lines.length === 0 ? (
-                <p className="text-sm text-zinc-600">Votre panier est vide.</p>
-              ) : (
-                <ul className="grid gap-3">
-                  {lines.map((line) => (
-                    <li
-                      key={line.article.id}
-                      className="flex items-center justify-between gap-3 border-b pb-3"
-                    >
-                      <div>
-                        <p className="font-medium">{line.article.nom}</p>
-                        <p className="text-sm text-zinc-600">
-                          {line.quantite} x {formatCurrency(line.article.prix)}
-                        </p>
-                      </div>
-                      <p className="font-semibold">
-                        {formatCurrency(line.total)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <form onSubmit={handleSubmit} className="grid gap-3 border-t p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-600">Total TTC</span>
-                <strong className="text-xl">{formatCurrency(total)}</strong>
-              </div>
-
-              <div className="grid gap-1">
-                <label htmlFor="nom">Nom / Prénom *</label>
-                <input
-                  id="nom"
-                  value={nom}
-                  onChange={(event) => setNom(event.target.value)}
-                  className="rounded border px-3 py-2"
-                  required
-                />
-              </div>
-
-              <div className="grid gap-1">
-                <label htmlFor="email">Email *</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="rounded border px-3 py-2"
-                  required
-                />
-              </div>
-
-              <div className="grid gap-1">
-                <label htmlFor="tel">Téléphone</label>
-                <input
-                  id="tel"
-                  type="tel"
-                  value={tel}
-                  onChange={(event) => setTel(event.target.value)}
-                  className="rounded border px-3 py-2"
-                />
-              </div>
-
-              <div className="grid gap-1">
-                <label htmlFor="lieu">Lieu de retrait *</label>
-                <select
-                  id="lieu"
-                  value={lieu}
-                  onChange={(event) => setLieu(event.target.value)}
-                  className="rounded border px-3 py-2"
-                >
-                  {pickupPoints.map((point) => {
-                    const value = formatPickupPoint(point)
-
-                    return (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    )
-                  })}
-                </select>
-              </div>
-
-              <div className="grid gap-1">
-                <label htmlFor="dateRetrait">Date souhaitée *</label>
-                <input
-                  id="dateRetrait"
-                  type="date"
-                  min={todayInputValue()}
-                  value={dateRetrait}
-                  onChange={(event) => setDateRetrait(event.target.value)}
-                  className="rounded border px-3 py-2"
-                  required
-                />
-              </div>
-
-              <p className="rounded bg-[#fceef6] p-3 text-xs text-[#8c0055]">
-                Vos informations sont utilisées uniquement pour traiter cette
-                commande.
-              </p>
-
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-              <button
-                type="submit"
-                disabled={loading || lines.length === 0}
-                className="rounded bg-[#b5006e] px-4 py-3 font-semibold text-white disabled:opacity-40"
-              >
-                {loading ? 'Préparation du paiement...' : 'Payer ma commande'}
-              </button>
-            </form>
-          </aside>
-        </div>
+        <CartDrawer
+          lines={lines}
+          total={total}
+          onClose={() => setPanelOpen(false)}
+          onDecrease={(article) => updateCart(article, -1)}
+          onIncrease={(article) => updateCart(article, 1)}
+          onRemove={removeFromCart}
+        />
       ) : null}
     </main>
   )
@@ -394,9 +405,9 @@ function Header({
   onCartClick: () => void
 }) {
   return (
-    <header className="sticky top-0 z-30 bg-[#b5006e] text-white">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#5a0037] text-white shadow-sm">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <Link href="/" className="flex items-center gap-3">
           <Image
             src="/logo.svg"
             alt=""
@@ -405,21 +416,312 @@ function Header({
             className="h-12 w-12 rounded-full bg-white object-contain p-1"
             aria-hidden="true"
           />
+
           <div>
-            <p className="font-bold">
+            <p className="font-black leading-tight">
               Les Cocottes de <span className="text-[#fde68a]">Diane</span>
             </p>
             <p className="text-xs text-white/70">Commande en ligne</p>
           </div>
-        </div>
+        </Link>
+
+        <nav className="hidden items-center gap-5 text-sm font-semibold text-white/80 md:flex">
+          <a href="#produits" className="hover:text-white">
+            Boutique
+          </a>
+          <a href="#retrait" className="hover:text-white">
+            Retrait
+          </a>
+          <Link href="/compte" className="hover:text-white">
+            Compte
+          </Link>
+        </nav>
+
         <button
           type="button"
           onClick={onCartClick}
-          className="rounded border border-white/30 bg-white/15 px-3 py-2 text-sm font-semibold"
+          className="rounded-full border border-white/25 bg-white/15 px-4 py-2 text-sm font-bold transition hover:bg-white/25"
         >
           Panier ({count})
         </button>
       </div>
     </header>
+  )
+}
+
+function ProductRow({
+  article,
+  quantity,
+  availabilityLabel,
+  onDecrease,
+  onIncrease,
+}: {
+  article: ShopArticle
+  quantity: number
+  availabilityLabel: string | null
+  onDecrease: () => void
+  onIncrease: () => void
+}) {
+  const disabled = article.stock <= 0
+
+  return (
+    <article className="grid grid-cols-[4.5rem_1fr] gap-3 p-3 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center sm:p-4">
+      <ProductThumbnail article={article} />
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="text-base font-black text-[#181014]">{article.nom}</h4>
+
+          {article.allergenes ? (
+            <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
+              Allergènes
+            </span>
+          ) : null}
+        </div>
+
+        {article.description ? (
+          <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#7a6d73]">
+            {article.description}
+          </p>
+        ) : null}
+
+        <div className="mt-2 max-w-2xl">
+          <ProductInfoPopover
+            ingredients={article.ingredients}
+            allergenes={article.allergenes}
+          />
+        </div>
+      </div>
+
+      <div className="col-span-2 flex items-end justify-between gap-3 sm:col-span-1 sm:flex-col sm:items-end">
+        <div className="sm:text-right">
+          <p className="text-lg font-black text-[#b5006e]">
+            {formatCurrency(article.prix)}
+          </p>
+
+          {availabilityLabel ? (
+            <p
+              className={`text-xs font-semibold ${
+                article.stock <= 0 ? 'text-red-600' : 'text-amber-700'
+              }`}
+            >
+              {availabilityLabel}
+            </p>
+          ) : null}
+        </div>
+
+        {quantity === 0 ? (
+          <button
+            type="button"
+            onClick={onIncrease}
+            disabled={disabled}
+            className="rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#8c0055] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Ajouter
+          </button>
+        ) : (
+          <QuantityStepper
+            quantity={quantity}
+            max={article.stock}
+            onDecrease={onDecrease}
+            onIncrease={onIncrease}
+          />
+        )}
+      </div>
+    </article>
+  )
+}
+
+function ProductThumbnail({ article }: { article: ShopArticle }) {
+  if (article.imageUrl) {
+    return (
+      <div className="relative h-[4.5rem] w-[4.5rem] overflow-hidden rounded-2xl bg-[#fceef6]">
+        <Image
+          src={article.imageUrl}
+          alt={article.nom}
+          fill
+          sizes="72px"
+          className="object-cover"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-2xl bg-[#fceef6] text-lg font-black uppercase text-[#b5006e]">
+      {article.nom.slice(0, 2)}
+    </div>
+  )
+}
+
+function QuantityStepper({
+  quantity,
+  max,
+  onDecrease,
+  onIncrease,
+}: {
+  quantity: number
+  max: number
+  onDecrease: () => void
+  onIncrease: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-[#e8e1e4] bg-white p-1">
+      <button
+        type="button"
+        onClick={onDecrease}
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold"
+        aria-label="Retirer un produit"
+      >
+        -
+      </button>
+
+      <span className="min-w-5 text-center text-sm font-black">{quantity}</span>
+
+      <button
+        type="button"
+        onClick={onIncrease}
+        disabled={quantity >= max}
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Ajouter un produit"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
+function CartDrawer({
+  lines,
+  total,
+  onClose,
+  onDecrease,
+  onIncrease,
+  onRemove,
+}: {
+  lines: {
+    article: ShopArticle
+    quantite: number
+    total: number
+  }[]
+  total: number
+  onClose: () => void
+  onDecrease: (article: ShopArticle) => void
+  onIncrease: (article: ShopArticle) => void
+  onRemove: (article: ShopArticle) => void
+}) {
+  return (
+    <div className="fixed inset-0 z-40">
+      <button
+        type="button"
+        aria-label="Fermer le panier"
+        className="absolute inset-0 bg-black/45"
+        onClick={onClose}
+      />
+
+      <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-[#eee2e7] p-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#b5006e]">
+              Panier
+            </p>
+            <h2 className="text-xl font-black text-[#181014]">Votre commande</h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-[#e8e1e4] px-4 py-2 text-sm font-bold text-[#4a3d43]"
+          >
+            Fermer
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {lines.length === 0 ? (
+            <div className="rounded-2xl bg-[#faf7f8] p-5 text-sm text-[#7a6d73]">
+              Votre panier est vide. Ajoutez un produit pour commencer votre
+              commande.
+            </div>
+          ) : (
+            <ul className="grid gap-3">
+              {lines.map((line) => (
+                <li
+                  key={line.article.id}
+                  className="grid gap-3 rounded-2xl border border-[#eee2e7] p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-[#181014]">
+                        {line.article.nom}
+                      </p>
+                      <p className="text-sm text-[#7a6d73]">
+                        {line.quantite} x {formatCurrency(line.article.prix)}
+                      </p>
+                    </div>
+
+                    <p className="font-black text-[#b5006e]">
+                      {formatCurrency(line.total)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <QuantityStepper
+                      quantity={line.quantite}
+                      max={line.article.stock}
+                      onDecrease={() => onDecrease(line.article)}
+                      onIncrease={() => onIncrease(line.article)}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => onRemove(line.article)}
+                      className="text-sm font-bold text-red-600"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="grid gap-4 border-t border-[#eee2e7] p-4">
+          <div className="rounded-2xl bg-[#fceef6] p-3 text-xs leading-5 text-[#8c0055]">
+            Le choix du point de retrait, la date et vos informations client se
+            font à l’étape suivante.
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#7a6d73]">
+              Total TTC
+            </span>
+            <strong className="text-2xl text-[#181014]">
+              {formatCurrency(total)}
+            </strong>
+          </div>
+
+          <Link
+            href="/checkout"
+            className={`rounded-full px-4 py-3 text-center font-black text-white ${
+              lines.length === 0
+                ? 'pointer-events-none bg-[#181014]/30'
+                : 'bg-[#b5006e] hover:bg-[#8c0055]'
+            }`}
+          >
+            Continuer vers le paiement
+          </Link>
+        </div>
+      </aside>
+    </div>
+  )
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-[1.5rem] border border-[#eee2e7] bg-white p-8 text-center text-sm text-[#7a6d73]">
+      {message}
+    </div>
   )
 }

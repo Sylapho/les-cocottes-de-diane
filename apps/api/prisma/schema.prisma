@@ -22,6 +22,8 @@ model Article {
   emoji           String           @default("🥖")
   imageUrl        String?
   description     String?
+  ingredients     String?
+  allergenes      String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   nomen           Nomenclature[]

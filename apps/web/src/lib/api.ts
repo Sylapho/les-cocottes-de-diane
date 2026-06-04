@@ -33,6 +33,8 @@ export type Article = {
   online: boolean
   imageUrl?: string | null
   description?: string | null
+  ingredients?: string | null
+  allergenes?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -44,6 +46,8 @@ export type ArticlePayload = {
   online?: boolean
   imageUrl?: string | null
   description?: string
+  ingredients?: string | null
+  allergenes?: string | null
   tva?: number
 }
 
