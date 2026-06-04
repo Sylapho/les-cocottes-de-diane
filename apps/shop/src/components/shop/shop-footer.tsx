@@ -11,20 +11,21 @@ const legalLinks = [
 export default function ShopFooter() {
   return (
     <footer className="border-t border-[#eee2e7] bg-white">
-      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-7 text-sm text-[#7a6d73] sm:grid-cols-[1fr_auto] sm:items-start">
-        <div>
-          <p className="font-black text-[#181014]">
-            Les Cocottes de Diane - Commande en ligne
-          </p>
-          <p className="mt-1 max-w-xl leading-6">
-            Boutique alimentaire en Click & Collect. Les commandes sont à retirer
-            au point choisi lors du paiement, sans livraison à domicile.
-          </p>
-        </div>
+      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-xs text-[#7a6d73] sm:flex-row sm:items-center sm:justify-between">
+        <p className="font-semibold text-[#181014]">
+          © {new Date().getFullYear()} Les Cocottes de Diane
+        </p>
 
-        <nav aria-label="Liens légaux" className="flex flex-wrap gap-3 sm:max-w-sm sm:justify-end">
+        <nav
+          aria-label="Liens légaux"
+          className="flex flex-wrap gap-x-3 gap-y-1"
+        >
           {legalLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="font-bold hover:text-[#b5006e]">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="font-semibold hover:text-[#b5006e]"
+            >
               {link.label}
             </Link>
           ))}
