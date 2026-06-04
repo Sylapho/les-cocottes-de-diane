@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import type { CreateCommandePayload, ShopArticle } from '@/lib/api'
 import { formatPickupPoint, pickupPoints } from '@/lib/pickup-points'
@@ -14,6 +14,7 @@ type ShopClientProps = {
 type Cart = Record<number, number>
 
 type SortMode = 'recommended' | 'price-asc' | 'price-desc'
+const maxCartQuantity = 99
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('fr-FR', {
@@ -101,7 +102,7 @@ export default function ShopClientPremium({
     setCart((current) => {
       const nextQuantity = Math.max(
         0,
-        Math.min(article.stock, (current[article.id] ?? 0) + delta),
+        Math.min(maxCartQuantity, (current[article.id] ?? 0) + delta),
       )
       const next = { ...current }
 
@@ -349,7 +350,6 @@ export default function ShopClientPremium({
             <div className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {filteredArticles.map((article, index) => {
                 const quantity = cart[article.id] ?? 0
-                const disabled = article.stock <= 0
                 const featured = index === 0
 
                 return (
@@ -363,10 +363,6 @@ export default function ShopClientPremium({
                   >
                     <div className="relative">
                       <ArticleImage article={article} />
-
-                      <div className="absolute left-4 top-4">
-                        <AvailabilityBadge available={article.stock > 0} />
-                      </div>
 
                       {featured ? (
                         <div className="absolute bottom-4 left-4 rounded-full bg-stone-950/80 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
@@ -408,10 +404,9 @@ export default function ShopClientPremium({
                           <button
                             type="button"
                             onClick={() => updateCart(article, 1)}
-                            disabled={disabled}
                             className="h-12 rounded-full bg-rose-900 px-5 text-sm font-semibold text-white transition hover:bg-stone-950 disabled:bg-stone-200 disabled:text-stone-500"
                           >
-                            {disabled ? 'Indisponible' : 'Ajouter au panier'}
+                            Ajouter au panier
                           </button>
                         ) : (
                           <div className="flex h-12 items-center justify-between rounded-full border border-rose-100 bg-rose-50 px-2">
@@ -436,7 +431,7 @@ export default function ShopClientPremium({
                             <button
                               type="button"
                               onClick={() => updateCart(article, 1)}
-                              disabled={quantity >= article.stock}
+                            disabled={quantity >= maxCartQuantity}
                               className="grid h-9 w-9 place-items-center rounded-full bg-white font-semibold text-rose-800 shadow-sm disabled:opacity-40"
                               aria-label={`Ajouter ${article.nom}`}
                             >
@@ -552,22 +547,6 @@ function PremiumStat({ label, value }: { label: string; value: string }) {
         {value}
       </p>
     </div>
-  )
-}
-
-function AvailabilityBadge({ available }: { available: boolean }) {
-  if (!available) {
-    return (
-      <span className="rounded-full bg-stone-950/85 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-        Indisponible
-      </span>
-    )
-  }
-
-  return (
-    <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-stone-900 shadow-sm backdrop-blur">
-      Disponible
-    </span>
   )
 }
 
@@ -711,7 +690,7 @@ function CartPanel({
                         <button
                           type="button"
                           onClick={() => onUpdateCart(line.article, 1)}
-                          disabled={line.quantite >= line.article.stock}
+                          disabled={line.quantite >= maxCartQuantity}
                           className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 bg-white font-semibold text-rose-800 disabled:opacity-40"
                           aria-label={`Ajouter ${line.article.nom}`}
                         >

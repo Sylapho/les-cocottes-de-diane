@@ -26,6 +26,33 @@ type CheckoutClientProps = {
   apiUrl: string
 }
 
+type CheckoutError = {
+  title: string
+  message: string
+  details?: string[]
+  actionHref?: string
+  actionLabel?: string
+}
+
+type StockIssue = {
+  nom?: string
+  requested?: number
+  sellableStock?: number
+}
+
+type ApiErrorPayload = {
+  statusCode?: number
+  message?:
+    | string
+    | string[]
+    | {
+        message?: string
+        insufficientStock?: StockIssue[]
+      }
+  error?: string
+  insufficientStock?: StockIssue[]
+}
+
 const inputClassName =
   'min-h-12 rounded-2xl border border-[#e8e1e4] bg-white px-4 text-sm text-[#181014] shadow-sm outline-none transition focus:border-[#b5006e] focus:ring-4 focus:ring-[#fceef6]'
 
@@ -46,7 +73,7 @@ export default function CheckoutClient({
   )
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<CheckoutError | null>(null)
 
   const lines = useMemo(() => buildCartLines(cart, articles), [cart, articles])
   const total = lines.reduce((sum, line) => sum + line.total, 0)
@@ -81,15 +108,24 @@ export default function CheckoutClient({
 
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    setError('')
+    setError(null)
 
     if (lines.length === 0) {
-      setError('Votre panier est vide.')
+      setError({
+        title: 'Panier vide',
+        message: 'Ajoutez au moins un produit avant de passer au paiement.',
+        actionHref: '/#produits',
+        actionLabel: 'Voir les produits',
+      })
       return
     }
 
     if (!pickupDateOptions.includes(selectedDateRetrait)) {
-      setError('La date choisie ne correspond pas au lieu de retrait.')
+      setError({
+        title: 'Date de retrait invalide',
+        message:
+          'La date choisie ne correspond pas au lieu de retrait sélectionné.',
+      })
       return
     }
 
@@ -117,8 +153,8 @@ export default function CheckoutClient({
       })
 
       if (!response.ok) {
-        const text = await response.text()
-        throw new Error(text || 'Impossible de préparer le paiement')
+        setError(await readCheckoutError(response))
+        return
       }
 
       const checkout = (await response.json()) as {
@@ -128,7 +164,7 @@ export default function CheckoutClient({
       clearStoredCart()
       window.location.assign(checkout.url)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setError(getNetworkCheckoutError(err))
     } finally {
       setLoading(false)
     }
@@ -340,11 +376,7 @@ export default function CheckoutClient({
                 </p>
               </section>
 
-              {error ? (
-                <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">
-                  {error}
-                </p>
-              ) : null}
+              {error ? <CheckoutErrorNotice error={error} /> : null}
             </form>
 
             <aside className="rounded-[1.5rem] border border-[#eee2e7] bg-white p-5 shadow-sm lg:sticky lg:top-24">
@@ -442,6 +474,262 @@ export default function CheckoutClient({
         )}
       </div>
     </main>
+  )
+}
+
+async function readCheckoutError(response: Response): Promise<CheckoutError> {
+  const payload = await readApiErrorPayload(response)
+  const stockIssues = extractStockIssues(payload)
+
+  if (stockIssues.length > 0) {
+    return {
+      title: 'Stock insuffisant',
+      message:
+        'Certains produits ne sont plus disponibles dans les quantités demandées.',
+      details: stockIssues.map(formatStockIssue),
+      actionHref: '/#produits',
+      actionLabel: 'Ajuster mon panier',
+    }
+  }
+
+  if (response.status === 429) {
+    return {
+      title: 'Trop de tentatives',
+      message:
+        'Veuillez patienter un instant avant de relancer la préparation du paiement.',
+    }
+  }
+
+  if (response.status >= 500) {
+    return {
+      title: 'Paiement indisponible',
+      message:
+        'Le paiement est temporairement indisponible. Réessayez dans quelques minutes.',
+    }
+  }
+
+  const messages = extractApiMessages(payload)
+  const normalizedMessage = messages.join(' ').toLowerCase()
+
+  if (normalizedMessage.includes('stripe')) {
+    return {
+      title: 'Paiement indisponible',
+      message:
+        'Le paiement ne peut pas être préparé pour le moment. Réessayez dans quelques minutes.',
+    }
+  }
+
+  if (normalizedMessage.includes('lieu de retrait')) {
+    return {
+      title: 'Point de retrait invalide',
+      message:
+        'Le point de retrait sélectionné n’est plus valide. Choisissez un autre retrait puis réessayez.',
+    }
+  }
+
+  if (normalizedMessage.includes('date de retrait')) {
+    return {
+      title: 'Date de retrait invalide',
+      message:
+        'La date de retrait ne correspond plus au point choisi. Sélectionnez une autre date.',
+    }
+  }
+
+  if (
+    normalizedMessage.includes('introuvable') ||
+    normalizedMessage.includes('indisponible')
+  ) {
+    return {
+      title: 'Panier à mettre à jour',
+      message:
+        'Un produit de votre panier n’est plus disponible à la commande.',
+      actionHref: '/#produits',
+      actionLabel: 'Modifier mon panier',
+    }
+  }
+
+  if (messages.length > 0) {
+    return {
+      title: 'Informations à corriger',
+      message: 'Vérifiez les champs du formulaire avant de continuer.',
+      details: unique(messages.map(formatValidationMessage)),
+    }
+  }
+
+  return {
+    title: 'Paiement impossible',
+    message:
+      'La commande n’a pas pu être préparée. Vérifiez votre panier puis réessayez.',
+  }
+}
+
+async function readApiErrorPayload(
+  response: Response,
+): Promise<ApiErrorPayload | null> {
+  const contentType = response.headers.get('content-type') ?? ''
+
+  try {
+    if (contentType.includes('application/json')) {
+      return (await response.json()) as ApiErrorPayload
+    }
+
+    const text = await response.text()
+
+    if (!text) {
+      return null
+    }
+
+    try {
+      return JSON.parse(text) as ApiErrorPayload
+    } catch {
+      return { message: text }
+    }
+  } catch {
+    return null
+  }
+}
+
+function extractStockIssues(payload: ApiErrorPayload | null): StockIssue[] {
+  if (!payload) {
+    return []
+  }
+
+  if (Array.isArray(payload.insufficientStock)) {
+    return payload.insufficientStock
+  }
+
+  if (
+    payload.message &&
+    typeof payload.message === 'object' &&
+    !Array.isArray(payload.message) &&
+    Array.isArray(payload.message.insufficientStock)
+  ) {
+    return payload.message.insufficientStock
+  }
+
+  return []
+}
+
+function extractApiMessages(payload: ApiErrorPayload | null): string[] {
+  if (!payload) {
+    return []
+  }
+
+  if (Array.isArray(payload.message)) {
+    return payload.message
+  }
+
+  if (typeof payload.message === 'string') {
+    return [payload.message]
+  }
+
+  if (
+    payload.message &&
+    typeof payload.message === 'object' &&
+    typeof payload.message.message === 'string'
+  ) {
+    return [payload.message.message]
+  }
+
+  return typeof payload.error === 'string' ? [payload.error] : []
+}
+
+function formatStockIssue(issue: StockIssue) {
+  const name = issue.nom ?? 'Produit'
+  const requested = issue.requested ?? 0
+  const available = Math.max(0, issue.sellableStock ?? 0)
+
+  if (requested > 0) {
+    return `${name} : ${requested} demandé${requested > 1 ? 's' : ''}, ${available} disponible${available > 1 ? 's' : ''}`
+  }
+
+  return `${name} : ${available} disponible${available > 1 ? 's' : ''}`
+}
+
+function formatValidationMessage(message: string) {
+  const normalizedMessage = message.toLowerCase()
+
+  if (normalizedMessage.includes('email')) {
+    return 'L’adresse email n’est pas valide.'
+  }
+
+  if (normalizedMessage.includes('nom')) {
+    return 'Le nom est obligatoire et doit rester raisonnablement court.'
+  }
+
+  if (normalizedMessage.includes('tel')) {
+    return 'Le téléphone contient des caractères non autorisés.'
+  }
+
+  if (normalizedMessage.includes('dateretrait')) {
+    return 'La date de retrait est invalide.'
+  }
+
+  if (normalizedMessage.includes('lieu')) {
+    return 'Le point de retrait est invalide.'
+  }
+
+  if (normalizedMessage.includes('quantite')) {
+    return 'Une quantité du panier est invalide.'
+  }
+
+  if (normalizedMessage.includes('lignes')) {
+    return 'Le panier contient une ligne invalide.'
+  }
+
+  return 'Une information du formulaire est invalide.'
+}
+
+function getNetworkCheckoutError(error: unknown): CheckoutError {
+  if (error instanceof TypeError) {
+    return {
+      title: 'Connexion impossible',
+      message:
+        'Impossible de joindre le service de commande. Vérifiez votre connexion puis réessayez.',
+    }
+  }
+
+  return {
+    title: 'Paiement impossible',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'La commande n’a pas pu être préparée. Réessayez dans quelques instants.',
+  }
+}
+
+function unique(values: string[]) {
+  return Array.from(new Set(values))
+}
+
+function CheckoutErrorNotice({ error }: { error: CheckoutError }) {
+  return (
+    <div
+      role="alert"
+      className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+    >
+      <p className="font-black text-red-900">{error.title}</p>
+      <p className="mt-1 leading-6">{error.message}</p>
+
+      {error.details?.length ? (
+        <ul className="mt-3 grid gap-1.5 pl-4">
+          {error.details.map((detail) => (
+            <li key={detail} className="list-disc">
+              {detail}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {error.actionHref && error.actionLabel ? (
+        <Link
+          href={error.actionHref}
+          className="mt-4 inline-flex rounded-full bg-red-700 px-4 py-2 text-xs font-black text-white transition hover:bg-red-800"
+        >
+          {error.actionLabel}
+        </Link>
+      ) : null}
+    </div>
   )
 }
 

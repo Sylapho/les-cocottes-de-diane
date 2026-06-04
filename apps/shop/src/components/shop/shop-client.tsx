@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import type { ShopArticle } from '@/lib/api'
 import {
@@ -39,6 +39,7 @@ const productCategories: ProductCategory[] = [
 ]
 
 const categories: CategoryFilter[] = ['Toutes', ...productCategories]
+const maxCartQuantity = 99
 
 function getArticleCategory(article: ShopArticle): ProductCategory {
   const text = `${article.nom} ${article.description ?? ''}`.toLowerCase()
@@ -80,13 +81,6 @@ function getArticleCategory(article: ShopArticle): ProductCategory {
   return 'Découpes'
 }
 
-function getAvailabilityLabel(stock: number) {
-  if (stock <= 0) return 'Épuisé aujourd’hui'
-  if (stock <= 3) return `Plus que ${stock} disponible${stock > 1 ? 's' : ''}`
-
-  return null
-}
-
 export default function ShopClient({ articles }: ShopClientProps) {
   const [cart, setCart] = useState<Cart>({})
   const [cartReady, setCartReady] = useState(false)
@@ -94,6 +88,9 @@ export default function ShopClient({ articles }: ShopClientProps) {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<CategoryFilter>('Toutes')
   const [onlyAvailable, setOnlyAvailable] = useState(false)
+  const [openCategories, setOpenCategories] = useState<
+    Partial<Record<ProductCategory, boolean>>
+  >({})
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -140,11 +137,24 @@ export default function ShopClient({ articles }: ShopClientProps) {
     }))
     .filter((group) => group.articles.length > 0)
 
+  function isCategoryOpen(categoryName: ProductCategory, index: number) {
+    return openCategories[categoryName] ?? index === 0
+  }
+
+  function toggleCategory(categoryName: ProductCategory, index: number) {
+    const currentlyOpen = isCategoryOpen(categoryName, index)
+
+    setOpenCategories((currentCategories) => ({
+      ...currentCategories,
+      [categoryName]: !currentlyOpen,
+    }))
+  }
+
   function updateCart(article: ShopArticle, delta: number) {
     setCart((current) => {
       const nextQuantity = Math.max(
         0,
-        Math.min(article.stock, (current[article.id] ?? 0) + delta),
+        Math.min(maxCartQuantity, (current[article.id] ?? 0) + delta),
       )
 
       const next = { ...current }
@@ -339,35 +349,56 @@ export default function ShopClient({ articles }: ShopClientProps) {
           <EmptyState message="Aucun produit ne correspond à cette recherche." />
         ) : (
           <div className="grid gap-5">
-            {groupedArticles.map((group) => (
-              <section
-                key={group.category}
-                className="overflow-hidden rounded-[1.5rem] border border-[#eee2e7] bg-white shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-3 border-b border-[#eee2e7] bg-[#fffafb] px-4 py-3">
-                  <h3 className="text-lg font-black text-[#181014]">
-                    {group.category}
-                  </h3>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#7a6d73]">
-                    {group.articles.length} produit
-                    {group.articles.length > 1 ? 's' : ''}
-                  </span>
-                </div>
+            {groupedArticles.map((group, index) => {
+              const isOpen = isCategoryOpen(group.category, index)
 
-                <div className="divide-y divide-[#eee2e7]">
-                  {group.articles.map((article) => (
-                    <ProductRow
-                      key={article.id}
-                      article={article}
-                      quantity={cart[article.id] ?? 0}
-                      availabilityLabel={getAvailabilityLabel(article.stock)}
-                      onDecrease={() => updateCart(article, -1)}
-                      onIncrease={() => updateCart(article, 1)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
+              return (
+                <section
+                  key={group.category}
+                  className="overflow-hidden rounded-[1.5rem] border border-[#eee2e7] bg-white shadow-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(group.category, index)}
+                    className="flex w-full items-center justify-between gap-3 border-b border-[#eee2e7] bg-[#fffafb] px-4 py-3 text-left transition hover:bg-[#fceef6]"
+                    aria-expanded={isOpen}
+                  >
+                    <div>
+                      <h3 className="text-lg font-black text-[#181014]">
+                        {group.category}
+                      </h3>
+                      <p className="mt-0.5 text-xs font-semibold text-[#7a6d73]">
+                        {group.articles.length} produit
+                        {group.articles.length > 1 ? 's' : ''}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lg font-black text-[#5a0037] transition ${
+                        isOpen ? 'rotate-180' : ''
+                      }`}
+                      aria-hidden="true"
+                    >
+                      ⌄
+                    </span>
+                  </button>
+
+                  {isOpen ? (
+                    <div className="divide-y divide-[#eee2e7]">
+                      {group.articles.map((article) => (
+                        <ProductRow
+                          key={article.id}
+                          article={article}
+                          quantity={cart[article.id] ?? 0}
+                          onDecrease={() => updateCart(article, -1)}
+                          onIncrease={() => updateCart(article, 1)}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              )
+            })}
           </div>
         )}
       </section>
@@ -452,18 +483,14 @@ function Header({
 function ProductRow({
   article,
   quantity,
-  availabilityLabel,
   onDecrease,
   onIncrease,
 }: {
   article: ShopArticle
   quantity: number
-  availabilityLabel: string | null
   onDecrease: () => void
   onIncrease: () => void
 }) {
-  const disabled = article.stock <= 0
-
   return (
     <article className="grid grid-cols-[4.5rem_1fr] gap-3 p-3 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center sm:p-4">
       <ProductThumbnail article={article} />
@@ -499,30 +526,19 @@ function ProductRow({
             {formatCurrency(article.prix)}
           </p>
 
-          {availabilityLabel ? (
-            <p
-              className={`text-xs font-semibold ${
-                article.stock <= 0 ? 'text-red-600' : 'text-amber-700'
-              }`}
-            >
-              {availabilityLabel}
-            </p>
-          ) : null}
         </div>
 
         {quantity === 0 ? (
           <button
             type="button"
             onClick={onIncrease}
-            disabled={disabled}
-            className="rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#8c0055] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#8c0055]"
           >
             Ajouter
           </button>
         ) : (
           <QuantityStepper
             quantity={quantity}
-            max={article.stock}
             onDecrease={onDecrease}
             onIncrease={onIncrease}
           />
@@ -556,12 +572,10 @@ function ProductThumbnail({ article }: { article: ShopArticle }) {
 
 function QuantityStepper({
   quantity,
-  max,
   onDecrease,
   onIncrease,
 }: {
   quantity: number
-  max: number
   onDecrease: () => void
   onIncrease: () => void
 }) {
@@ -581,8 +595,8 @@ function QuantityStepper({
       <button
         type="button"
         onClick={onIncrease}
-        disabled={quantity >= max}
-        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={quantity >= maxCartQuantity}
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold"
         aria-label="Ajouter un produit"
       >
         +
@@ -668,7 +682,6 @@ function CartDrawer({
                   <div className="flex items-center justify-between gap-3">
                     <QuantityStepper
                       quantity={line.quantite}
-                      max={line.article.stock}
                       onDecrease={() => onDecrease(line.article)}
                       onIncrease={() => onIncrease(line.article)}
                     />

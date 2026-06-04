@@ -47,7 +47,7 @@ type MouvementStockTransaction = {
     }) => Promise<{ id: number; stock: number }>
     update: (args: {
       where: { id: number }
-      data: { stock: { decrement: number } | number }
+      data: { stock: { decrement: number } | { increment: number } | number }
     }) => Promise<{ id: number; stock: number }>
   }
   matierePremiere: {
@@ -56,7 +56,7 @@ type MouvementStockTransaction = {
     }) => Promise<{ id: number; stock: number }>
     update: (args: {
       where: { id: number }
-      data: { stock: { decrement: number } | number }
+      data: { stock: { decrement: number } | { increment: number } | number }
     }) => Promise<{ id: number; stock: number }>
   }
   mouvementStock: {
