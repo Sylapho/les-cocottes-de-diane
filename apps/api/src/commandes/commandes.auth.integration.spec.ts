@@ -42,7 +42,8 @@ describe('Commandes admin auth integration', () => {
 
     configServiceMock.get.mockImplementation((key: string) => {
       const values: Record<string, string> = {
-        DATABASE_URL: 'postgresql://localco:localco@localhost:5432/localco_test',
+        DATABASE_URL:
+          'postgresql://localco:localco@localhost:5432/localco_test',
       }
 
       return values[key]
@@ -101,9 +102,12 @@ describe('Commandes admin auth integration', () => {
       .set('Cookie', 'better-auth.session_token=invalid')
       .expect(401)
 
-    expect(mockBetterAuthGetSession).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
-    })
+    const getSessionCalls = mockBetterAuthGetSession.mock.calls as Array<
+      [{ headers?: unknown }]
+    >
+    const sessionRequest = getSessionCalls[0]?.[0]
+
+    expect(sessionRequest?.headers).toBeInstanceOf(Headers)
     expect(commandesServiceMock.findAll).not.toHaveBeenCalled()
   })
 
@@ -123,37 +127,35 @@ describe('Commandes admin auth integration', () => {
     expect(commandesServiceMock.findAll).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ROLES.GERANT,
-    ROLES.VENDEUR,
-    ROLES.PRODUCTION,
-    ROLES.COMPTABLE,
-  ])('GET /api/commandes should allow role %s', async (role) => {
-    const commandes = [
-      {
-        id: 1,
-        statut: 'nouvelle',
-        lignes: [],
-      },
-    ]
+  it.each([ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE])(
+    'GET /api/commandes should allow role %s',
+    async (role) => {
+      const commandes = [
+        {
+          id: 1,
+          statut: 'nouvelle',
+          lignes: [],
+        },
+      ]
 
-    mockBetterAuthGetSession.mockResolvedValueOnce({
-      user: {
-        id: `user-${role}`,
-        role,
-      },
-    })
+      mockBetterAuthGetSession.mockResolvedValueOnce({
+        user: {
+          id: `user-${role}`,
+          role,
+        },
+      })
 
-    commandesServiceMock.findAll.mockResolvedValueOnce(commandes)
+      commandesServiceMock.findAll.mockResolvedValueOnce(commandes)
 
-    const response = await request(app.getHttpServer())
-      .get('/api/commandes')
-      .set('Cookie', 'better-auth.session_token=valid')
-      .expect(200)
+      const response = await request(app.getHttpServer())
+        .get('/api/commandes')
+        .set('Cookie', 'better-auth.session_token=valid')
+        .expect(200)
 
-    expect(response.body).toEqual(commandes)
-    expect(commandesServiceMock.findAll).toHaveBeenCalledTimes(1)
-  })
+      expect(response.body).toEqual(commandes)
+      expect(commandesServiceMock.findAll).toHaveBeenCalledTimes(1)
+    },
+  )
 
   it('GET /api/commandes/:id should parse id and return order for allowed role', async () => {
     const commande = {
@@ -316,9 +318,9 @@ describe('Commandes admin auth integration', () => {
     expect(response.body).toEqual({
       count: 2,
     })
-    expect(commandesServiceMock.cleanupAbandonedCommandes).toHaveBeenCalledTimes(
-      1,
-    )
+    expect(
+      commandesServiceMock.cleanupAbandonedCommandes,
+    ).toHaveBeenCalledTimes(1)
   })
 
   it.each([ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE, ROLES.STOCK])(

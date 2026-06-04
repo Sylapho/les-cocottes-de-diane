@@ -151,7 +151,8 @@ describe('CommandesService', () => {
     jest.clearAllMocks()
 
     prismaMock.$transaction.mockImplementation(
-      async <T>(callback: TransactionCallback<T>) => callback(transactionClient),
+      async <T>(callback: TransactionCallback<T>) =>
+        callback(transactionClient),
     )
 
     prismaMock.commande.findMany.mockResolvedValue([])
@@ -205,17 +206,21 @@ describe('CommandesService', () => {
 
     await expect(service.findAll()).resolves.toEqual(commandes)
 
-    expect(prismaMock.commande.findMany).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          statut: 'paiement_en_attente',
-          createdAt: {
-            lt: expect.any(Date) as Date,
+    expect(prismaMock.commande.findMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        statut: 'paiement_en_attente',
+        createdAt: {
+          lt: expect.any(Date) as Date,
+        },
+      },
+      include: {
+        lignes: {
+          include: {
+            article: true,
           },
-        }),
-      }),
-    )
+        },
+      },
+    })
 
     expect(prismaMock.commande.findMany).toHaveBeenNthCalledWith(2, {
       where: {
@@ -1274,23 +1279,21 @@ describe('CommandesService', () => {
       count: 1,
     })
 
-    expect(prismaMock.commande.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          statut: 'paiement_en_attente',
-          createdAt: {
-            lt: expect.any(Date) as Date,
-          },
-        }),
-        include: {
-          lignes: {
-            include: {
-              article: true,
-            },
+    expect(prismaMock.commande.findMany).toHaveBeenCalledWith({
+      where: {
+        statut: 'paiement_en_attente',
+        createdAt: {
+          lt: expect.any(Date) as Date,
+        },
+      },
+      include: {
+        lignes: {
+          include: {
+            article: true,
           },
         },
-      }),
-    )
+      },
+    })
 
     expect(prismaMock.article.update).toHaveBeenCalledWith({
       where: { id: 1 },
