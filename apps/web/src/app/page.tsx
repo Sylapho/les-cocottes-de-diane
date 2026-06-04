@@ -8,6 +8,7 @@ import {
   type Article,
   type MatierePremiere,
 } from '@/lib/api'
+import { getProductionNeeds } from '@/lib/production-needs'
 
 const quickLinks = [
   {
@@ -44,6 +45,12 @@ function formatDate(value: string | Date) {
     dateStyle: 'medium',
     timeZone: 'Europe/Paris',
   }).format(new Date(value))
+}
+
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits: 2,
+  }).format(value)
 }
 
 function getLowStockItems(
@@ -83,6 +90,11 @@ export default async function Home() {
   const commandesAPreparer = commandes.filter(
     (commande) =>
       commande.statut === 'nouvelle' || commande.statut === 'preparee',
+  )
+  const productionNeeds = getProductionNeeds(commandes)
+  const totalProductionNeeds = productionNeeds.reduce(
+    (total, need) => total + need.quantity,
+    0,
   )
   const lowStockItems = getLowStockItems(articles, matieres)
   const now = new Date()
@@ -132,7 +144,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded border bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-600">Ventes du jour</p>
             <p className="mt-2 text-2xl font-bold">
@@ -163,6 +175,16 @@ export default async function Home() {
             </p>
           </div>
 
+          <div className="rounded border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <p className="text-sm text-amber-800">À produire</p>
+            <p className="mt-2 text-2xl font-bold text-amber-950">
+              {formatQuantity(totalProductionNeeds)}
+            </p>
+            <p className="mt-1 text-sm text-amber-800">
+              Articles à faire ou ajuster
+            </p>
+          </div>
+
           <div className="rounded border bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-600">Alertes stock</p>
             <p className="mt-2 text-2xl font-bold">{lowStockItems.length}</p>
@@ -171,6 +193,46 @@ export default async function Home() {
             </p>
           </div>
         </section>
+
+        {productionNeeds.length > 0 ? (
+          <section className="rounded border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-amber-950">
+                  Production à prévoir
+                </h2>
+                <p className="mt-1 text-sm text-amber-800">
+                  Quantités à faire ou ajuster pour honorer les prochaines dates de retrait.
+                </p>
+              </div>
+              <Link href="/commandes" className="text-sm font-medium text-amber-900">
+                Voir les commandes
+              </Link>
+            </div>
+
+            <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {productionNeeds.slice(0, 6).map((need) => (
+                <li
+                  key={`${need.articleId}-${need.dueDateKey}`}
+                  className="rounded border border-amber-200 bg-white p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{need.articleNom}</p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Pour le{' '}
+                        {need.dueDate ? formatDate(need.dueDate) : 'Non précisée'}
+                      </p>
+                    </div>
+                    <span className="rounded bg-amber-100 px-2 py-1 text-sm font-bold text-amber-950">
+                      {formatQuantity(need.quantity)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
           <div className="rounded border bg-white p-4 shadow-sm">

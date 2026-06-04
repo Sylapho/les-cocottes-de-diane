@@ -6,6 +6,43 @@ import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.ser
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCommandeDto } from './dto/create-commande.dto'
 import { CommandeStatut } from './dto/update-commande-statut.dto'
+import { validatePickupSlot } from './pickup-slots'
+
+type StockMovementTransaction = Parameters<
+  MouvementsStockService['recordArticleMovement']
+>[0]
+
+type ReservationTransaction = StockMovementTransaction & {
+  mouvementStock: StockMovementTransaction['mouvementStock'] & {
+    findFirst: (args: {
+      where: { reference: string }
+      select: { id: true }
+    }) => Promise<{ id: number } | null>
+  }
+}
+
+type ReservationLine = {
+  articleId: number
+  quantite: number
+  article?: {
+    stock: number
+  } | null
+}
+
+type ReservationArticle = {
+  id: number
+  stock: number
+}
+
+type StripeCheckoutWebhookEvent = {
+  id: string
+  type: string
+  data: {
+    object: {
+      id: string
+    }
+  }
+}
 
 @Injectable()
 export class CommandesService {
@@ -177,38 +214,49 @@ export class CommandesService {
         motif: 'checkout_cree',
       })
 
+      await this.reserveCommandeStock(tx, {
+        commandeId: created.id,
+        lignes: lignesAgregees,
+        articles,
+      })
+
       return created
     })
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      customer_email: data.email,
-      client_reference_id: String(commande.id),
-      line_items: lignesAgregees.map((ligne) => {
-        const article = articles.find((item) => item.id === ligne.articleId)!
-        const images =
-          article.imageUrl && article.imageUrl.startsWith('http')
-            ? [article.imageUrl]
-            : undefined
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        customer_email: data.email,
+        client_reference_id: String(commande.id),
+        line_items: lignesAgregees.map((ligne) => {
+          const article = articles.find((item) => item.id === ligne.articleId)!
+          const images =
+            article.imageUrl && article.imageUrl.startsWith('http')
+              ? [article.imageUrl]
+              : undefined
 
-        return {
-          quantity: ligne.quantite,
-          price_data: {
-            currency: 'eur',
-            unit_amount: Math.round(article.prix * 100),
-            product_data: {
-              name: article.nom,
-              images,
+          return {
+            quantity: ligne.quantite,
+            price_data: {
+              currency: 'eur',
+              unit_amount: Math.round(article.prix * 100),
+              product_data: {
+                name: article.nom,
+                images,
+              },
             },
-          },
-        }
-      }),
-      metadata: {
-        commandeId: String(commande.id),
+          }
+        }),
+        metadata: {
+          commandeId: String(commande.id),
+        },
+        success_url: `${shopUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${shopUrl}/cancel`,
       },
-      success_url: `${shopUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${shopUrl}/cancel`,
-    })
+      {
+        idempotencyKey: `commande:${commande.id}:checkout`,
+      },
+    )
 
     if (!session.url) {
       throw new BadRequestException(
@@ -242,7 +290,13 @@ export class CommandesService {
       rawBody,
       stripeSignature,
       webhookSecret,
-    )
+    ) as StripeCheckoutWebhookEvent
+
+    const isFreshEvent = await this.registerStripeWebhookEvent(event)
+
+    if (!isFreshEvent) {
+      return { received: true, duplicate: true }
+    }
 
     if (event.type === 'checkout.session.completed') {
       const confirmedOrder = await this.confirmPaidCommande(
@@ -322,9 +376,12 @@ export class CommandesService {
           lt: cutoff,
         },
       },
-      select: {
-        id: true,
-        statut: true,
+      include: {
+        lignes: {
+          include: {
+            article: true,
+          },
+        },
       },
     })
 
@@ -334,6 +391,8 @@ export class CommandesService {
 
     await this.prisma.$transaction(async (tx) => {
       for (const commande of commandes) {
+        await this.releaseReservedStock(tx, commande)
+
         await tx.commande.update({
           where: { id: commande.id },
           data: { statut: 'annulee' },
@@ -359,6 +418,8 @@ export class CommandesService {
       commande.statut === 'paiement_a_verifier'
     ) {
       return this.prisma.$transaction(async (tx) => {
+        await this.releaseReservedStock(tx, commande)
+
         const updated = await tx.commande.update({
           where: { id },
           data: { statut: 'annulee' },
@@ -444,74 +505,6 @@ export class CommandesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const articleIds = commande.lignes.map((ligne) => ligne.articleId)
-      const articles = await tx.article.findMany({
-        where: {
-          id: {
-            in: articleIds,
-          },
-        },
-      })
-      const sellableStockByArticle =
-        await this.mouvementsStockService.getSellableArticleStock(articles)
-
-      const insufficientStock = commande.lignes
-        .map((ligne) => {
-          const article = articles.find((item) => item.id === ligne.articleId)
-
-          if (!article) return null
-          const sellableStock = sellableStockByArticle.get(article.id) ?? 0
-
-          return {
-            articleId: article.id,
-            nom: article.nom,
-            stock: article.stock,
-            sellableStock,
-            requested: ligne.quantite,
-            missing: Math.max(0, ligne.quantite - sellableStock),
-          }
-        })
-        .filter((item) => item && item.missing > 0)
-
-      if (insufficientStock.length > 0) {
-        await tx.commande.update({
-          where: { id: commande.id },
-          data: { statut: 'paiement_a_verifier' },
-        })
-
-        await this.recordStatusHistory(tx, {
-          commandeId: commande.id,
-          ancienStatut: commande.statut,
-          nouveauStatut: 'paiement_a_verifier',
-          motif: 'stock_insuffisant_apres_paiement',
-        })
-
-        return null
-      }
-
-      for (const ligne of commande.lignes) {
-        const article = articles.find((item) => item.id === ligne.articleId)!
-
-        await tx.article.update({
-          where: { id: article.id },
-          data: {
-            stock: {
-              decrement: ligne.quantite,
-            },
-          },
-        })
-
-        await this.mouvementsStockService.recordArticleMovement(tx, {
-          articleId: article.id,
-          quantite: -ligne.quantite,
-          stockAvant: article.stock,
-          stockApres: article.stock - ligne.quantite,
-          type: 'commande',
-          motif: `Commande payée #${commande.id}`,
-          reference: `commande:${commande.id}`,
-        })
-      }
-
       const updated = await tx.commande.update({
         where: { id: commande.id },
         data: { statut: 'nouvelle' },
@@ -541,10 +534,19 @@ export class CommandesService {
         stripeId,
         statut: 'paiement_en_attente',
       },
+      include: {
+        lignes: {
+          include: {
+            article: true,
+          },
+        },
+      },
     })
 
     await this.prisma.$transaction(async (tx) => {
       for (const commande of commandes) {
+        await this.releaseReservedStock(tx, commande)
+
         await tx.commande.update({
           where: { id: commande.id },
           data: { statut: 'annulee' },
@@ -558,6 +560,117 @@ export class CommandesService {
         })
       }
     })
+  }
+
+  private async registerStripeWebhookEvent(event: StripeCheckoutWebhookEvent) {
+    try {
+      await this.prisma.stripeWebhookEvent.create({
+        data: {
+          eventId: event.id,
+          type: event.type,
+        },
+      })
+
+      return true
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        return false
+      }
+
+      throw error
+    }
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2002'
+    )
+  }
+
+  private async reserveCommandeStock(
+    tx: ReservationTransaction,
+    data: {
+      commandeId: number
+      lignes: ReservationLine[]
+      articles: ReservationArticle[]
+    },
+  ) {
+    for (const ligne of data.lignes) {
+      const article = data.articles.find((item) => item.id === ligne.articleId)!
+
+      await tx.article.update({
+        where: { id: article.id },
+        data: {
+          stock: {
+            decrement: ligne.quantite,
+          },
+        },
+      })
+
+      await this.mouvementsStockService.recordArticleMovement(tx, {
+        articleId: article.id,
+        quantite: -ligne.quantite,
+        stockAvant: article.stock,
+        stockApres: article.stock - ligne.quantite,
+        type: 'commande',
+        motif: `Réservation checkout #${data.commandeId}`,
+        reference: this.getReservationReference(data.commandeId),
+      })
+    }
+  }
+
+  private async releaseReservedStock(
+    tx: ReservationTransaction,
+    commande: {
+      id: number
+      lignes: ReservationLine[]
+    },
+  ) {
+    const reservation = await tx.mouvementStock.findFirst({
+      where: { reference: this.getReservationReference(commande.id) },
+      select: { id: true },
+    })
+    const release = await tx.mouvementStock.findFirst({
+      where: { reference: this.getReservationReleaseReference(commande.id) },
+      select: { id: true },
+    })
+
+    if (!reservation || release) {
+      return
+    }
+
+    for (const ligne of commande.lignes) {
+      const stockAvant = ligne.article?.stock ?? 0
+      const article = await tx.article.update({
+        where: { id: ligne.articleId },
+        data: {
+          stock: {
+            increment: ligne.quantite,
+          },
+        },
+      })
+
+      await this.mouvementsStockService.recordArticleMovement(tx, {
+        articleId: ligne.articleId,
+        quantite: ligne.quantite,
+        stockAvant,
+        stockApres: article.stock,
+        type: 'commande',
+        motif: `Libération réservation commande #${commande.id}`,
+        reference: this.getReservationReleaseReference(commande.id),
+      })
+    }
+  }
+
+  private getReservationReference(commandeId: number) {
+    return `commande:${commandeId}:reservation`
+  }
+
+  private getReservationReleaseReference(commandeId: number) {
+    return `commande:${commandeId}:reservation:release`
   }
 
   private async recordStatusHistory(
@@ -602,6 +715,8 @@ export class CommandesService {
   }
 
   private async prepareCommande(data: CreateCommandeDto) {
+    validatePickupSlot(data.lieu, data.dateRetrait)
+
     const lignesAgregees = this.aggregateLines(data.lignes)
     const articleIds = lignesAgregees.map((ligne) => ligne.articleId)
 
@@ -618,34 +733,6 @@ export class CommandesService {
       throw new BadRequestException(
         'Un ou plusieurs articles sont introuvables ou indisponibles',
       )
-    }
-
-    const sellableStockByArticle =
-      await this.mouvementsStockService.getSellableArticleStock(articles)
-
-    const insufficientStock = lignesAgregees
-      .map((ligne) => {
-        const article = articles.find((item) => item.id === ligne.articleId)
-
-        if (!article) return null
-        const sellableStock = sellableStockByArticle.get(article.id) ?? 0
-
-        return {
-          articleId: article.id,
-          nom: article.nom,
-          stock: article.stock,
-          sellableStock,
-          requested: ligne.quantite,
-          missing: Math.max(0, ligne.quantite - sellableStock),
-        }
-      })
-      .filter((item) => item && item.missing > 0)
-
-    if (insufficientStock.length > 0) {
-      throw new BadRequestException({
-        message: 'Stock insuffisant pour une ou plusieurs lignes',
-        insufficientStock,
-      })
     }
 
     const totalTTC = lignesAgregees.reduce((total, ligne) => {

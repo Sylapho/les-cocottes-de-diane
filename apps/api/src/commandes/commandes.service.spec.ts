@@ -7,6 +7,9 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CommandesService } from './commandes.service'
 import { CreateCommandeDto } from './dto/create-commande.dto'
 
+const fridayPickupPoint = 'À la ferme - Vendredi après-midi, 16h-18h'
+const fridayPickupDate = '2099-01-02'
+
 describe('CommandesService', () => {
   let service: CommandesService
 
@@ -27,6 +30,10 @@ describe('CommandesService', () => {
       create: jest.fn(),
     },
     mouvementStock: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+    },
+    stripeWebhookEvent: {
       create: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -41,11 +48,16 @@ describe('CommandesService', () => {
     sendOrderConfirmation: jest.fn(),
   }
 
+  const configServiceMock = {
+    get: jest.fn(),
+  }
+
   type TransactionClient = {
     article: typeof prismaMock.article
     commande: typeof prismaMock.commande
     commandeStatutHistorique: typeof prismaMock.commandeStatutHistorique
     mouvementStock: typeof prismaMock.mouvementStock
+    stripeWebhookEvent: typeof prismaMock.stripeWebhookEvent
   }
 
   type TransactionCallback<T> = (tx: TransactionClient) => Promise<T>
@@ -55,6 +67,7 @@ describe('CommandesService', () => {
     commande: prismaMock.commande,
     commandeStatutHistorique: prismaMock.commandeStatutHistorique,
     mouvementStock: prismaMock.mouvementStock,
+    stripeWebhookEvent: prismaMock.stripeWebhookEvent,
   }
 
   beforeEach(async () => {
@@ -71,9 +84,7 @@ describe('CommandesService', () => {
         },
         {
           provide: ConfigService,
-          useValue: {
-            get: jest.fn(),
-          },
+          useValue: configServiceMock,
         },
         {
           provide: EmailsService,
@@ -89,6 +100,14 @@ describe('CommandesService', () => {
       <T>(callback: TransactionCallback<T>) => callback(transactionClient),
     )
     prismaMock.commande.findMany.mockResolvedValue([])
+    prismaMock.mouvementStock.findFirst.mockResolvedValue(null)
+    configServiceMock.get.mockImplementation((key: string) => {
+      if (key === 'STRIPE_SECRET_KEY') return 'sk_test_localco'
+      if (key === 'STRIPE_WEBHOOK_SECRET') return 'whsec_localco'
+      if (key === 'SHOP_PUBLIC_URL') return 'http://localhost:3001'
+
+      return undefined
+    })
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       id: 1,
     })
@@ -115,9 +134,12 @@ describe('CommandesService', () => {
           lt: expect.any(Date) as Date,
         },
       },
-      select: {
-        id: true,
-        statut: true,
+      include: {
+        lignes: {
+          include: {
+            article: true,
+          },
+        },
       },
     })
     expect(prismaMock.commande.findMany).toHaveBeenNthCalledWith(2, {
@@ -144,8 +166,8 @@ describe('CommandesService', () => {
       nom: 'Marie Dupont',
       email: 'marie@example.fr',
       tel: '0612345678',
-      lieu: 'En boutique',
-      dateRetrait: '2026-06-01',
+      lieu: fridayPickupPoint,
+      dateRetrait: fridayPickupDate,
       lignes: [
         { articleId: 1, quantite: 1 },
         { articleId: 1, quantite: 2 },
@@ -184,8 +206,8 @@ describe('CommandesService', () => {
         nom: 'Marie Dupont',
         email: 'marie@example.fr',
         tel: '0612345678',
-        lieu: 'En boutique',
-        dateRetrait: new Date('2026-06-01'),
+        lieu: fridayPickupPoint,
+        dateRetrait: new Date(fridayPickupDate),
         totalTTC: 6,
         statut: 'nouvelle',
         lignes: {
@@ -235,7 +257,14 @@ describe('CommandesService', () => {
     })
   })
 
-  it('create should reject insufficient stock', async () => {
+  it('create should allow ordering more than current stock', async () => {
+    const created = {
+      id: 13,
+      totalTTC: 4,
+      statut: 'nouvelle',
+      lignes: [],
+    }
+
     prismaMock.article.findMany.mockResolvedValue([
       {
         id: 1,
@@ -244,16 +273,154 @@ describe('CommandesService', () => {
         stock: 1,
       },
     ])
+    prismaMock.commande.create.mockResolvedValue(created)
 
     await expect(
       service.create({
         nom: 'Marie Dupont',
         email: 'marie@example.fr',
-        lieu: 'En boutique',
+        lieu: fridayPickupPoint,
+        dateRetrait: fridayPickupDate,
         lignes: [{ articleId: 1, quantite: 2 }],
       }),
+    ).resolves.toEqual(created)
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        stock: {
+          decrement: 2,
+        },
+      },
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(transactionClient, {
+      articleId: 1,
+      quantite: -2,
+      stockAvant: 1,
+      stockApres: -1,
+      type: 'commande',
+      motif: 'Commande en ligne #13',
+      reference: 'commande:13',
+    })
+  })
+
+  it('create should reject a pickup date that does not match the pickup point', async () => {
+    await expect(
+      service.create({
+        nom: 'Marie Dupont',
+        email: 'marie@example.fr',
+        lieu: fridayPickupPoint,
+        dateRetrait: '2099-01-03',
+        lignes: [{ articleId: 1, quantite: 1 }],
+      }),
     ).rejects.toBeInstanceOf(BadRequestException)
+    expect(prismaMock.article.findMany).not.toHaveBeenCalled()
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('createCheckout should reserve stock and create an idempotent Stripe session', async () => {
+    const stripeMock = {
+      checkout: {
+        sessions: {
+          create: jest.fn().mockResolvedValue({
+            id: 'cs_test_123',
+            url: 'https://checkout.stripe.com/test',
+          }),
+        },
+      },
+      webhooks: {
+        constructEvent: jest.fn(),
+      },
+    }
+
+    ;(service as unknown as { stripe: typeof stripeMock }).stripe = stripeMock
+
+    prismaMock.article.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nom: 'Baguette',
+        prix: 2,
+        stock: 8,
+        imageUrl: null,
+      },
+    ])
+    prismaMock.commande.create.mockResolvedValue({
+      id: 55,
+      statut: 'paiement_en_attente',
+    })
+
+    await expect(
+      service.createCheckout({
+        nom: 'Marie Dupont',
+        email: 'marie@example.fr',
+        lieu: fridayPickupPoint,
+        dateRetrait: fridayPickupDate,
+        lignes: [{ articleId: 1, quantite: 2 }],
+      }),
+    ).resolves.toEqual({ url: 'https://checkout.stripe.com/test' })
+
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        stock: {
+          decrement: 2,
+        },
+      },
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(transactionClient, {
+      articleId: 1,
+      quantite: -2,
+      stockAvant: 8,
+      stockApres: 6,
+      type: 'commande',
+      motif: 'Réservation checkout #55',
+      reference: 'commande:55:reservation',
+    })
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client_reference_id: '55',
+      }),
+      {
+        idempotencyKey: 'commande:55:checkout',
+      },
+    )
+    expect(prismaMock.commande.update).toHaveBeenCalledWith({
+      where: { id: 55 },
+      data: { stripeId: 'cs_test_123' },
+    })
+  })
+
+  it('handleStripeWebhook should ignore duplicate Stripe events', async () => {
+    const stripeMock = {
+      checkout: {
+        sessions: {
+          create: jest.fn(),
+        },
+      },
+      webhooks: {
+        constructEvent: jest.fn().mockReturnValue({
+          id: 'evt_duplicate',
+          type: 'checkout.session.completed',
+          data: {
+            object: {
+              id: 'cs_test_123',
+            },
+          },
+        }),
+      },
+    }
+
+    ;(service as unknown as { stripe: typeof stripeMock }).stripe = stripeMock
+    prismaMock.stripeWebhookEvent.create.mockRejectedValue({ code: 'P2002' })
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
+    ).resolves.toEqual({ received: true, duplicate: true })
+    expect(prismaMock.commande.findFirst).not.toHaveBeenCalled()
+    expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
   })
 
   it('updateStatut should update a non-final commande', async () => {
@@ -352,6 +519,7 @@ describe('CommandesService', () => {
       {
         id: 9,
         statut: 'paiement_en_attente',
+        lignes: [],
       },
     ])
     prismaMock.commande.update.mockResolvedValue({

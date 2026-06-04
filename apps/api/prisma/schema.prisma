@@ -31,6 +31,8 @@ model Article {
   lignesCmd       LigneCommande[]
   mouvementsStock MouvementStock[]
   stockLots       StockLot[]
+
+  @@index([online])
 }
 
 model MatierePremiere {
@@ -103,6 +105,10 @@ model Commande {
   createdAt   DateTime                  @default(now())
   lignes      LigneCommande[]
   historique  CommandeStatutHistorique[]
+
+  @@index([statut])
+  @@index([stripeId])
+  @@index([dateRetrait])
 }
 
 model LigneCommande {
@@ -124,6 +130,13 @@ model CommandeStatutHistorique {
   createdByUserId String?
   createdAt       DateTime @default(now())
   commande        Commande @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+}
+
+model StripeWebhookEvent {
+  id          Int      @id @default(autoincrement())
+  eventId     String   @unique
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model JourneeCaisse {

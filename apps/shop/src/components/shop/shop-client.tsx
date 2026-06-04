@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import type { ShopArticle } from '@/lib/api'
 import {
@@ -39,6 +39,7 @@ const productCategories: ProductCategory[] = [
 ]
 
 const categories: CategoryFilter[] = ['Toutes', ...productCategories]
+const maxCartQuantity = 99
 
 function getArticleCategory(article: ShopArticle): ProductCategory {
   const text = `${article.nom} ${article.description ?? ''}`.toLowerCase()
@@ -78,13 +79,6 @@ function getArticleCategory(article: ShopArticle): ProductCategory {
   }
 
   return 'Découpes'
-}
-
-function getAvailabilityLabel(stock: number) {
-  if (stock <= 0) return 'Épuisé aujourd’hui'
-  if (stock <= 3) return `Plus que ${stock} disponible${stock > 1 ? 's' : ''}`
-
-  return null
 }
 
 export default function ShopClient({ articles }: ShopClientProps) {
@@ -160,7 +154,7 @@ export default function ShopClient({ articles }: ShopClientProps) {
     setCart((current) => {
       const nextQuantity = Math.max(
         0,
-        Math.min(article.stock, (current[article.id] ?? 0) + delta),
+        Math.min(maxCartQuantity, (current[article.id] ?? 0) + delta),
       )
 
       const next = { ...current }
@@ -396,7 +390,6 @@ export default function ShopClient({ articles }: ShopClientProps) {
                           key={article.id}
                           article={article}
                           quantity={cart[article.id] ?? 0}
-                          availabilityLabel={getAvailabilityLabel(article.stock)}
                           onDecrease={() => updateCart(article, -1)}
                           onIncrease={() => updateCart(article, 1)}
                         />
@@ -490,18 +483,14 @@ function Header({
 function ProductRow({
   article,
   quantity,
-  availabilityLabel,
   onDecrease,
   onIncrease,
 }: {
   article: ShopArticle
   quantity: number
-  availabilityLabel: string | null
   onDecrease: () => void
   onIncrease: () => void
 }) {
-  const disabled = article.stock <= 0
-
   return (
     <article className="grid grid-cols-[4.5rem_1fr] gap-3 p-3 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center sm:p-4">
       <ProductThumbnail article={article} />
@@ -537,30 +526,19 @@ function ProductRow({
             {formatCurrency(article.prix)}
           </p>
 
-          {availabilityLabel ? (
-            <p
-              className={`text-xs font-semibold ${
-                article.stock <= 0 ? 'text-red-600' : 'text-amber-700'
-              }`}
-            >
-              {availabilityLabel}
-            </p>
-          ) : null}
         </div>
 
         {quantity === 0 ? (
           <button
             type="button"
             onClick={onIncrease}
-            disabled={disabled}
-            className="rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#8c0055] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#8c0055]"
           >
             Ajouter
           </button>
         ) : (
           <QuantityStepper
             quantity={quantity}
-            max={article.stock}
             onDecrease={onDecrease}
             onIncrease={onIncrease}
           />
@@ -594,12 +572,10 @@ function ProductThumbnail({ article }: { article: ShopArticle }) {
 
 function QuantityStepper({
   quantity,
-  max,
   onDecrease,
   onIncrease,
 }: {
   quantity: number
-  max: number
   onDecrease: () => void
   onIncrease: () => void
 }) {
@@ -619,8 +595,8 @@ function QuantityStepper({
       <button
         type="button"
         onClick={onIncrease}
-        disabled={quantity >= max}
-        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={quantity >= maxCartQuantity}
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#faf7f8] font-bold"
         aria-label="Ajouter un produit"
       >
         +
@@ -706,7 +682,6 @@ function CartDrawer({
                   <div className="flex items-center justify-between gap-3">
                     <QuantityStepper
                       quantity={line.quantite}
-                      max={line.article.stock}
                       onDecrease={() => onDecrease(line.article)}
                       onIncrease={() => onIncrease(line.article)}
                     />
