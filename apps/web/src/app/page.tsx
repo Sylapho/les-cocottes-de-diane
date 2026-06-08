@@ -93,7 +93,7 @@ export default async function Home() {
   )
   const productionNeeds = getProductionNeeds(commandes)
   const totalProductionNeeds = productionNeeds.reduce(
-    (total, need) => total + need.quantity,
+    (total, need) => total + need.quantityToProduce,
     0,
   )
   const lowStockItems = getLowStockItems(articles, matieres)
@@ -221,11 +221,13 @@ export default async function Home() {
                       <p className="font-medium">{need.articleNom}</p>
                       <p className="mt-1 text-sm text-gray-600">
                         Pour le{' '}
-                        {need.dueDate ? formatDate(need.dueDate) : 'Non précisée'}
+                        {need.dueDate
+                          ? formatDate(need.dueDate)
+                          : 'Non précisée'}
                       </p>
                     </div>
                     <span className="rounded bg-amber-100 px-2 py-1 text-sm font-bold text-amber-950">
-                      {formatQuantity(need.quantity)}
+                      {formatQuantity(need.quantityToProduce)}
                     </span>
                   </div>
                 </li>
