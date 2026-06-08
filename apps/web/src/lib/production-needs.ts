@@ -1,14 +1,17 @@
 import type { Commande, CommandeStatut } from './api'
 
+export type ProductionUrgency = 'urgent' | 'soon' | 'planned' | 'unknown'
+
 export type ProductionNeed = {
   articleId: number
   articleNom: string
   stock: number
+  orderedQuantity: number
+  quantityToProduce: number
   dueDate?: string | null
   dueDateKey: string
-  quantity: number
-  missingTotal: number
   commandeIds: number[]
+  urgency: ProductionUrgency
 }
 
 const productionStatuses = new Set<CommandeStatut>([
@@ -18,10 +21,10 @@ const productionStatuses = new Set<CommandeStatut>([
 ])
 
 export function getProductionNeeds(commandes: Commande[]): ProductionNeed[] {
+  const todayKey = getLocalDateKey(new Date())
   const activeCommandes = commandes.filter((commande) =>
     productionStatuses.has(commande.statut),
   )
-  const missingByArticle = new Map<number, number>()
   const stockByArticle = new Map<number, number>()
   const articleNameById = new Map<number, string>()
   const demandByArticle = new Map<
@@ -43,10 +46,6 @@ export function getProductionNeeds(commandes: Commande[]): ProductionNeed[] {
 
       stockByArticle.set(articleId, stock)
       articleNameById.set(articleId, ligne.article.nom)
-
-      if (stock < 0) {
-        missingByArticle.set(articleId, Math.abs(stock))
-      }
 
       const dueDateKey = getDueDateKey(commande.dateRetrait)
       const articleDemand =
@@ -74,43 +73,48 @@ export function getProductionNeeds(commandes: Commande[]): ProductionNeed[] {
 
   const needs: ProductionNeed[] = []
 
-  for (const [articleId, missingTotal] of missingByArticle.entries()) {
-    let remaining = missingTotal
-    const articleDemand = demandByArticle.get(articleId)
+  for (const [articleId, articleDemand] of demandByArticle.entries()) {
+    const stock = stockByArticle.get(articleId) ?? 0
 
-    if (!articleDemand) {
+    if (stock >= 0) {
       continue
     }
+
+    let remainingToProduce = Math.abs(stock)
 
     const dueDateDemands = Array.from(articleDemand.entries()).sort(
       ([dateA], [dateB]) => compareDueDateKeys(dateA, dateB),
     )
 
     for (const [dueDateKey, dueDateDemand] of dueDateDemands) {
-      if (remaining <= 0) {
+      if (remainingToProduce <= 0) {
         break
       }
 
-      const quantity = Math.min(remaining, dueDateDemand.quantity)
+      const quantityToProduce = Math.min(
+        remainingToProduce,
+        dueDateDemand.quantity,
+      )
 
-      if (quantity <= 0) {
+      if (quantityToProduce <= 0) {
         continue
       }
 
       needs.push({
         articleId,
         articleNom: articleNameById.get(articleId) ?? `Article #${articleId}`,
-        stock: stockByArticle.get(articleId) ?? 0,
+        stock,
+        orderedQuantity: dueDateDemand.quantity,
+        quantityToProduce,
         dueDate: dueDateDemand.dueDate,
         dueDateKey,
-        quantity,
-        missingTotal,
         commandeIds: Array.from(dueDateDemand.commandeIds).sort(
           (a, b) => a - b,
         ),
+        urgency: getUrgency(dueDateKey, todayKey),
       })
 
-      remaining -= quantity
+      remainingToProduce -= quantityToProduce
     }
   }
 
@@ -138,9 +142,58 @@ export function getProductionNeedsByCommandeId(needs: ProductionNeed[]) {
 }
 
 function getDueDateKey(date?: string | null) {
-  return date ? new Date(date).toISOString().slice(0, 10) : '9999-12-31'
+  return date ? getLocalDateKey(new Date(date)) : 'unknown'
 }
 
 function compareDueDateKeys(dateA: string, dateB: string) {
+  if (dateA === 'unknown' && dateB === 'unknown') {
+    return 0
+  }
+
+  if (dateA === 'unknown') {
+    return 1
+  }
+
+  if (dateB === 'unknown') {
+    return -1
+  }
+
   return dateA.localeCompare(dateB)
+}
+
+function getUrgency(dueDateKey: string, todayKey: string): ProductionUrgency {
+  if (dueDateKey === 'unknown') {
+    return 'unknown'
+  }
+
+  const daysUntilDueDate = diffDays(todayKey, dueDateKey)
+
+  if (daysUntilDueDate <= 1) {
+    return 'urgent'
+  }
+
+  if (daysUntilDueDate <= 3) {
+    return 'soon'
+  }
+
+  return 'planned'
+}
+
+function getLocalDateKey(date: Date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'Europe/Paris',
+  }).format(date)
+}
+
+function diffDays(fromKey: string, toKey: string) {
+  return (toUtcDate(toKey).getTime() - toUtcDate(fromKey).getTime()) / 86_400_000
+}
+
+function toUtcDate(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number)
+
+  return new Date(Date.UTC(year, month - 1, day))
 }
