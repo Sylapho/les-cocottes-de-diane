@@ -160,6 +160,10 @@ export default function ShopClientClassic({ articles, apiUrl }: ShopClientProps)
         url: string
       }
 
+      if (!checkout.url) {
+        throw new Error('Impossible de préparer le paiement')
+      }
+
       window.location.assign(checkout.url)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')

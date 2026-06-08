@@ -788,6 +788,35 @@ describe('CommandesService', () => {
       totalTtcCents: 400,
       lignes: [],
     })
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue({
+      id: 45,
+      statut: 'paiement_en_attente',
+      lignes: [
+        {
+          articleId: 1,
+          quantite: 2,
+          article: {
+            stock: 8,
+          },
+        },
+      ],
+    })
+    prismaMock.mouvementStock.findFirst
+      .mockResolvedValueOnce({ id: 1 })
+      .mockResolvedValueOnce(null)
+    prismaMock.article.update
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: 8,
+      })
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: 10,
+      })
+    prismaMock.commande.update.mockResolvedValue({
+      id: 45,
+      statut: 'annulee',
+    })
     mockStripeCheckoutSessionsCreate.mockResolvedValue({
       id: 'cs_test_without_url',
       url: null,
@@ -806,7 +835,204 @@ describe('CommandesService', () => {
         },
       },
     })
-    expect(prismaMock.commande.update).not.toHaveBeenCalled()
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        stock: {
+          increment: 2,
+        },
+      },
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(transactionClient, {
+      articleId: 1,
+      quantite: 2,
+      stockAvant: 8,
+      stockApres: 10,
+      type: 'commande',
+      motif: 'Libération réservation commande #45',
+      reference: 'commande:45:reservation:release',
+    })
+    expect(prismaMock.commande.update).toHaveBeenCalledWith({
+      where: { id: 45 },
+      data: { statut: 'annulee' },
+    })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 45,
+        ancienStatut: 'paiement_en_attente',
+        nouveauStatut: 'annulee',
+        motif: 'checkout_session_sans_url',
+      },
+    })
+    expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
+  })
+
+  it('createCheckout should cancel pending order when Stripe session creation throws', async () => {
+    const articles: ArticleMock[] = [
+      {
+        id: 1,
+        nom: 'Baguette',
+        prixCents: 200,
+        stock: 10,
+        imageUrl: null,
+      },
+    ]
+
+    prismaMock.article.findMany.mockResolvedValue(articles)
+    prismaMock.commande.create.mockResolvedValue({
+      id: 46,
+      statut: 'paiement_en_attente',
+      totalTtcCents: 400,
+      lignes: [],
+    })
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue({
+      id: 46,
+      statut: 'paiement_en_attente',
+      lignes: [
+        {
+          articleId: 1,
+          quantite: 2,
+          article: {
+            stock: 8,
+          },
+        },
+      ],
+    })
+    prismaMock.mouvementStock.findFirst
+      .mockResolvedValueOnce({ id: 1 })
+      .mockResolvedValueOnce(null)
+    prismaMock.article.update
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: 8,
+      })
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: 10,
+      })
+    prismaMock.commande.update.mockResolvedValue({
+      id: 46,
+      statut: 'annulee',
+    })
+    mockStripeCheckoutSessionsCreate.mockRejectedValue(
+      new Error('Stripe unavailable'),
+    )
+
+    await expect(service.createCheckout(baseDto())).rejects.toBeInstanceOf(
+      BadRequestException,
+    )
+
+    expect(prismaMock.commande.create).toHaveBeenCalled()
+    expect(prismaMock.commande.update).toHaveBeenCalledWith({
+      where: { id: 46 },
+      data: { statut: 'annulee' },
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(transactionClient, {
+      articleId: 1,
+      quantite: 2,
+      stockAvant: 8,
+      stockApres: 10,
+      type: 'commande',
+      motif: 'Libération réservation commande #46',
+      reference: 'commande:46:reservation:release',
+    })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 46,
+        ancienStatut: 'paiement_en_attente',
+        nouveauStatut: 'annulee',
+        motif: 'checkout_stripe_creation_echec',
+      },
+    })
+    expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
+  })
+
+  it('createCheckout should cancel pending order when Stripe ID update fails', async () => {
+    const articles: ArticleMock[] = [
+      {
+        id: 1,
+        nom: 'Baguette',
+        prixCents: 200,
+        stock: 10,
+        imageUrl: null,
+      },
+    ]
+
+    prismaMock.article.findMany.mockResolvedValue(articles)
+    prismaMock.commande.create.mockResolvedValue({
+      id: 47,
+      statut: 'paiement_en_attente',
+      totalTtcCents: 400,
+      lignes: [],
+    })
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue({
+      id: 47,
+      statut: 'paiement_en_attente',
+      lignes: [
+        {
+          articleId: 1,
+          quantite: 2,
+          article: {
+            stock: 8,
+          },
+        },
+      ],
+    })
+    prismaMock.mouvementStock.findFirst
+      .mockResolvedValueOnce({ id: 1 })
+      .mockResolvedValueOnce(null)
+    prismaMock.article.update
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: 8,
+      })
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: 10,
+      })
+    prismaMock.commande.update
+      .mockRejectedValueOnce(new Error('Database unavailable'))
+      .mockResolvedValueOnce({
+        id: 47,
+        statut: 'annulee',
+      })
+
+    await expect(service.createCheckout(baseDto())).rejects.toBeInstanceOf(
+      BadRequestException,
+    )
+
+    expect(prismaMock.commande.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 47 },
+      data: { stripeId: 'cs_test_123' },
+    })
+    expect(prismaMock.commande.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 47 },
+      data: { statut: 'annulee' },
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(transactionClient, {
+      articleId: 1,
+      quantite: 2,
+      stockAvant: 8,
+      stockApres: 10,
+      type: 'commande',
+      motif: 'Libération réservation commande #47',
+      reference: 'commande:47:reservation:release',
+    })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 47,
+        ancienStatut: 'paiement_en_attente',
+        nouveauStatut: 'annulee',
+        motif: 'checkout_stripe_id_update_echec',
+      },
+    })
+    expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
   })
 
   it('handleStripeWebhook should reject invalid webhook input', async () => {

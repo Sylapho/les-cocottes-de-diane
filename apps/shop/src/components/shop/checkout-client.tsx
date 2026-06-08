@@ -161,6 +161,15 @@ export default function CheckoutClient({
         url: string
       }
 
+      if (!checkout.url) {
+        setError({
+          title: 'Paiement indisponible',
+          message:
+            'Le paiement ne peut pas être préparé pour le moment. Réessayez dans quelques minutes.',
+        })
+        return
+      }
+
       clearStoredCart()
       window.location.assign(checkout.url)
     } catch (err) {
@@ -537,7 +546,10 @@ async function readCheckoutError(response: Response): Promise<CheckoutError> {
   const messages = extractApiMessages(payload)
   const normalizedMessage = messages.join(' ').toLowerCase()
 
-  if (normalizedMessage.includes('stripe')) {
+  if (
+    normalizedMessage.includes('stripe') ||
+    normalizedMessage.includes('paiement')
+  ) {
     return {
       title: 'Paiement indisponible',
       message:
