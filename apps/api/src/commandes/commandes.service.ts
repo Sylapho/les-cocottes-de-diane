@@ -282,51 +282,88 @@ export class CommandesService {
       return created
     })
 
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: 'payment',
-        customer_email: data.email,
-        client_reference_id: String(commande.id),
-        line_items: lignesAgregees.map((ligne) => {
-          const article = articles.find((item) => item.id === ligne.articleId)!
-          const images =
-            article.imageUrl && article.imageUrl.startsWith('http')
-              ? [article.imageUrl]
-              : undefined
+    let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>
 
-          return {
-            quantity: ligne.quantite,
-            price_data: {
-              currency: 'eur',
-              unit_amount: article.prixCents,
-              product_data: {
-                name: article.nom,
-                images,
+    try {
+      session = await stripe.checkout.sessions.create(
+        {
+          mode: 'payment',
+          customer_email: data.email,
+          client_reference_id: String(commande.id),
+          line_items: lignesAgregees.map((ligne) => {
+            const article = articles.find(
+              (item) => item.id === ligne.articleId,
+            )!
+            const images =
+              article.imageUrl && article.imageUrl.startsWith('http')
+                ? [article.imageUrl]
+                : undefined
+
+            return {
+              quantity: ligne.quantite,
+              price_data: {
+                currency: 'eur',
+                unit_amount: article.prixCents,
+                product_data: {
+                  name: article.nom,
+                  images,
+                },
               },
-            },
-          }
-        }),
-        metadata: {
-          commandeId: String(commande.id),
+            }
+          }),
+          metadata: {
+            commandeId: String(commande.id),
+          },
+          success_url: `${shopUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${shopUrl}/cancel`,
         },
-        success_url: `${shopUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${shopUrl}/cancel`,
-      },
-      {
-        idempotencyKey: `commande:${commande.id}:checkout`,
-      },
-    )
+        {
+          idempotencyKey: `commande:${commande.id}:checkout`,
+        },
+      )
+    } catch (error) {
+      await this.cancelCheckoutBeforePayment(
+        commande.id,
+        'checkout_stripe_creation_echec',
+      )
+
+      throw new BadRequestException(
+        'Le paiement est temporairement indisponible',
+        {
+          cause: error,
+        },
+      )
+    }
 
     if (!session.url) {
+      await this.cancelCheckoutBeforePayment(
+        commande.id,
+        'checkout_session_sans_url',
+      )
+
       throw new BadRequestException(
         'Impossible de créer la session de paiement',
       )
     }
 
-    await this.prisma.commande.update({
-      where: { id: commande.id },
-      data: { stripeId: session.id },
-    })
+    try {
+      await this.prisma.commande.update({
+        where: { id: commande.id },
+        data: { stripeId: session.id },
+      })
+    } catch (error) {
+      await this.cancelCheckoutBeforePayment(
+        commande.id,
+        'checkout_stripe_id_update_echec',
+      )
+
+      throw new BadRequestException(
+        'Le paiement est temporairement indisponible',
+        {
+          cause: error,
+        },
+      )
+    }
 
     return { url: session.url }
   }
@@ -618,6 +655,35 @@ export class CommandesService {
           motif: 'checkout_expire',
         })
       }
+    })
+  }
+
+  private async cancelCheckoutBeforePayment(commandeId: number, motif: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const commande = await tx.commande.findUniqueOrThrow({
+        where: { id: commandeId },
+        include: {
+          lignes: {
+            include: {
+              article: true,
+            },
+          },
+        },
+      })
+
+      await this.releaseReservedStock(tx, commande)
+
+      await tx.commande.update({
+        where: { id: commandeId },
+        data: { statut: 'annulee' },
+      })
+
+      await this.recordStatusHistory(tx, {
+        commandeId,
+        ancienStatut: commande.statut,
+        nouveauStatut: 'annulee',
+        motif,
+      })
     })
   }
 

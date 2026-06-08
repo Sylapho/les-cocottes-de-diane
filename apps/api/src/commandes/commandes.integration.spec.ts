@@ -536,6 +536,107 @@ describe('Commandes integration', () => {
     expect(mockStripeCheckoutSessionsCreate).not.toHaveBeenCalled()
   })
 
+  it('POST /api/commandes/checkout should cancel pending order when Stripe returns no URL', async () => {
+    const articles: ArticleMock[] = [
+      {
+        id: 1,
+        nom: 'Baguette',
+        prixCents: 250,
+        stock: 3,
+        imageUrl: null,
+      },
+    ]
+
+    const pendingCommande = {
+      id: 203,
+      statut: 'paiement_en_attente',
+      totalTtcCents: 1250,
+      lignes: [],
+    }
+
+    prismaMock.article.findMany.mockResolvedValue(articles)
+    prismaMock.commande.create.mockResolvedValue(pendingCommande)
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue({
+      id: 203,
+      statut: 'paiement_en_attente',
+      lignes: [
+        {
+          articleId: 1,
+          quantite: 5,
+          article: {
+            stock: -2,
+          },
+        },
+      ],
+    })
+    prismaMock.mouvementStock.findFirst
+      .mockResolvedValueOnce({ id: 1 })
+      .mockResolvedValueOnce(null)
+    prismaMock.article.update
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: -2,
+      })
+      .mockResolvedValueOnce({
+        id: 1,
+        stock: 3,
+      })
+    prismaMock.commande.update.mockResolvedValue({
+      ...pendingCommande,
+      statut: 'annulee',
+    })
+    mockStripeCheckoutSessionsCreate.mockResolvedValue({
+      id: 'cs_test_without_url',
+      url: null,
+    })
+
+    const response = await request(app.getHttpServer())
+      .post('/api/commandes/checkout')
+      .send({
+        nom: 'Marie Dupont',
+        email: 'marie@example.fr',
+        tel: '0612345678',
+        lieu: validPickupPoint,
+        dateRetrait: validPickupDate,
+        lignes: [{ articleId: 1, quantite: 5 }],
+      })
+      .expect(400)
+
+    const body = response.body as unknown as ErrorResponseBody
+
+    expect(body.statusCode).toBe(400)
+    expect(prismaMock.commande.create).toHaveBeenCalled()
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        stock: {
+          decrement: 5,
+        },
+      },
+    })
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        stock: {
+          increment: 5,
+        },
+      },
+    })
+    expect(prismaMock.commande.update).toHaveBeenCalledWith({
+      where: { id: 203 },
+      data: { statut: 'annulee' },
+    })
+    expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
+      data: {
+        commandeId: 203,
+        ancienStatut: 'paiement_en_attente',
+        nouveauStatut: 'annulee',
+        motif: 'checkout_session_sans_url',
+      },
+    })
+    expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
+  })
+
   it('GET /api/commandes/checkout-session/:sessionId should return public order summary', async () => {
     const createdAt = new Date('2026-06-05T10:00:00.000Z')
     const dateRetrait = new Date('2026-06-09T00:00:00.000Z')
