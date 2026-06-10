@@ -289,9 +289,17 @@ Parcours principal :
 2. Il ajoute des produits au panier.
 3. Il renseigne ses coordonnées et un créneau de retrait.
 4. La boutique appelle `POST /api/commandes/checkout`.
-5. L'API crée une commande en attente, réserve le stock et retourne une session Stripe Checkout.
+5. L'API crée une commande en attente, applique les mouvements de stock et retourne une session Stripe Checkout.
 6. Après paiement, le client revient sur la boutique pour consulter le récapitulatif public de sa commande.
 7. L'équipe suit et met à jour les commandes depuis l'application interne.
+
+### Stock négatif et précommandes
+
+Le stock négatif est un comportement métier volontaire. Il ne doit pas être interprété comme une erreur technique ni comme une raison de bloquer le checkout.
+
+Dans LocalCo, une commande qui dépasse le stock disponible représente une précommande. Le stock négatif sert à mesurer les quantités à produire ou à préparer pour honorer les commandes déjà passées.
+
+Le back-office doit donc afficher clairement ces besoins de production et de préparation au lieu de les empêcher. Les écrans internes doivent aider l'équipe à repérer les articles en déficit, prioriser la production et traiter les commandes concernées.
 
 Les commandes internes sont protégées par Better Auth et des rôles métier.
 
@@ -350,7 +358,7 @@ Jobs actuels :
 
 - Stabiliser le parcours Click & Collect de bout en bout.
 - Renforcer le suivi des commandes et des statuts côté application interne.
-- Continuer à fiabiliser la logique de stock, lots et réservations.
+- Clarifier le pilotage stock/précommande : le stock négatif représente la production à prévoir, pas une erreur à bloquer.
 - Améliorer la couverture de tests sur les flux critiques : commande, paiement, stock, auth.
 - Clarifier les workflows d'e-mails transactionnels.
 
