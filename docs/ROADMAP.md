@@ -241,7 +241,7 @@ Risque si ignoré :
 | Titre | Type | Priorité | Estimation | Branch name | Commit recommandé |
 | --- | --- | --- | --- | --- | --- |
 | Cover Stripe webhook events | Test / API | P0 | M | `test/cover-stripe-webhooks` | `test: cover stripe webhook events` |
-| Document preorder stock behavior | Docs | P0 | XS | `docs/preorder-stock-behavior` | `docs: document preorder stock behavior` |
+| Align roadmap with preorder stock behavior | Docs | P0 | XS | `docs/align-roadmap-preorder-stock` | `docs: align roadmap with preorder stock behavior` |
 | Improve production needs dashboard | Feature / Web | P0 | M | `feat/production-needs-dashboard` | `feat: improve production needs dashboard` |
 | Complete legal pages | Legal / Shop | P0 | S | `docs/complete-legal-pages` | `docs: complete legal pages` |
 | Add legal notice page | Legal / Shop | P1 | S | `docs/add-legal-notice-page` | `docs: add legal notice page` |
