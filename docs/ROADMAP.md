@@ -10,7 +10,7 @@ Le produit doit servir trois usages complémentaires :
 - Gérant : piloter les articles, les stocks, les commandes, la caisse, les statuts et les paramètres critiques.
 - Vendeur, production, stock, comptable : gérer les ventes, préparer les commandes, suivre les mouvements de stock, consulter les informations utiles sans accéder aux données hors périmètre.
 
-Objectif business : vendre simplement des produits alimentaires locaux en ligne, réduire les frictions de prise de commande, sécuriser le stock disponible, et donner à l'équipe interne un outil fiable pour préparer, suivre et clôturer l'activité.
+Objectif business : vendre simplement des produits alimentaires locaux en ligne, réduire les frictions de prise de commande, accepter les précommandes quand la demande dépasse le stock disponible, et donner à l'équipe interne un outil fiable pour préparer, produire, suivre et clôturer l'activité.
 
 ## 2. État actuel
 
@@ -35,7 +35,7 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 - Gestion des événements `checkout.session.completed` et `checkout.session.expired`.
 - Historique des statuts de commande via `CommandeStatutHistorique`.
 - Déduplication des webhooks Stripe via `StripeWebhookEvent`.
-- Réservation et libération de stock lors du checkout et des expirations.
+- Réservation, mouvement et libération de stock lors du checkout et des expirations.
 - Montants financiers stockés en centimes côté Prisma/API et taux de TVA stockés en basis points.
 - Envoi d'e-mail de confirmation via Resend après paiement confirmé.
 - CI GitHub Actions séparée pour API, web et shop.
@@ -43,9 +43,11 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 ### Partiellement en place
 
 - Gestion des commandes : création, checkout, suivi de statut et détails existent, mais le dashboard interne doit être renforcé pour un usage quotidien.
-- Stock : les mouvements, lots et ajustements existent. Le stock peut être négatif.
+- Stock : les mouvements, lots et ajustements existent. Le stock peut être négatif volontairement.
+- Précommande : un stock négatif représente une demande client supérieure au stock disponible et doit être traité comme une production à prévoir.
+- Back-office : les besoins de production liés aux stocks négatifs doivent être affichés clairement au lieu d'être bloqués.
 - Auth : Better Auth est la cible active, avec une dette historique d'ancien fournisseur à terminer de nettoyer dans le modèle utilisateur et les migrations.
-- Tests API : les tests existent sur plusieurs flux critiques, mais les cas stock avant checkout et webhooks doivent être durcis.
+- Tests API : les tests existent sur plusieurs flux critiques, mais les cas de précommande, stock négatif volontaire et webhooks doivent être durcis.
 - Pages légales : les pages existent, mais leur contenu doit être audité avant production.
 - Variables d'environnement : les exemples existent, mais ils doivent rester synchronisés avec Better Auth, Stripe, Resend, CORS et les URLs de production.
 - CI : lint, tests API et builds sont couverts, mais il manque un filet E2E navigateur pour le parcours boutique complet.
@@ -63,7 +65,8 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 
 ### P0 — bloquant production
 
-- Assumer les commandes dépassant le stock disponible comme précommandes, et les afficher comme besoins de production..
+- Assumer les commandes dépassant le stock disponible comme précommandes et les afficher comme besoins de production.
+- Clarifier dans le back-office les articles en déficit afin de piloter la production à prévoir.
 - Couvrir les webhooks Stripe `completed`, `expired`, doublons et signatures invalides.
 - Remplacer ou externaliser le rate limit checkout en mémoire pour la production.
 - Finaliser la configuration d'environnement production : API, web, shop, Stripe, Resend, CORS, Better Auth.
@@ -76,8 +79,8 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 - Stabiliser le CRUD articles utilisé par le catalogue public.
 - Auditer les rôles Better Auth côté API et web.
 - Ajouter un test E2E du parcours boutique : catalogue, panier, checkout, redirection Stripe simulée.
-- Fiabiliser les messages d'erreur checkout côté shop.
-- Documenter les opérations courantes : annulation, commande abandonnée, paiement à vérifier.
+- Fiabiliser les messages d'erreur checkout côté shop sans présenter le stock négatif comme une erreur.
+- Documenter les opérations courantes : précommande, annulation, commande abandonnée, paiement à vérifier.
 
 ### P2 — amélioration post-MVP
 
@@ -108,8 +111,8 @@ Tâches :
 - Vérifier et compléter les `.env.example` de chaque application.
 - Clarifier Better Auth comme solution active d'authentification.
 - Supprimer ou migrer toute dette historique d'ancien fournisseur si elle est encore présente dans le schéma ou le code.
-- Ajouter une validation stricte du stock disponible avant checkout.
-- Aligner les tests API sur le comportement attendu : possibilité de précommande, càd, possibilité d'avoir une valeur négative en stock.
+- Documenter la règle métier : le stock négatif est volontaire, correspond à une précommande et sert à piloter la production à prévoir.
+- Aligner les tests API sur le comportement attendu : possibilité de précommande, c'est-à-dire possibilité d'avoir une valeur négative en stock.
 - Couvrir les webhooks Stripe critiques et les doublons.
 - Vérifier que la CI reste fiable sur API, web et shop.
 - Identifier les commandes de développement réellement supportées.
@@ -120,12 +123,13 @@ Critère de validation :
 
 - Un développeur peut installer, configurer, lancer et vérifier le projet avec la documentation.
 - `pnpm check` est vert.
-- Un checkout avec stock insuffisant est considéré comme une précommande avant création de session Stripe.
+- Un checkout avec stock insuffisant est accepté comme une précommande avant création de session Stripe.
+- Le dashboard production/back-office affiche les quantités à produire liées aux stocks négatifs.
 - Les anciens choix d'auth ne créent plus d'ambiguïté produit ou technique.
 
 Risque si ignoré :
 
-- Le projet peut fonctionner en démo mais casser en production, créer des commandes impossibles à honorer ou laisser une dette d'auth dangereuse.
+- Le projet peut fonctionner en démo mais casser en production, masquer les besoins de production ou laisser une dette d'auth dangereuse.
 
 ### Phase 2 — MVP Click & Collect
 
@@ -142,12 +146,14 @@ Tâches :
 - Améliorer les pages success et cancel.
 - Donner au back-office une gestion minimale des commandes.
 - Donner au back-office un CRUD articles minimal et sûr pour la boutique.
+- Donner au back-office une vue claire des précommandes et des besoins de production générés par les stocks négatifs.
 
 Priorité : P0/P1.
 
 Critère de validation :
 
 - Un client peut partir d'un catalogue public, payer une commande, recevoir une confirmation, et l'équipe peut retrouver puis traiter la commande.
+- Une commande dépassant le stock disponible reste traitable et visible comme besoin de production.
 
 Risque si ignoré :
 
@@ -159,7 +165,7 @@ Objectif : sécuriser avant mise en ligne.
 
 Tâches :
 
-- Ajouter des tests E2E Playwright sur le parcours shop.
+- Ajouter des tests E2E Playwright sur le parcours shop, y compris un scénario de précommande.
 - Auditer et compléter CGV, confidentialité, mentions légales, cookies et Click & Collect.
 - Ajouter des logs structurés côté API.
 - Configurer précisément le CORS production.
@@ -193,7 +199,7 @@ Tâches :
 - Configurer domaine et HTTPS.
 - Vérifier les webhooks Stripe sur l'URL publique.
 - Préparer une procédure de rollback.
-- Préparer une procédure support commande : paiement réussi non visible, commande annulée, stock incohérent, e-mail non envoyé.
+- Préparer une procédure support commande : paiement réussi non visible, commande annulée, précommande à produire, stock incohérent, e-mail non envoyé.
 
 Priorité : P0.
 
@@ -218,7 +224,7 @@ Tâches :
 - Rendre les créneaux de retrait configurables.
 - Ajouter l'upload d'images.
 - Ajouter des notifications SMS.
-- Améliorer les alertes stock et préparation.
+- Améliorer les alertes de stock, de précommande et de préparation.
 
 Priorité : P2/P3.
 
@@ -235,6 +241,8 @@ Risque si ignoré :
 | Titre | Type | Priorité | Estimation | Branch name | Commit recommandé |
 | --- | --- | --- | --- | --- | --- |
 | Cover Stripe webhook events | Test / API | P0 | M | `test/cover-stripe-webhooks` | `test: cover stripe webhook events` |
+| Document preorder stock behavior | Docs | P0 | XS | `docs/preorder-stock-behavior` | `docs: document preorder stock behavior` |
+| Improve production needs dashboard | Feature / Web | P0 | M | `feat/production-needs-dashboard` | `feat: improve production needs dashboard` |
 | Complete legal pages | Legal / Shop | P0 | S | `docs/complete-legal-pages` | `docs: complete legal pages` |
 | Add legal notice page | Legal / Shop | P1 | S | `docs/add-legal-notice-page` | `docs: add legal notice page` |
 | Improve payment success page | UX / Shop | P1 | S | `feat/improve-payment-success-page` | `feat: improve payment success page` |
@@ -249,6 +257,7 @@ Risque si ignoré :
 Notes :
 
 - La page `apps/shop/src/app/mentions-legales/page.tsx` existe déjà. Le ticket `Add legal notice page` doit être traité comme un audit de complétude ou renommé si la page couvre déjà toutes les obligations.
+- Aucun ticket ne doit demander de corriger le stock négatif comme un bug. Les tickets stock doivent traiter l'affichage des précommandes, les besoins de production et la cohérence des mouvements.
 - Les estimations sont volontairement grossières : S = moins d'une demi-journée, M = une à deux journées, L = plusieurs journées.
 
 ## 6. Ce qu'il ne faut pas faire maintenant
@@ -271,10 +280,12 @@ Notes :
 
 ## 7. Prochaines actions concrètes
 
-4. Rejouer et compléter les tests webhook Stripe : completed, expired, duplicate, signature invalide.
-5. Auditer les champs et migrations liés à l'ancienne dette d'authentification.
-6. Vérifier les `.env.example` pour API, web et shop avant pré-production.
-7. Auditer les pages légales existantes et lister les manques juridiques.
-8. Améliorer les pages success/cancel pour le support client et les cas d'erreur.
-9. Ajouter un test E2E shop minimal du panier au checkout.
-10. Écrire le runbook production : déploiement, rollback, sauvegarde, restauration, support commande.
+1. Rejouer et compléter les tests webhook Stripe : completed, expired, duplicate, signature invalide.
+2. Ajouter ou vérifier un test de checkout avec stock insuffisant accepté comme précommande.
+3. Vérifier que le back-office affiche les précommandes et besoins de production générés par les stocks négatifs.
+4. Auditer les champs et migrations liés à l'ancienne dette d'authentification.
+5. Vérifier les `.env.example` pour API, web et shop avant pré-production.
+6. Auditer les pages légales existantes et lister les manques juridiques.
+7. Améliorer les pages success/cancel pour le support client et les cas d'erreur.
+8. Ajouter un test E2E shop minimal du panier au checkout.
+9. Écrire le runbook production : déploiement, rollback, sauvegarde, restauration, support commande.
