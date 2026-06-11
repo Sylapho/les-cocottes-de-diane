@@ -45,7 +45,14 @@ metier des ventes tant qu'il n'est pas migre explicitement.
 | `POST /api/commandes/checkout` | Publique avec rate limit | Cree une commande en attente et une session Stripe. |
 | `POST /api/commandes/stripe/webhook` | Publique signee | Endpoint appele par Stripe, signature verifiee dans le service. |
 | `GET /api/commandes/checkout-session/:sessionId` | Publique | Recapitulatif client apres retour Stripe. |
-| `POST /api/commandes` | Publique actuellement | Risque a confirmer : creation directe de commande hors checkout Stripe. |
+
+`POST /api/commandes` n'est pas une route boutique publique. Elle sert a la
+creation manuelle interne d'une commande directement exploitable par l'equipe,
+sans paiement Stripe. Elle peut representer une precommande et donc produire un
+stock negatif volontairement, mais elle doit uniquement etre appelee par un
+utilisateur interne autorise. Le parcours client public doit utiliser
+`POST /api/commandes/checkout`, qui cree une commande en attente et une session
+Stripe Checkout.
 
 ## Matrice des routes protegees API
 
@@ -60,6 +67,7 @@ metier des ventes tant qu'il n'est pas migre explicitement.
 | Nomenclatures | `GET /api/articles/:articleId/nomenclature` | `gerant`, `production`, `stock` |
 | Nomenclatures | `POST/PATCH/DELETE /api/articles/:articleId/nomenclature...` | `gerant`, `production` |
 | Commandes | `GET /api/commandes`, `GET /api/commandes/:id` | `gerant`, `vendeur`, `production`, `comptable` |
+| Commandes | `POST /api/commandes` | `gerant`, `vendeur` |
 | Commandes | `PATCH /api/commandes/:id/statut` | `gerant`, `vendeur`, `production` |
 | Commandes | `POST /api/commandes/cleanup-abandoned` | `gerant` |
 | Ventes | `GET /api/ventes`, `GET /api/ventes/:id` | `gerant`, `vendeur`, `comptable` |
@@ -93,9 +101,6 @@ par les endpoints publics controles de l'API (`boutique`, `pickup-points`,
 
 ## Risques et durcissements recommandes
 
-- `POST /api/commandes` est public alors que `POST /api/commandes/checkout`
-  couvre le parcours boutique. Confirmer son usage ; sinon le proteger ou le
-  supprimer dans un ticket dedie.
 - Le proxy web protege la presence d'une session, mais les restrictions fines
   par role sont surtout appliquees cote API. Continuer a considerer l'API comme
   source d'autorite.

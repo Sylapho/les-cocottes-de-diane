@@ -42,7 +42,7 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 
 ### Partiellement en place
 
-- Gestion des commandes : création, checkout, suivi de statut, détails et filtres simples existent ; le dashboard interne doit maintenant être éprouvé en usage quotidien.
+- Gestion des commandes : création manuelle interne protégée, checkout public Stripe, suivi de statut, détails et filtres simples existent ; le dashboard interne doit maintenant être éprouvé en usage quotidien.
 - Stock : les mouvements, lots et ajustements existent. Le stock peut être négatif volontairement.
 - Précommande : un stock négatif représente une demande client supérieure au stock disponible et doit être traité comme une production à prévoir.
 - Back-office : les besoins de production liés aux stocks négatifs doivent être affichés clairement au lieu d'être bloqués.

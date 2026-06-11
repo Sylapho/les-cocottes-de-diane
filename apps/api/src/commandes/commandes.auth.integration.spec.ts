@@ -18,6 +18,8 @@ describe('Commandes admin auth integration', () => {
     createCheckout: jest.fn(),
     handleStripeWebhook: jest.fn(),
     create: jest.fn(),
+    findPickupPoints: jest.fn(),
+    findPublicCheckoutSummary: jest.fn(),
     findAll: jest.fn(),
     cleanupAbandonedCommandes: jest.fn(),
     findOne: jest.fn(),
@@ -84,6 +86,158 @@ describe('Commandes admin auth integration', () => {
     if (app) {
       await app.close()
     }
+  })
+
+  const directCommandePayload = {
+    nom: 'Marie Dupont',
+    email: 'marie@example.fr',
+    tel: '0612345678',
+    lieu: 'Marche de Gaillon - Mardi matin, 8h-12h',
+    dateRetrait: '2026-06-16T00:00:00.000Z',
+    lignes: [{ articleId: 1, quantite: 5 }],
+  }
+
+  it('POST /api/commandes should reject anonymous direct order creation', async () => {
+    await request(app.getHttpServer())
+      .post('/api/commandes')
+      .send(directCommandePayload)
+      .expect(401)
+
+    expect(mockBetterAuthGetSession).not.toHaveBeenCalled()
+    expect(commandesServiceMock.create).not.toHaveBeenCalled()
+  })
+
+  it.each([ROLES.GERANT, ROLES.VENDEUR])(
+    'POST /api/commandes should allow role %s to create a direct order',
+    async (role) => {
+      const createdCommande = {
+        id: 101,
+        statut: 'nouvelle',
+        totalTtcCents: 1000,
+        lignes: [],
+      }
+
+      mockBetterAuthGetSession.mockResolvedValueOnce({
+        user: {
+          id: `user-${role}`,
+          role,
+        },
+      })
+
+      commandesServiceMock.create.mockResolvedValueOnce(createdCommande)
+
+      const response = await request(app.getHttpServer())
+        .post('/api/commandes')
+        .set('Cookie', 'better-auth.session_token=valid')
+        .send(directCommandePayload)
+        .expect(201)
+
+      expect(response.body).toEqual(createdCommande)
+      expect(commandesServiceMock.create).toHaveBeenCalledTimes(1)
+      expect(commandesServiceMock.create).toHaveBeenCalledWith(
+        directCommandePayload,
+      )
+    },
+  )
+
+  it.each([ROLES.PRODUCTION, ROLES.STOCK, ROLES.COMPTABLE])(
+    'POST /api/commandes should reject role %s',
+    async (role) => {
+      mockBetterAuthGetSession.mockResolvedValueOnce({
+        user: {
+          id: `user-${role}`,
+          role,
+        },
+      })
+
+      await request(app.getHttpServer())
+        .post('/api/commandes')
+        .set('Cookie', 'better-auth.session_token=valid')
+        .send(directCommandePayload)
+        .expect(403)
+
+      expect(commandesServiceMock.create).not.toHaveBeenCalled()
+    },
+  )
+
+  it('POST /api/commandes/checkout should stay public', async () => {
+    commandesServiceMock.createCheckout.mockResolvedValueOnce({
+      url: 'https://checkout.stripe.com/test',
+    })
+
+    const response = await request(app.getHttpServer())
+      .post('/api/commandes/checkout')
+      .send(directCommandePayload)
+      .expect(201)
+
+    expect(response.body).toEqual({
+      url: 'https://checkout.stripe.com/test',
+    })
+    expect(mockBetterAuthGetSession).not.toHaveBeenCalled()
+    expect(commandesServiceMock.createCheckout).toHaveBeenCalledWith(
+      directCommandePayload,
+    )
+  })
+
+  it('POST /api/commandes/stripe/webhook should stay public', async () => {
+    commandesServiceMock.handleStripeWebhook.mockResolvedValueOnce({
+      received: true,
+    })
+
+    const response = await request(app.getHttpServer())
+      .post('/api/commandes/stripe/webhook')
+      .set('stripe-signature', 'stripe-signature')
+      .send({})
+      .expect(201)
+
+    expect(response.body).toEqual({
+      received: true,
+    })
+    expect(mockBetterAuthGetSession).not.toHaveBeenCalled()
+    expect(commandesServiceMock.handleStripeWebhook).toHaveBeenCalledTimes(1)
+  })
+
+  it('GET /api/commandes/pickup-points should stay public', async () => {
+    const pickupPoints = [
+      {
+        label: 'Marche de Gaillon',
+        schedule: 'Mardi matin, 8h-12h',
+        allowedWeekdays: [2],
+        value: 'Marche de Gaillon - Mardi matin, 8h-12h',
+      },
+    ]
+
+    commandesServiceMock.findPickupPoints.mockReturnValueOnce(pickupPoints)
+
+    const response = await request(app.getHttpServer())
+      .get('/api/commandes/pickup-points')
+      .expect(200)
+
+    expect(response.body).toEqual(pickupPoints)
+    expect(mockBetterAuthGetSession).not.toHaveBeenCalled()
+    expect(commandesServiceMock.findPickupPoints).toHaveBeenCalledTimes(1)
+  })
+
+  it('GET /api/commandes/checkout-session/:sessionId should stay public', async () => {
+    const checkoutSummary = {
+      id: 101,
+      reference: 'CMD-000101',
+      paiementStatut: 'confirme',
+    }
+
+    commandesServiceMock.findPublicCheckoutSummary.mockResolvedValueOnce(
+      checkoutSummary,
+    )
+
+    const response = await request(app.getHttpServer())
+      .get('/api/commandes/checkout-session/cs_test_123')
+      .expect(200)
+
+    expect(response.body).toEqual(checkoutSummary)
+    expect(mockBetterAuthGetSession).not.toHaveBeenCalled()
+    expect(commandesServiceMock.findPublicCheckoutSummary).toHaveBeenCalledWith(
+      'cs_test_123',
+    )
   })
 
   it('GET /api/commandes should reject request without session cookie', async () => {
