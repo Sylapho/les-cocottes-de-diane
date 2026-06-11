@@ -130,6 +130,60 @@ describe('CommandesService', () => {
     ...overrides,
   })
 
+  const makeCommandeForProduction = (data: {
+    id: number
+    articleId?: number
+    quantite: number
+    statut?: string
+    stock?: number
+    dateRetrait?: Date | null
+    createdAt?: Date
+  }) => ({
+    id: data.id,
+    statut: data.statut ?? 'nouvelle',
+    dateRetrait: data.dateRetrait ?? null,
+    createdAt: data.createdAt ?? new Date(Date.UTC(2026, 5, 10, 8, data.id)),
+    lignes: [
+      {
+        id: data.id * 10,
+        articleId: data.articleId ?? 1,
+        quantite: data.quantite,
+        article: {
+          id: data.articleId ?? 1,
+          nom: `Article ${data.articleId ?? 1}`,
+          stock: data.stock ?? 0,
+        },
+      },
+    ],
+  })
+
+  const mockProductionLookup = (data: {
+    currentStock: number
+    openCommandes: ReturnType<typeof makeCommandeForProduction>[]
+    articleId?: number
+  }) => {
+    const articleId = data.articleId ?? 1
+
+    prismaMock.article.findMany.mockResolvedValueOnce([
+      {
+        id: articleId,
+        stock: data.currentStock,
+      },
+    ])
+    prismaMock.commande.findMany.mockResolvedValueOnce(
+      data.openCommandes.map((commande) => ({
+        id: commande.id,
+        statut: commande.statut,
+        dateRetrait: commande.dateRetrait,
+        createdAt: commande.createdAt,
+        lignes: commande.lignes.map((ligne) => ({
+          articleId: ligne.articleId,
+          quantite: ligne.quantite,
+        })),
+      })),
+    )
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -162,6 +216,7 @@ describe('CommandesService', () => {
         callback(transactionClient),
     )
 
+    prismaMock.article.findMany.mockResolvedValue([])
     prismaMock.commande.findMany.mockResolvedValue([])
     prismaMock.commande.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.commandeStatutHistorique.create.mockResolvedValue({ id: 1 })
@@ -252,122 +307,352 @@ describe('CommandesService', () => {
     })
   })
 
-  it('findAll should expose production quantities from order stock movements', async () => {
-    const commandes = [
+  it('findAll should allocate production needs from current stock and open orders', async () => {
+    const firstCommande = makeCommandeForProduction({
+      id: 1,
+      quantite: 5,
+      stock: -4,
+      dateRetrait: new Date('2026-06-16T00:00:00.000Z'),
+      createdAt: new Date('2026-06-10T08:00:00.000Z'),
+    })
+    const secondCommande = makeCommandeForProduction({
+      id: 2,
+      quantite: 2,
+      stock: -4,
+      dateRetrait: new Date('2026-06-19T00:00:00.000Z'),
+      createdAt: new Date('2026-06-10T09:00:00.000Z'),
+    })
+    const commandes = [firstCommande, secondCommande]
+
+    prismaMock.commande.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(commandes)
+    mockProductionLookup({
+      currentStock: -4,
+      openCommandes: commandes,
+    })
+
+    await expect(service.findAll()).resolves.toEqual([
       {
+        ...firstCommande,
+        lignes: [
+          {
+            ...firstCommande.lignes[0],
+            productionQuantity: 2,
+          },
+        ],
+      },
+      {
+        ...secondCommande,
+        lignes: [
+          {
+            ...secondCommande.lignes[0],
+            productionQuantity: 2,
+          },
+        ],
+      },
+    ])
+
+    expect(prismaMock.article.findMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: [1],
+        },
+      },
+      select: {
+        id: true,
+        stock: true,
+      },
+    })
+    expect(prismaMock.commande.findMany).toHaveBeenNthCalledWith(3, {
+      where: {
+        statut: {
+          in: [
+            'paiement_en_attente',
+            'paiement_a_verifier',
+            'nouvelle',
+            'preparee',
+          ],
+        },
+        lignes: {
+          some: {
+            articleId: {
+              in: [1],
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        statut: true,
+        dateRetrait: true,
+        createdAt: true,
+        lignes: {
+          where: {
+            articleId: {
+              in: [1],
+            },
+          },
+          select: {
+            articleId: true,
+            quantite: true,
+          },
+        },
+      },
+    })
+    expect(prismaMock.mouvementStock.findMany).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['initial deficit', -2, 2],
+    ['partial replenishment', -1, 1],
+    ['complete replenishment', 0, 0],
+    ['overproduction', 4, 0],
+  ])(
+    'findAll should reconcile production need after %s',
+    async (_caseName, currentStock, expectedProductionQuantity) => {
+      const commande = makeCommandeForProduction({
         id: 1,
-        statut: 'nouvelle',
-        lignes: [
-          {
-            id: 10,
-            articleId: 1,
-            quantite: 5,
-            article: {
-              id: 1,
-              stock: -2,
+        quantite: 5,
+        stock: currentStock,
+      })
+
+      prismaMock.commande.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([commande])
+      mockProductionLookup({
+        currentStock,
+        openCommandes: [commande],
+      })
+
+      await expect(service.findAll()).resolves.toEqual([
+        {
+          ...commande,
+          lignes: [
+            {
+              ...commande.lignes[0],
+              productionQuantity: expectedProductionQuantity,
             },
-          },
-          {
-            id: 11,
-            articleId: 2,
-            quantite: 1,
-            article: {
-              id: 2,
-              stock: 4,
-            },
-          },
-        ],
-      },
-      {
-        id: 2,
-        statut: 'nouvelle',
-        lignes: [
-          {
-            id: 12,
-            articleId: 1,
-            quantite: 2,
-            article: {
-              id: 1,
-              stock: -2,
-            },
-          },
-        ],
-      },
+          ],
+        },
+      ])
+    },
+  )
+
+  it('findAll should deterministically allocate stock only once across multiple orders', async () => {
+    const laterCreatedSameDueDate = makeCommandeForProduction({
+      id: 3,
+      quantite: 3,
+      stock: -6,
+      dateRetrait: new Date('2026-06-18T00:00:00.000Z'),
+      createdAt: new Date('2026-06-10T11:00:00.000Z'),
+    })
+    const earliestDueDate = makeCommandeForProduction({
+      id: 1,
+      quantite: 4,
+      stock: -6,
+      dateRetrait: new Date('2026-06-16T00:00:00.000Z'),
+      createdAt: new Date('2026-06-10T12:00:00.000Z'),
+    })
+    const earlierCreatedSameDueDate = makeCommandeForProduction({
+      id: 2,
+      quantite: 2,
+      stock: -6,
+      dateRetrait: new Date('2026-06-18T00:00:00.000Z'),
+      createdAt: new Date('2026-06-10T10:00:00.000Z'),
+    })
+    const commandes = [
+      laterCreatedSameDueDate,
+      earliestDueDate,
+      earlierCreatedSameDueDate,
     ]
 
     prismaMock.commande.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce(commandes)
-    prismaMock.mouvementStock.findMany.mockResolvedValue([
+    mockProductionLookup({
+      currentStock: -6,
+      openCommandes: commandes,
+    })
+
+    const result = await service.findAll()
+    const productionByCommandeId = new Map(
+      result.map((commande) => [
+        commande.id,
+        commande.lignes[0].productionQuantity,
+      ]),
+    )
+
+    expect(productionByCommandeId).toEqual(
+      new Map([
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ]),
+    )
+    expect(
+      Array.from(productionByCommandeId.values()).reduce(
+        (total, quantity) => total + quantity,
+        0,
+      ),
+    ).toBe(6)
+  })
+
+  it.each([['annulee'], ['traitee']])(
+    'findAll should exclude %s orders from production allocation',
+    async (statut) => {
+      const visibleCommande = makeCommandeForProduction({
+        id: 1,
+        quantite: 5,
+        stock: -2,
+      })
+      const excludedCommande = makeCommandeForProduction({
+        id: 2,
+        quantite: 5,
+        statut,
+        stock: -2,
+      })
+
+      prismaMock.commande.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([visibleCommande, excludedCommande])
+      mockProductionLookup({
+        currentStock: -2,
+        openCommandes: [visibleCommande],
+      })
+
+      await expect(service.findAll()).resolves.toEqual([
+        {
+          ...visibleCommande,
+          lignes: [
+            {
+              ...visibleCommande.lignes[0],
+              productionQuantity: 2,
+            },
+          ],
+        },
+        {
+          ...excludedCommande,
+          lignes: [
+            {
+              ...excludedCommande.lignes[0],
+              productionQuantity: 0,
+            },
+          ],
+        },
+      ])
+    },
+  )
+
+  it('findAll should account for pending checkout reservations without exposing them as production needs', async () => {
+    const pendingCommande = makeCommandeForProduction({
+      id: 1,
+      quantite: 3,
+      statut: 'paiement_en_attente',
+      stock: -4,
+      dateRetrait: new Date('2026-06-16T00:00:00.000Z'),
+    })
+    const visibleCommande = makeCommandeForProduction({
+      id: 2,
+      quantite: 4,
+      stock: -4,
+      dateRetrait: new Date('2026-06-17T00:00:00.000Z'),
+    })
+
+    prismaMock.commande.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([pendingCommande, visibleCommande])
+    mockProductionLookup({
+      currentStock: -4,
+      openCommandes: [pendingCommande, visibleCommande],
+    })
+
+    await expect(service.findAll()).resolves.toEqual([
+      {
+        ...pendingCommande,
+        lignes: [
+          {
+            ...pendingCommande.lignes[0],
+            productionQuantity: 0,
+          },
+        ],
+      },
+      {
+        ...visibleCommande,
+        lignes: [
+          {
+            ...visibleCommande.lignes[0],
+            productionQuantity: 4,
+          },
+        ],
+      },
+    ])
+  })
+
+  it('findAll should expose production needs for payment review orders', async () => {
+    const commande = makeCommandeForProduction({
+      id: 1,
+      quantite: 5,
+      statut: 'paiement_a_verifier',
+      stock: -2,
+    })
+
+    prismaMock.commande.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([commande])
+    mockProductionLookup({
+      currentStock: -2,
+      openCommandes: [commande],
+    })
+
+    await expect(service.findAll()).resolves.toEqual([
+      {
+        ...commande,
+        lignes: [
+          {
+            ...commande.lignes[0],
+            productionQuantity: 2,
+          },
+        ],
+      },
+    ])
+  })
+
+  it('findAll should ignore stale negative stockApres from historical movements after replenishment', async () => {
+    const commande = makeCommandeForProduction({
+      id: 1,
+      quantite: 5,
+      stock: 0,
+    })
+
+    prismaMock.commande.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([commande])
+    mockProductionLookup({
+      currentStock: 0,
+      openCommandes: [commande],
+    })
+    prismaMock.mouvementStock.findMany.mockResolvedValueOnce([
       {
         articleId: 1,
         quantite: -5,
         stockApres: -2,
         reference: 'commande:1:reservation',
       },
-      {
-        articleId: 1,
-        quantite: -2,
-        stockApres: -4,
-        reference: 'commande:2:reservation',
-      },
-      {
-        articleId: 2,
-        quantite: -1,
-        stockApres: 4,
-        reference: 'commande:1:reservation',
-      },
     ])
 
     await expect(service.findAll()).resolves.toEqual([
       {
-        ...commandes[0],
+        ...commande,
         lignes: [
           {
-            ...commandes[0].lignes[0],
-            productionQuantity: 2,
-          },
-          {
-            ...commandes[0].lignes[1],
+            ...commande.lignes[0],
             productionQuantity: 0,
           },
         ],
       },
-      {
-        ...commandes[1],
-        lignes: [
-          {
-            ...commandes[1].lignes[0],
-            productionQuantity: 2,
-          },
-        ],
-      },
     ])
-
-    expect(prismaMock.mouvementStock.findMany).toHaveBeenCalledWith({
-      where: {
-        reference: {
-          in: [
-            'commande:1',
-            'commande:1:reservation',
-            'commande:2',
-            'commande:2:reservation',
-          ],
-        },
-        articleId: {
-          not: null,
-        },
-        quantite: {
-          lt: 0,
-        },
-      },
-      select: {
-        articleId: true,
-        quantite: true,
-        stockApres: true,
-        reference: true,
-      },
-    })
+    expect(prismaMock.mouvementStock.findMany).not.toHaveBeenCalled()
   })
 
   it('findOne should cleanup abandoned commandes before loading details', async () => {
