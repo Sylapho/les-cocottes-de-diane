@@ -45,7 +45,7 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 - Gestion des commandes : création, checkout, suivi de statut, détails et filtres simples existent ; le dashboard interne doit maintenant être éprouvé en usage quotidien.
 - Stock : les mouvements, lots et ajustements existent. Le stock peut être négatif volontairement.
 - Précommande : un stock négatif représente une demande client supérieure au stock disponible et doit être traité comme une production à prévoir.
-- Back-office : les besoins de production liés aux stocks négatifs doivent être affichés clairement au lieu d'être bloqués.
+- Back-office : les besoins de production liés aux stocks négatifs sont recalculés depuis le stock courant et les commandes ouvertes, au lieu d'être bloqués ou figés sur un ancien mouvement de stock.
 - Auth : Better Auth est la cible active, avec une dette historique d'ancien fournisseur à terminer de nettoyer dans le modèle utilisateur et les migrations.
 - Tests API : les tests existent sur plusieurs flux critiques, mais les cas de précommande, stock négatif volontaire et webhooks doivent être durcis.
 - Pages légales : les pages existent, mais leur contenu doit être audité avant production.
@@ -65,8 +65,8 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 
 ### P0 — bloquant production
 
-- Assumer les commandes dépassant le stock disponible comme précommandes et les afficher comme besoins de production.
-- Clarifier dans le back-office les articles en déficit afin de piloter la production à prévoir.
+- Assumer les commandes dépassant le stock disponible comme précommandes et garder leur besoin de production dynamique après réapprovisionnement.
+- Clarifier dans le back-office les articles en déficit afin de piloter la production à prévoir depuis la situation de stock actuelle.
 - Couvrir les webhooks Stripe `completed`, `expired`, doublons et signatures invalides.
 - Choisir la stratégie production du rate limit checkout : ingress/API gateway/WAF ou store partagé si l'infrastructure retenue le fournit.
 - Finaliser la configuration d'environnement production : API, web, shop, Stripe, Resend, CORS, Better Auth.

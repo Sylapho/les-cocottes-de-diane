@@ -301,6 +301,8 @@ Dans LocalCo, une commande qui dépasse le stock disponible représente une pré
 
 Le back-office doit donc afficher clairement ces besoins de production et de préparation au lieu de les empêcher. Les écrans internes doivent aider l'équipe à repérer les articles en déficit, prioriser la production et traiter les commandes concernées.
 
+Les quantités à produire sont recalculées depuis le stock courant et les commandes encore ouvertes. Les paiements en attente réservent du stock dans cette allocation, mais seuls les statuts opérationnels (`nouvelle`, `preparee`, `paiement_a_verifier`) affichent un besoin de production.
+
 Les commandes internes sont protégées par Better Auth et des rôles métier.
 
 ## Stripe et webhooks
