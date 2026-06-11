@@ -21,7 +21,6 @@ export default function EditArticleForm({
 
   const [nom, setNom] = useState(article.nom)
   const [prix, setPrix] = useState(String(centsToEuros(article.prixCents)))
-  const [stock, setStock] = useState(String(article.stock))
   const [imageUrl, setImageUrl] = useState(article.imageUrl ?? '')
   const [description, setDescription] = useState(article.description ?? '')
   const [online, setOnline] = useState(article.online)
@@ -42,7 +41,6 @@ export default function EditArticleForm({
         body: JSON.stringify({
           nom,
           prixCents: eurosToCents(Number(prix)),
-          stock: Number(stock),
           imageUrl: imageUrl || null,
           description: description || undefined,
           online,
@@ -92,16 +90,10 @@ export default function EditArticleForm({
       </div>
 
       <div className="grid gap-1">
-        <label htmlFor="stock">Stock</label>
-        <input
-          id="stock"
-          type="number"
-          min="0"
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
-          className="rounded border px-3 py-2"
-          required
-        />
+        <span>Stock</span>
+        <p className="rounded border bg-gray-50 px-3 py-2 text-gray-700">
+          {article.stock}
+        </p>
       </div>
 
       <div className="grid gap-1">

@@ -4,10 +4,6 @@ export class CreateMatierePremiereDto {
   @IsString()
   nom!: string
 
-  @IsNumber()
-  @Min(0)
-  stock!: number
-
   @IsString()
   unite!: string
 

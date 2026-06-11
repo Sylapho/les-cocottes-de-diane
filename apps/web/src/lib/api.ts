@@ -43,7 +43,6 @@ export type Article = {
 export type ArticlePayload = {
   nom: string
   prixCents: number
-  stock?: number
   online?: boolean
   imageUrl?: string | null
   description?: string
@@ -123,7 +122,6 @@ export type MatierePremiere = {
 
 export type MatierePremierePayload = {
   nom: string
-  stock: number
   unite: string
   coutUnitaireCents: number
   seuil: number

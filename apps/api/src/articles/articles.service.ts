@@ -67,7 +67,7 @@ export class ArticlesService {
         nom: data.nom,
         prixCents: data.prixCents,
         tvaBps: data.tvaBps ?? 550,
-        stock: data.stock ?? 0,
+        stock: 0,
         online: data.online ?? true,
         description: data.description,
         ingredients: data.ingredients,
@@ -80,7 +80,16 @@ export class ArticlesService {
   update(id: number, data: UpdateArticleDto) {
     return this.prisma.article.update({
       where: { id },
-      data,
+      data: {
+        nom: data.nom,
+        prixCents: data.prixCents,
+        tvaBps: data.tvaBps,
+        online: data.online,
+        description: data.description,
+        ingredients: data.ingredients,
+        allergenes: data.allergenes,
+        imageUrl: data.imageUrl,
+      },
     })
   }
 

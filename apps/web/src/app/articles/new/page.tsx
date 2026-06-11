@@ -14,7 +14,6 @@ export default function NewArticlePage() {
 
   const [nom, setNom] = useState('')
   const [prix, setPrix] = useState('')
-  const [stock, setStock] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
@@ -34,7 +33,6 @@ export default function NewArticlePage() {
         body: JSON.stringify({
           nom,
           prixCents: eurosToCents(Number(prix)),
-          stock: Number(stock || 0),
           online: true,
           imageUrl: imageUrl || undefined,
           description: description || undefined,
@@ -83,18 +81,6 @@ export default function NewArticlePage() {
             onChange={(e) => setPrix(e.target.value)}
             className="rounded border px-3 py-2"
             required
-          />
-        </div>
-
-        <div className="grid gap-1">
-          <label htmlFor="stock">Stock</label>
-          <input
-            id="stock"
-            type="number"
-            min="0"
-            value={stock}
-            onChange={(e) => setStock(e.target.value)}
-            className="rounded border px-3 py-2"
           />
         </div>
 

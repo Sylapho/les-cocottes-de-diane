@@ -23,14 +23,27 @@ export class MatieresPremieresService {
 
   create(data: CreateMatierePremiereDto) {
     return this.prisma.matierePremiere.create({
-      data,
+      data: {
+        nom: data.nom,
+        stock: 0,
+        unite: data.unite,
+        coutUnitaireCents: data.coutUnitaireCents,
+        seuil: data.seuil,
+        conditionnement: data.conditionnement,
+      },
     })
   }
 
   update(id: number, data: UpdateMatierePremiereDto) {
     return this.prisma.matierePremiere.update({
       where: { id },
-      data,
+      data: {
+        nom: data.nom,
+        unite: data.unite,
+        coutUnitaireCents: data.coutUnitaireCents,
+        seuil: data.seuil,
+        conditionnement: data.conditionnement,
+      },
     })
   }
 
