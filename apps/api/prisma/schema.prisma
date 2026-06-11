@@ -39,7 +39,7 @@ model Article {
 model MatierePremiere {
   id                Int              @id @default(autoincrement())
   nom               String
-  stock             Float
+  stock             Float            @default(0)
   unite             String
   coutUnitaireCents Int
   seuil             Float

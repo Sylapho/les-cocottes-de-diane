@@ -178,7 +178,16 @@ describe('ArticlesService', () => {
     )
     expect(prismaMock.article.update).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: { prixCents: 130 },
+      data: {
+        nom: undefined,
+        prixCents: 130,
+        tvaBps: undefined,
+        online: undefined,
+        description: undefined,
+        ingredients: undefined,
+        allergenes: undefined,
+        imageUrl: undefined,
+      },
     })
   })
 

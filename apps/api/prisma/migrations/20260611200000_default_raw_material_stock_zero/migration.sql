@@ -1,0 +1,2 @@
+ALTER TABLE "MatierePremiere"
+ALTER COLUMN "stock" SET DEFAULT 0;

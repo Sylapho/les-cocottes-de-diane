@@ -59,19 +59,25 @@ describe('MatieresPremieresService', () => {
   it('create should create a matiere premiere', async () => {
     const body = {
       nom: 'Farine',
-      stock: 10,
       unite: 'kg',
       coutUnitaireCents: 120,
       seuil: 2,
       conditionnement: 'sac',
     }
-    const created = { id: 1, ...body }
+    const created = { id: 1, ...body, stock: 0 }
 
     prismaMock.matierePremiere.create.mockResolvedValue(created)
 
     await expect(service.create(body)).resolves.toEqual(created)
     expect(prismaMock.matierePremiere.create).toHaveBeenCalledWith({
-      data: body,
+      data: {
+        nom: 'Farine',
+        stock: 0,
+        unite: 'kg',
+        coutUnitaireCents: 120,
+        seuil: 2,
+        conditionnement: 'sac',
+      },
     })
   })
 
@@ -84,7 +90,13 @@ describe('MatieresPremieresService', () => {
     )
     expect(prismaMock.matierePremiere.update).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: { nom: 'Farine T65' },
+      data: {
+        nom: 'Farine T65',
+        unite: undefined,
+        coutUnitaireCents: undefined,
+        seuil: undefined,
+        conditionnement: undefined,
+      },
     })
   })
 

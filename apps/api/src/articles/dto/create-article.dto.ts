@@ -14,11 +14,6 @@ export class CreateArticleDto {
   tvaBps?: number
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  stock?: number
-
-  @IsOptional()
   @IsBoolean()
   online?: boolean
 

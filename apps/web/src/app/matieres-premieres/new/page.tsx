@@ -13,7 +13,6 @@ export default function NewMatierePremierePage() {
   const sessionFetch = useSessionFetch()
 
   const [nom, setNom] = useState('')
-  const [stock, setStock] = useState('')
   const [unite, setUnite] = useState('')
   const [coutUnitaire, setCoutUnitaire] = useState('')
   const [seuil, setSeuil] = useState('')
@@ -34,7 +33,6 @@ export default function NewMatierePremierePage() {
         },
         body: JSON.stringify({
           nom,
-          stock: Number(stock),
           unite,
           coutUnitaireCents: eurosToCents(Number(coutUnitaire)),
           seuil: Number(seuil),
@@ -65,16 +63,6 @@ export default function NewMatierePremierePage() {
           onChange={(e) => setNom(e.target.value)}
           className="rounded border px-3 py-2"
           placeholder="Nom"
-          required
-        />
-        <input
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
-          type="number"
-          step="0.01"
-          min="0"
-          className="rounded border px-3 py-2"
-          placeholder="Stock"
           required
         />
         <input

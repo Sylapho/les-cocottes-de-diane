@@ -18,7 +18,6 @@ export default function EditMatierePremiereForm({ matiere }: Props) {
   const sessionFetch = useSessionFetch()
 
   const [nom, setNom] = useState(matiere.nom)
-  const [stock, setStock] = useState(String(matiere.stock))
   const [unite, setUnite] = useState(matiere.unite)
   const [coutUnitaire, setCoutUnitaire] = useState(
     String(centsToEuros(matiere.coutUnitaireCents)),
@@ -45,7 +44,6 @@ export default function EditMatierePremiereForm({ matiere }: Props) {
           },
           body: JSON.stringify({
             nom,
-            stock: Number(stock),
             unite,
             coutUnitaireCents: eurosToCents(Number(coutUnitaire)),
             seuil: Number(seuil),
@@ -76,16 +74,9 @@ export default function EditMatierePremiereForm({ matiere }: Props) {
         placeholder="Nom"
         required
       />
-      <input
-        value={stock}
-        onChange={(e) => setStock(e.target.value)}
-        type="number"
-        step="0.01"
-        min="0"
-        className="rounded border px-3 py-2"
-        placeholder="Stock"
-        required
-      />
+      <p className="rounded border bg-gray-50 px-3 py-2 text-gray-700">
+        Stock : {matiere.stock} {matiere.unite}
+      </p>
       <input
         value={unite}
         onChange={(e) => setUnite(e.target.value)}
