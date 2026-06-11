@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Test, TestingModule } from '@nestjs/testing'
 import Stripe from 'stripe'
@@ -76,6 +80,8 @@ describe('CommandesService', () => {
     },
     stripeWebhookEvent: {
       create: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
   }
@@ -157,11 +163,14 @@ describe('CommandesService', () => {
     )
 
     prismaMock.commande.findMany.mockResolvedValue([])
+    prismaMock.commande.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.commandeStatutHistorique.create.mockResolvedValue({ id: 1 })
     prismaMock.mouvementStock.findFirst.mockResolvedValue(null)
     prismaMock.mouvementStock.findMany.mockResolvedValue([])
     prismaMock.mouvementStock.create.mockResolvedValue({ id: 1 })
     prismaMock.stripeWebhookEvent.create.mockResolvedValue({ id: 1 })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValue(null)
+    prismaMock.stripeWebhookEvent.updateMany.mockResolvedValue({ count: 1 })
 
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       id: 1,
@@ -1201,7 +1210,7 @@ describe('CommandesService', () => {
     expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
   })
 
-  it('handleStripeWebhook should ignore duplicate Stripe events', async () => {
+  it('handleStripeWebhook should return success for an already processed Stripe event without side effects', async () => {
     mockStripeConstructEvent.mockReturnValue({
       id: 'evt_duplicate',
       type: 'checkout.session.completed',
@@ -1215,17 +1224,29 @@ describe('CommandesService', () => {
     prismaMock.stripeWebhookEvent.create.mockRejectedValueOnce({
       code: 'P2002',
     })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValueOnce({
+      eventId: 'evt_duplicate',
+      type: 'checkout.session.completed',
+      status: 'processed',
+      attempts: 1,
+      lastError: null,
+      processingStartedAt: new Date('2026-06-10T10:00:00.000Z'),
+      processedAt: new Date('2026-06-10T10:00:01.000Z'),
+    })
 
     await expect(
       service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
     ).resolves.toEqual({ received: true, duplicate: true })
 
     expect(prismaMock.commande.findFirst).not.toHaveBeenCalled()
+    expect(prismaMock.commande.findMany).not.toHaveBeenCalled()
     expect(prismaMock.commande.update).not.toHaveBeenCalled()
+    expect(prismaMock.commande.updateMany).not.toHaveBeenCalled()
+    expect(prismaMock.stripeWebhookEvent.updateMany).not.toHaveBeenCalled()
     expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
   })
 
-  it('handleStripeWebhook should confirm paid order without rechecking stock or decrementing again', async () => {
+  it('handleStripeWebhook should process a new completed event and mark it processed', async () => {
     const commande: CommandeMock = {
       id: 55,
       statut: 'paiement_en_attente',
@@ -1259,7 +1280,8 @@ describe('CommandesService', () => {
     })
 
     prismaMock.commande.findFirst.mockResolvedValue(commande)
-    prismaMock.commande.update.mockResolvedValue(updatedCommande)
+    prismaMock.commande.updateMany.mockResolvedValue({ count: 1 })
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue(updatedCommande)
 
     await expect(
       service.handleStripeWebhook(rawBody, 'stripe-signature'),
@@ -1275,6 +1297,11 @@ describe('CommandesService', () => {
       data: {
         eventId: 'evt_paid',
         type: 'checkout.session.completed',
+        status: 'processing',
+        attempts: 1,
+        lastError: null,
+        processingStartedAt: expect.any(Date) as Date,
+        processedAt: null,
       },
     })
 
@@ -1297,9 +1324,15 @@ describe('CommandesService', () => {
       mouvementsStockServiceMock.recordArticleMovement,
     ).not.toHaveBeenCalled()
 
-    expect(prismaMock.commande.update).toHaveBeenCalledWith({
-      where: { id: 55 },
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 55,
+        statut: 'paiement_en_attente',
+      },
       data: { statut: 'nouvelle' },
+    })
+    expect(prismaMock.commande.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: 55 },
       include: {
         lignes: {
           include: {
@@ -1321,6 +1354,348 @@ describe('CommandesService', () => {
     expect(emailsServiceMock.sendOrderConfirmation).toHaveBeenCalledWith(
       updatedCommande,
     )
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: {
+        eventId: 'evt_paid',
+        status: 'processing',
+        processingStartedAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'processed',
+        processedAt: expect.any(Date) as Date,
+        lastError: null,
+      },
+    })
+  })
+
+  it('handleStripeWebhook should keep payment confirmation when confirmation email fails', async () => {
+    const commande: CommandeMock = {
+      id: 56,
+      statut: 'paiement_en_attente',
+      stripeId: 'cs_paid_email',
+      lignes: [],
+    }
+    const updatedCommande = {
+      ...commande,
+      statut: 'nouvelle',
+    }
+
+    mockStripeConstructEvent.mockReturnValue({
+      id: 'evt_paid_email',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_paid_email',
+        },
+      },
+    })
+
+    prismaMock.commande.findFirst.mockResolvedValue(commande)
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue(updatedCommande)
+    emailsServiceMock.sendOrderConfirmation.mockRejectedValueOnce(
+      new Error('Resend unavailable'),
+    )
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
+    ).resolves.toEqual({ received: true })
+
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 56,
+        statut: 'paiement_en_attente',
+      },
+      data: { statut: 'nouvelle' },
+    })
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: {
+        eventId: 'evt_paid_email',
+        status: 'processing',
+        processingStartedAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'processed',
+        processedAt: expect.any(Date) as Date,
+        lastError: null,
+      },
+    })
+  })
+
+  it('handleStripeWebhook should mark the event failed and rethrow when business processing fails', async () => {
+    const databaseError = new Error('database unavailable')
+
+    mockStripeConstructEvent.mockReturnValue({
+      id: 'evt_business_failure',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_business_failure',
+        },
+      },
+    })
+
+    prismaMock.commande.findFirst.mockResolvedValue({
+      id: 57,
+      statut: 'paiement_en_attente',
+      stripeId: 'cs_business_failure',
+      lignes: [],
+    })
+    prismaMock.commande.updateMany.mockRejectedValueOnce(databaseError)
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
+    ).rejects.toThrow(databaseError)
+
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: {
+        eventId: 'evt_business_failure',
+        status: 'processing',
+        processingStartedAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'failed',
+        lastError: 'database unavailable',
+        processedAt: null,
+      },
+    })
+    expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
+  })
+
+  it('handleStripeWebhook should retry a failed event and mark it processed after success', async () => {
+    const failedAt = new Date('2026-06-10T10:00:00.000Z')
+    const commande: CommandeMock = {
+      id: 58,
+      statut: 'paiement_en_attente',
+      stripeId: 'cs_retry',
+      lignes: [],
+    }
+    const updatedCommande = {
+      ...commande,
+      statut: 'nouvelle',
+    }
+
+    mockStripeConstructEvent.mockReturnValue({
+      id: 'evt_retry',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_retry',
+        },
+      },
+    })
+
+    prismaMock.stripeWebhookEvent.create.mockRejectedValueOnce({
+      code: 'P2002',
+    })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValueOnce({
+      eventId: 'evt_retry',
+      type: 'checkout.session.completed',
+      status: 'failed',
+      attempts: 1,
+      lastError: 'database unavailable',
+      processingStartedAt: failedAt,
+      processedAt: null,
+    })
+    prismaMock.commande.findFirst.mockResolvedValue(commande)
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue(updatedCommande)
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
+    ).resolves.toEqual({ received: true })
+
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenNthCalledWith(
+      1,
+      {
+        where: {
+          eventId: 'evt_retry',
+          OR: [
+            { status: 'failed' },
+            {
+              status: 'processing',
+              processingStartedAt: {
+                lt: expect.any(Date) as Date,
+              },
+            },
+          ],
+        },
+        data: {
+          type: 'checkout.session.completed',
+          status: 'processing',
+          attempts: {
+            increment: 1,
+          },
+          lastError: null,
+          processingStartedAt: expect.any(Date) as Date,
+          processedAt: null,
+        },
+      },
+    )
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledTimes(1)
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        eventId: 'evt_retry',
+        status: 'processing',
+        processingStartedAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'processed',
+        processedAt: expect.any(Date) as Date,
+        lastError: null,
+      },
+    })
+  })
+
+  it('handleStripeWebhook should reject a concurrent processing event as retryable', async () => {
+    let releaseBusinessLookup: (commande: CommandeMock) => void = () => {}
+    const businessLookup = new Promise<CommandeMock>((resolve) => {
+      releaseBusinessLookup = resolve
+    })
+    const commande: CommandeMock = {
+      id: 59,
+      statut: 'paiement_en_attente',
+      stripeId: 'cs_concurrent',
+      lignes: [],
+    }
+    const updatedCommande = {
+      ...commande,
+      statut: 'nouvelle',
+    }
+
+    mockStripeConstructEvent.mockReturnValue({
+      id: 'evt_concurrent',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_concurrent',
+        },
+      },
+    })
+
+    prismaMock.stripeWebhookEvent.create
+      .mockResolvedValueOnce({ id: 1 })
+      .mockRejectedValueOnce({ code: 'P2002' })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValueOnce({
+      eventId: 'evt_concurrent',
+      type: 'checkout.session.completed',
+      status: 'processing',
+      attempts: 1,
+      lastError: null,
+      processingStartedAt: new Date(),
+      processedAt: null,
+    })
+    prismaMock.stripeWebhookEvent.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 })
+    prismaMock.commande.findFirst.mockReturnValueOnce(businessLookup)
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue(updatedCommande)
+
+    const firstCall = service.handleStripeWebhook(
+      Buffer.from('{}'),
+      'stripe-signature',
+    )
+    const secondCall = service.handleStripeWebhook(
+      Buffer.from('{}'),
+      'stripe-signature',
+    )
+
+    await expect(secondCall).rejects.toBeInstanceOf(ServiceUnavailableException)
+
+    releaseBusinessLookup(commande)
+
+    await expect(firstCall).resolves.toEqual({ received: true })
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledTimes(1)
+    expect(emailsServiceMock.sendOrderConfirmation).toHaveBeenCalledTimes(1)
+  })
+
+  it('handleStripeWebhook should not reclaim a non-stale processing event', async () => {
+    mockStripeConstructEvent.mockReturnValue({
+      id: 'evt_processing',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_processing',
+        },
+      },
+    })
+
+    prismaMock.stripeWebhookEvent.create.mockRejectedValueOnce({
+      code: 'P2002',
+    })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValueOnce({
+      eventId: 'evt_processing',
+      type: 'checkout.session.completed',
+      status: 'processing',
+      attempts: 1,
+      lastError: null,
+      processingStartedAt: new Date(),
+      processedAt: null,
+    })
+    prismaMock.stripeWebhookEvent.updateMany.mockResolvedValueOnce({
+      count: 0,
+    })
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException)
+
+    expect(prismaMock.commande.findFirst).not.toHaveBeenCalled()
+    expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
+  })
+
+  it('handleStripeWebhook should reclaim a stale processing event', async () => {
+    const commande: CommandeMock = {
+      id: 60,
+      statut: 'paiement_en_attente',
+      stripeId: 'cs_stale',
+      lignes: [],
+    }
+    const updatedCommande = {
+      ...commande,
+      statut: 'nouvelle',
+    }
+
+    mockStripeConstructEvent.mockReturnValue({
+      id: 'evt_stale',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_stale',
+        },
+      },
+    })
+
+    prismaMock.stripeWebhookEvent.create.mockRejectedValueOnce({
+      code: 'P2002',
+    })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValueOnce({
+      eventId: 'evt_stale',
+      type: 'checkout.session.completed',
+      status: 'processing',
+      attempts: 1,
+      lastError: null,
+      processingStartedAt: new Date('2026-06-10T10:00:00.000Z'),
+      processedAt: null,
+    })
+    prismaMock.commande.findFirst.mockResolvedValue(commande)
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue(updatedCommande)
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
+    ).resolves.toEqual({ received: true })
+
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'processing',
+          attempts: {
+            increment: 1,
+          },
+          lastError: null,
+        }) as unknown,
+      }),
+    )
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledTimes(1)
   })
 
   it('handleStripeWebhook should not send confirmation email when paid order does not exist', async () => {
@@ -1343,6 +1718,18 @@ describe('CommandesService', () => {
     expect(prismaMock.article.update).not.toHaveBeenCalled()
     expect(prismaMock.commande.update).not.toHaveBeenCalled()
     expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: {
+        eventId: 'evt_unknown_order',
+        status: 'processing',
+        processingStartedAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'processed',
+        processedAt: expect.any(Date) as Date,
+        lastError: null,
+      },
+    })
   })
 
   it('handleStripeWebhook should expire pending order and release reserved stock', async () => {
@@ -1418,8 +1805,11 @@ describe('CommandesService', () => {
       reference: 'commande:77:reservation:release',
     })
 
-    expect(prismaMock.commande.update).toHaveBeenCalledWith({
-      where: { id: 77 },
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 77,
+        statut: 'paiement_en_attente',
+      },
       data: { statut: 'annulee' },
     })
 
@@ -1429,6 +1819,49 @@ describe('CommandesService', () => {
         ancienStatut: 'paiement_en_attente',
         nouveauStatut: 'annulee',
         motif: 'checkout_expire',
+      },
+    })
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: {
+        eventId: 'evt_expired',
+        status: 'processing',
+        processingStartedAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'processed',
+        processedAt: expect.any(Date) as Date,
+        lastError: null,
+      },
+    })
+  })
+
+  it('handleStripeWebhook should mark unhandled valid events as processed', async () => {
+    mockStripeConstructEvent.mockReturnValue({
+      id: 'evt_unhandled_processed',
+      type: 'customer.created',
+      data: {
+        object: {
+          id: 'cus_unused',
+        },
+      },
+    })
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'stripe-signature'),
+    ).resolves.toEqual({ received: true })
+
+    expect(prismaMock.commande.findFirst).not.toHaveBeenCalled()
+    expect(prismaMock.commande.findMany).not.toHaveBeenCalled()
+    expect(prismaMock.stripeWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: {
+        eventId: 'evt_unhandled_processed',
+        status: 'processing',
+        processingStartedAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'processed',
+        processedAt: expect.any(Date) as Date,
+        lastError: null,
       },
     })
   })

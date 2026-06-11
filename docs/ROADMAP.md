@@ -34,7 +34,7 @@ Objectif business : vendre simplement des produits alimentaires locaux en ligne,
 - Webhook Stripe `POST /api/commandes/stripe/webhook`.
 - Gestion des événements `checkout.session.completed` et `checkout.session.expired`.
 - Historique des statuts de commande via `CommandeStatutHistorique`.
-- Déduplication des webhooks Stripe via `StripeWebhookEvent`.
+- Déduplication retry-safe des webhooks Stripe via `StripeWebhookEvent` avec statuts `processing`, `processed` et `failed`.
 - Réservation, mouvement et libération de stock lors du checkout et des expirations.
 - Montants financiers stockés en centimes côté Prisma/API et taux de TVA stockés en basis points.
 - Envoi d'e-mail de confirmation via Resend après paiement confirmé.
