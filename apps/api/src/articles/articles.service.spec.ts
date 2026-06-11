@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, ConflictException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -18,7 +18,12 @@ describe('ArticlesService', () => {
     },
     matierePremiere: {
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
+    stockLot: {
+      findMany: jest.fn(),
+    },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   }
 
@@ -29,15 +34,19 @@ describe('ArticlesService', () => {
   }
 
   type TransactionClient = {
+    $queryRaw: typeof prismaMock.$queryRaw
     article: typeof prismaMock.article
     matierePremiere: typeof prismaMock.matierePremiere
+    stockLot: typeof prismaMock.stockLot
   }
 
   type TransactionCallback<T> = (tx: TransactionClient) => Promise<T>
 
   const transactionClient: TransactionClient = {
+    $queryRaw: prismaMock.$queryRaw,
     article: prismaMock.article,
     matierePremiere: prismaMock.matierePremiere,
+    stockLot: prismaMock.stockLot,
   }
 
   beforeEach(async () => {
@@ -61,6 +70,9 @@ describe('ArticlesService', () => {
     prismaMock.$transaction.mockImplementation(
       <T>(callback: TransactionCallback<T>) => callback(transactionClient),
     )
+    prismaMock.$queryRaw.mockResolvedValue([])
+    prismaMock.stockLot.findMany.mockResolvedValue([])
+    prismaMock.matierePremiere.updateMany.mockResolvedValue({ count: 1 })
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       id: 1,
     })
@@ -276,7 +288,7 @@ describe('ArticlesService', () => {
     await expect(service.produce(1, { quantite: 2 })).rejects.toBeInstanceOf(
       BadRequestException,
     )
-    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+    expect(prismaMock.$transaction).toHaveBeenCalled()
   })
 
   it('produce should reject insufficient ingredients', async () => {
@@ -297,10 +309,21 @@ describe('ArticlesService', () => {
       ],
     })
 
+    prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 1,
+        nom: 'Farine',
+        stock: 0.8,
+        unite: 'kg',
+      },
+    ])
+
     await expect(service.produce(1, { quantite: 2 })).rejects.toBeInstanceOf(
-      BadRequestException,
+      ConflictException,
     )
-    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+    expect(prismaMock.$transaction).toHaveBeenCalled()
+    expect(prismaMock.matierePremiere.updateMany).not.toHaveBeenCalled()
+    expect(prismaMock.article.update).not.toHaveBeenCalled()
   })
 
   it('produce should decrement ingredients and increment article stock', async () => {
@@ -337,6 +360,20 @@ describe('ArticlesService', () => {
     }
 
     prismaMock.article.findUniqueOrThrow.mockResolvedValue(article)
+    prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 1,
+        nom: 'Farine',
+        stock: 10,
+        unite: 'kg',
+      },
+      {
+        id: 2,
+        nom: 'Levure',
+        stock: 2,
+        unite: 'kg',
+      },
+    ])
     prismaMock.article.update.mockResolvedValue(updatedArticle)
 
     await expect(service.produce(1, { quantite: 3 })).resolves.toEqual({
@@ -357,16 +394,26 @@ describe('ArticlesService', () => {
         },
       ],
     })
-    expect(prismaMock.matierePremiere.update).toHaveBeenNthCalledWith(1, {
-      where: { id: 1 },
+    expect(prismaMock.matierePremiere.updateMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: 1,
+        stock: {
+          gte: 1.5,
+        },
+      },
       data: {
         stock: {
           decrement: 1.5,
         },
       },
     })
-    expect(prismaMock.matierePremiere.update).toHaveBeenNthCalledWith(2, {
-      where: { id: 2 },
+    expect(prismaMock.matierePremiere.updateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 2,
+        stock: {
+          gte: 0.30000000000000004,
+        },
+      },
       data: {
         stock: {
           decrement: 0.30000000000000004,
@@ -421,5 +468,69 @@ describe('ArticlesService', () => {
       motif: 'Production de 3 Baguette',
       reference: 'production:article:1',
     })
+  })
+
+  it('produce should aggregate duplicated raw material needs before checking stock', async () => {
+    const article = {
+      id: 1,
+      nom: 'Baguette',
+      stock: 1,
+      nomen: [
+        {
+          mpId: 1,
+          quantite: 0.5,
+        },
+        {
+          mpId: 1,
+          quantite: 0.25,
+        },
+      ],
+    }
+    const updatedArticle = {
+      ...article,
+      stock: 3,
+    }
+
+    prismaMock.article.findUniqueOrThrow.mockResolvedValue(article)
+    prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 1,
+        nom: 'Farine',
+        stock: 10,
+        unite: 'kg',
+      },
+    ])
+    prismaMock.article.update.mockResolvedValue(updatedArticle)
+
+    await expect(service.produce(1, { quantite: 2 })).resolves.toEqual({
+      article: updatedArticle,
+      produced: 2,
+      consumed: [
+        {
+          mpId: 1,
+          nom: 'Farine',
+          unite: 'kg',
+          quantite: 1.5,
+        },
+      ],
+    })
+
+    expect(prismaMock.matierePremiere.updateMany).toHaveBeenCalledTimes(1)
+    expect(prismaMock.matierePremiere.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+        stock: {
+          gte: 1.5,
+        },
+      },
+      data: {
+        stock: {
+          decrement: 1.5,
+        },
+      },
+    })
+    expect(
+      mouvementsStockServiceMock.recordMatierePremiereMovement,
+    ).toHaveBeenCalledTimes(1)
   })
 })

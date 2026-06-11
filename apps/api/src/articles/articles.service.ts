@@ -1,9 +1,36 @@
-import { Injectable, BadRequestException } from '@nestjs/common'
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common'
+import { Prisma } from '../../prisma/generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { CreateArticleDto } from './dto/create-article.dto'
 import { ProduceArticleDto } from './dto/produce-article.dto'
 import { UpdateArticleDto } from './dto/update-article.dto'
+
+type ProductionArticle = {
+  id: number
+  nom: string
+  stock: number
+  nomen: Array<{
+    mpId: number
+    quantite: number
+  }>
+}
+
+type LockedProductionMatiere = {
+  id: number
+  nom: string
+  stock: number
+  unite: string
+}
+
+type AggregatedProductionNeed = {
+  mpId: number
+  quantite: number
+}
 
 @Injectable()
 export class ArticlesService {
@@ -121,70 +148,68 @@ export class ArticlesService {
   async produce(id: number, data: ProduceArticleDto) {
     const quantite = data.quantite
     const expiresAt = data.expiresAt ? new Date(data.expiresAt) : undefined
-    const article = await this.prisma.article.findUniqueOrThrow({
-      where: { id },
-      include: {
-        nomen: {
-          include: {
-            mp: true,
-          },
-        },
-      },
-    })
-
-    if (article.nomen.length === 0) {
-      throw new BadRequestException(
-        'Impossible de produire un article sans nomenclature',
-      )
-    }
-
-    const sellableStockByMatiere =
-      await this.mouvementsStockService.getSellableMatiereStock(
-        article.nomen.map((line) => line.mp),
-      )
-
-    const insufficientIngredients = article.nomen
-      .map((line) => {
-        const needed = line.quantite * quantite
-        const available = sellableStockByMatiere.get(line.mp.id) ?? 0
-
-        return {
-          mpId: line.mp.id,
-          nom: line.mp.nom,
-          unite: line.mp.unite,
-          stock: line.mp.stock,
-          needed,
-          available,
-          missing: Math.max(0, needed - available),
-        }
-      })
-      .filter((item) => item.missing > 0)
-
-    if (insufficientIngredients.length > 0) {
-      throw new BadRequestException({
-        message: 'Stock insuffisant pour produire cet article',
-        insufficientIngredients,
-      })
-    }
 
     return this.prisma.$transaction(async (tx) => {
-      for (const line of article.nomen) {
-        const quantiteConsommee = line.quantite * quantite
+      const article = await this.lockProductionArticle(tx, id)
 
-        await tx.matierePremiere.update({
-          where: { id: line.mpId },
+      if (article.nomen.length === 0) {
+        throw new BadRequestException(
+          'Impossible de produire un article sans nomenclature',
+        )
+      }
+
+      const needs = this.aggregateProductionNeeds(article, quantite)
+      const matieres = await this.lockProductionMatieres(tx, needs)
+
+      if (matieres.length !== needs.length) {
+        throw new BadRequestException(
+          'Une ou plusieurs matières premières sont introuvables',
+        )
+      }
+
+      const sellableStockByMatiere = await this.getSellableMatiereStock(
+        tx,
+        matieres,
+      )
+
+      this.assertSufficientMatiereStock(matieres, needs, sellableStockByMatiere)
+
+      for (const need of needs) {
+        const matiere = matieres.find((item) => item.id === need.mpId)!
+
+        const updated = await tx.matierePremiere.updateMany({
+          where: {
+            id: need.mpId,
+            stock: {
+              gte: need.quantite,
+            },
+          },
           data: {
             stock: {
-              decrement: quantiteConsommee,
+              decrement: need.quantite,
             },
           },
         })
 
+        if (updated.count !== 1) {
+          throw this.buildInsufficientMatiereStockError([
+            {
+              mpId: matiere.id,
+              nom: matiere.nom,
+              unite: matiere.unite,
+              stock: matiere.stock,
+              needed: need.quantite,
+              available: matiere.stock,
+              missing: Math.max(0, need.quantite - matiere.stock),
+            },
+          ])
+        }
+
         await this.mouvementsStockService.recordMatierePremiereMovement(tx, {
-          mpId: line.mpId,
-          quantite: -quantiteConsommee,
-          stockAvant: line.mp.stock,
-          stockApres: line.mp.stock - quantiteConsommee,
+          mpId: need.mpId,
+          quantite: -need.quantite,
+          stockAvant: matiere.stock,
+          stockApres: matiere.stock - need.quantite,
           type: 'production',
           motif: `Production de ${quantite} ${article.nom}`,
           reference: `production:article:${id}`,
@@ -231,13 +256,183 @@ export class ArticlesService {
       return {
         article: updatedArticle,
         produced: quantite,
-        consumed: article.nomen.map((line) => ({
-          mpId: line.mp.id,
-          nom: line.mp.nom,
-          unite: line.mp.unite,
-          quantite: line.quantite * quantite,
+        consumed: needs.map((need) => ({
+          mpId: need.mpId,
+          nom: matieres.find((matiere) => matiere.id === need.mpId)!.nom,
+          unite: matieres.find((matiere) => matiere.id === need.mpId)!.unite,
+          quantite: need.quantite,
         })),
       }
     })
+  }
+
+  private async lockProductionArticle(
+    tx: Prisma.TransactionClient,
+    articleId: number,
+  ): Promise<ProductionArticle> {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "Article"
+      WHERE "id" = ${articleId}
+      FOR UPDATE
+    `
+
+    return tx.article.findUniqueOrThrow({
+      where: { id: articleId },
+      select: {
+        id: true,
+        nom: true,
+        stock: true,
+        nomen: {
+          select: {
+            mpId: true,
+            quantite: true,
+          },
+        },
+      },
+    })
+  }
+
+  private aggregateProductionNeeds(
+    article: ProductionArticle,
+    quantityToProduce: number,
+  ): AggregatedProductionNeed[] {
+    const needsByMatiere = article.nomen.reduce((acc, line) => {
+      const quantity = line.quantite * quantityToProduce
+      acc.set(line.mpId, (acc.get(line.mpId) ?? 0) + quantity)
+      return acc
+    }, new Map<number, number>())
+
+    return Array.from(needsByMatiere.entries())
+      .map(([mpId, quantite]) => ({ mpId, quantite }))
+      .sort((a, b) => a.mpId - b.mpId)
+  }
+
+  private async lockProductionMatieres(
+    tx: Prisma.TransactionClient,
+    needs: AggregatedProductionNeed[],
+  ): Promise<LockedProductionMatiere[]> {
+    const mpIds = needs.map((need) => need.mpId)
+
+    // All productions lock raw materials by primary key order to prevent
+    // double consumption and reduce deadlock risk across API instances.
+    return tx.$queryRaw<LockedProductionMatiere[]>`
+      SELECT "id", "nom", "stock", "unite"
+      FROM "MatierePremiere"
+      WHERE "id" IN (${Prisma.join(mpIds)})
+      ORDER BY "id" ASC
+      FOR UPDATE
+    `
+  }
+
+  private async getSellableMatiereStock(
+    tx: Pick<Prisma.TransactionClient, 'stockLot'>,
+    matieres: LockedProductionMatiere[],
+  ) {
+    const result = new Map(
+      matieres.map((matiere) => [matiere.id, matiere.stock]),
+    )
+    const ids = matieres.map((matiere) => matiere.id)
+
+    if (ids.length === 0) {
+      return result
+    }
+
+    const expiredLots = await tx.stockLot.findMany({
+      where: {
+        target: 'matiere_premiere',
+        mpId: {
+          in: ids,
+        },
+        remainingQuantity: {
+          gt: 0,
+        },
+        expiresAt: {
+          lt: this.startOfToday(),
+        },
+      },
+      select: {
+        mpId: true,
+        remainingQuantity: true,
+      },
+    })
+
+    for (const lot of expiredLots) {
+      if (!lot.mpId) continue
+
+      result.set(
+        lot.mpId,
+        Math.max(0, (result.get(lot.mpId) ?? 0) - lot.remainingQuantity),
+      )
+    }
+
+    return result
+  }
+
+  private assertSufficientMatiereStock(
+    matieres: LockedProductionMatiere[],
+    needs: AggregatedProductionNeed[],
+    sellableStockByMatiere: Map<number, number>,
+  ) {
+    const insufficientIngredients = needs
+      .map((need) => {
+        const matiere = matieres.find((item) => item.id === need.mpId)
+
+        if (!matiere) return null
+
+        const available = sellableStockByMatiere.get(matiere.id) ?? 0
+
+        return {
+          mpId: matiere.id,
+          nom: matiere.nom,
+          unite: matiere.unite,
+          stock: matiere.stock,
+          needed: need.quantite,
+          available,
+          missing: Math.max(0, need.quantite - available),
+        }
+      })
+      .filter(
+        (
+          item,
+        ): item is {
+          mpId: number
+          nom: string
+          unite: string
+          stock: number
+          needed: number
+          available: number
+          missing: number
+        } => Boolean(item && item.missing > 0),
+      )
+
+    if (insufficientIngredients.length > 0) {
+      throw this.buildInsufficientMatiereStockError(insufficientIngredients)
+    }
+  }
+
+  private buildInsufficientMatiereStockError(
+    insufficientIngredients: Array<{
+      mpId: number
+      nom: string
+      unite: string
+      stock: number
+      needed: number
+      available: number
+      missing: number
+    }>,
+  ) {
+    return new ConflictException({
+      code: 'INSUFFICIENT_MATERIAL_STOCK',
+      message: 'Stock insuffisant pour produire cet article',
+      insufficientIngredients,
+    })
+  }
+
+  private startOfToday() {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return today
   }
 }
