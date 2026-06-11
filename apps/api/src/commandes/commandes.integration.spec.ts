@@ -92,6 +92,8 @@ describe('Commandes integration', () => {
     },
     stripeWebhookEvent: {
       create: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
   }
@@ -184,11 +186,14 @@ describe('Commandes integration', () => {
     )
 
     prismaMock.commande.findMany.mockResolvedValue([])
+    prismaMock.commande.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.commandeStatutHistorique.create.mockResolvedValue({ id: 1 })
     prismaMock.mouvementStock.findFirst.mockResolvedValue(null)
     prismaMock.mouvementStock.findMany.mockResolvedValue([])
     prismaMock.mouvementStock.create.mockResolvedValue({ id: 1 })
     prismaMock.stripeWebhookEvent.create.mockResolvedValue({ id: 1 })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValue(null)
+    prismaMock.stripeWebhookEvent.updateMany.mockResolvedValue({ count: 1 })
 
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       id: 1,
@@ -583,16 +588,24 @@ describe('Commandes integration', () => {
 
     prismaMock.article.findMany.mockResolvedValue(articles)
     prismaMock.commande.create.mockResolvedValue(pendingCommande)
-    prismaMock.commande.update
-      .mockResolvedValueOnce({
-        ...pendingCommande,
-        stripeId: 'cs_test_critical',
-      })
-      .mockResolvedValueOnce(confirmedCommande)
+    prismaMock.commande.update.mockResolvedValueOnce({
+      ...pendingCommande,
+      stripeId: 'cs_test_critical',
+    })
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue(confirmedCommande)
     prismaMock.commande.findFirst.mockResolvedValue(pendingCommandeWithLines)
     prismaMock.stripeWebhookEvent.create
       .mockResolvedValueOnce({ id: 1 })
       .mockRejectedValueOnce({ code: 'P2002' })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValueOnce({
+      eventId: 'evt_checkout_completed_critical',
+      type: 'checkout.session.completed',
+      status: 'processed',
+      attempts: 1,
+      lastError: null,
+      processingStartedAt: new Date(),
+      processedAt: new Date(),
+    })
     mockStripeCheckoutSessionsCreate.mockResolvedValue({
       id: 'cs_test_critical',
       url: 'https://checkout.stripe.com/pay/cs_test_critical',
@@ -662,6 +675,11 @@ describe('Commandes integration', () => {
       data: {
         eventId: 'evt_checkout_completed_critical',
         type: 'checkout.session.completed',
+        status: 'processing',
+        attempts: 1,
+        lastError: null,
+        processingStartedAt: expect.any(Date) as Date,
+        processedAt: null,
       },
     })
     expect(prismaMock.commande.findFirst).toHaveBeenCalledWith({
@@ -674,9 +692,15 @@ describe('Commandes integration', () => {
         },
       },
     })
-    expect(prismaMock.commande.update).toHaveBeenCalledWith({
-      where: { id: 220 },
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 220,
+        statut: 'paiement_en_attente',
+      },
       data: { statut: 'nouvelle' },
+    })
+    expect(prismaMock.commande.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: 220 },
       include: {
         lignes: {
           include: {
@@ -710,7 +734,8 @@ describe('Commandes integration', () => {
     })
     expect(mockStripeConstructEvent).toHaveBeenCalledTimes(2)
     expect(prismaMock.stripeWebhookEvent.create).toHaveBeenCalledTimes(2)
-    expect(prismaMock.commande.update).toHaveBeenCalledTimes(2)
+    expect(prismaMock.commande.update).toHaveBeenCalledTimes(1)
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledTimes(1)
     expect(prismaMock.article.update).toHaveBeenCalledTimes(1)
     expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledTimes(2)
     expect(emailsServiceMock.sendOrderConfirmation).toHaveBeenCalledTimes(1)
@@ -1064,6 +1089,15 @@ describe('Commandes integration', () => {
     prismaMock.stripeWebhookEvent.create.mockRejectedValueOnce({
       code: 'P2002',
     })
+    prismaMock.stripeWebhookEvent.findUnique.mockResolvedValueOnce({
+      eventId: 'evt_duplicate',
+      type: 'checkout.session.completed',
+      status: 'processed',
+      attempts: 1,
+      lastError: null,
+      processingStartedAt: new Date(),
+      processedAt: new Date(),
+    })
 
     const response = await request(app.getHttpServer())
       .post('/api/commandes/stripe/webhook')
@@ -1078,6 +1112,7 @@ describe('Commandes integration', () => {
 
     expect(prismaMock.commande.findFirst).not.toHaveBeenCalled()
     expect(prismaMock.commande.update).not.toHaveBeenCalled()
+    expect(prismaMock.commande.updateMany).not.toHaveBeenCalled()
     expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
   })
 
@@ -1113,7 +1148,7 @@ describe('Commandes integration', () => {
     })
 
     prismaMock.commande.findFirst.mockResolvedValue(commande)
-    prismaMock.commande.update.mockResolvedValue(updatedCommande)
+    prismaMock.commande.findUniqueOrThrow.mockResolvedValue(updatedCommande)
 
     const response = await request(app.getHttpServer())
       .post('/api/commandes/stripe/webhook')
@@ -1129,6 +1164,11 @@ describe('Commandes integration', () => {
       data: {
         eventId: 'evt_paid',
         type: 'checkout.session.completed',
+        status: 'processing',
+        attempts: 1,
+        lastError: null,
+        processingStartedAt: expect.any(Date) as Date,
+        processedAt: null,
       },
     })
 
@@ -1148,9 +1188,15 @@ describe('Commandes integration', () => {
       mouvementsStockServiceMock.recordArticleMovement,
     ).not.toHaveBeenCalled()
 
-    expect(prismaMock.commande.update).toHaveBeenCalledWith({
-      where: { id: 303 },
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 303,
+        statut: 'paiement_en_attente',
+      },
       data: { statut: 'nouvelle' },
+    })
+    expect(prismaMock.commande.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: 303 },
       include: {
         lignes: {
           include: {
@@ -1208,6 +1254,7 @@ describe('Commandes integration', () => {
     })
     expect(prismaMock.article.update).not.toHaveBeenCalled()
     expect(prismaMock.commande.update).not.toHaveBeenCalled()
+    expect(prismaMock.commande.updateMany).not.toHaveBeenCalled()
     expect(emailsServiceMock.sendOrderConfirmation).not.toHaveBeenCalled()
   })
 
@@ -1290,8 +1337,11 @@ describe('Commandes integration', () => {
       reference: 'commande:404:reservation:release',
     })
 
-    expect(prismaMock.commande.update).toHaveBeenCalledWith({
-      where: { id: 404 },
+    expect(prismaMock.commande.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 404,
+        statut: 'paiement_en_attente',
+      },
       data: { statut: 'annulee' },
     })
 

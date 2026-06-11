@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Stripe from 'stripe'
@@ -59,10 +61,23 @@ type StripeCheckoutWebhookEvent = {
   }
 }
 
+type StripeWebhookClaim =
+  | {
+      claimed: true
+      processingStartedAt: Date
+    }
+  | {
+      claimed: false
+      duplicate: true
+    }
+
 @Injectable()
 export class CommandesService {
+  private readonly logger = new Logger(CommandesService.name)
   private stripe: InstanceType<typeof Stripe> | null = null
   private readonly abandonedDelayMinutes = 60
+  private readonly defaultStripeWebhookProcessingTimeoutMs = 300_000
+  private readonly maxStripeWebhookErrorLength = 2_000
 
   constructor(
     private readonly prisma: PrismaService,
@@ -416,27 +431,49 @@ export class CommandesService {
       })
     }
 
-    const isFreshEvent = await this.registerStripeWebhookEvent(event)
+    const claim = await this.claimStripeWebhookEvent(event)
 
-    if (!isFreshEvent) {
+    if (!claim.claimed) {
       return { received: true, duplicate: true }
     }
 
-    if (event.type === 'checkout.session.completed') {
-      const confirmedOrder = await this.confirmPaidCommande(
-        event.data.object.id,
+    try {
+      if (event.type === 'checkout.session.completed') {
+        const confirmedOrder = await this.confirmPaidCommande(
+          event.data.object.id,
+        )
+
+        if (confirmedOrder) {
+          await this.sendOrderConfirmationBestEffort(confirmedOrder)
+        }
+      }
+
+      if (event.type === 'checkout.session.expired') {
+        await this.expirePendingCommande(event.data.object.id)
+      }
+
+      await this.markStripeWebhookEventProcessed(
+        event.id,
+        claim.processingStartedAt,
       )
 
-      if (confirmedOrder) {
-        await this.emailsService.sendOrderConfirmation(confirmedOrder)
+      return { received: true }
+    } catch (error) {
+      try {
+        await this.markStripeWebhookEventFailed(
+          event.id,
+          claim.processingStartedAt,
+          error,
+        )
+      } catch (markError) {
+        this.logger.error(
+          `Failed to mark Stripe webhook event ${event.id} as failed`,
+          markError instanceof Error ? markError.stack : undefined,
+        )
       }
-    }
 
-    if (event.type === 'checkout.session.expired') {
-      await this.expirePendingCommande(event.data.object.id)
+      throw error
     }
-
-    return { received: true }
   }
 
   async updateStatut(id: number, statut: CommandeStatut) {
@@ -629,17 +666,17 @@ export class CommandesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.commande.update({
-        where: { id: commande.id },
-        data: { statut: 'nouvelle' },
-        include: {
-          lignes: {
-            include: {
-              article: true,
-            },
-          },
+      const updateResult = await tx.commande.updateMany({
+        where: {
+          id: commande.id,
+          statut: 'paiement_en_attente',
         },
+        data: { statut: 'nouvelle' },
       })
+
+      if (updateResult.count === 0) {
+        return
+      }
 
       await this.recordStatusHistory(tx, {
         commandeId: commande.id,
@@ -648,7 +685,16 @@ export class CommandesService {
         motif: 'paiement_confirme',
       })
 
-      return updated
+      return tx.commande.findUniqueOrThrow({
+        where: { id: commande.id },
+        include: {
+          lignes: {
+            include: {
+              article: true,
+            },
+          },
+        },
+      })
     })
   }
 
@@ -669,12 +715,19 @@ export class CommandesService {
 
     await this.prisma.$transaction(async (tx) => {
       for (const commande of commandes) {
-        await this.releaseReservedStock(tx, commande)
-
-        await tx.commande.update({
-          where: { id: commande.id },
+        const updateResult = await tx.commande.updateMany({
+          where: {
+            id: commande.id,
+            statut: 'paiement_en_attente',
+          },
           data: { statut: 'annulee' },
         })
+
+        if (updateResult.count === 0) {
+          continue
+        }
+
+        await this.releaseReservedStock(tx, commande)
 
         await this.recordStatusHistory(tx, {
           commandeId: commande.id,
@@ -715,23 +768,180 @@ export class CommandesService {
     })
   }
 
-  private async registerStripeWebhookEvent(event: StripeCheckoutWebhookEvent) {
+  private async claimStripeWebhookEvent(
+    event: StripeCheckoutWebhookEvent,
+  ): Promise<StripeWebhookClaim> {
+    const processingStartedAt = new Date()
+
     try {
       await this.prisma.stripeWebhookEvent.create({
         data: {
           eventId: event.id,
           type: event.type,
+          status: 'processing',
+          attempts: 1,
+          lastError: null,
+          processingStartedAt,
+          processedAt: null,
         },
       })
 
-      return true
+      return { claimed: true, processingStartedAt }
     } catch (error) {
-      if (this.isUniqueConstraintError(error)) {
-        return false
+      if (!this.isUniqueConstraintError(error)) {
+        throw error
       }
-
-      throw error
     }
+
+    return this.claimExistingStripeWebhookEvent(event, processingStartedAt)
+  }
+
+  private async claimExistingStripeWebhookEvent(
+    event: StripeCheckoutWebhookEvent,
+    processingStartedAt: Date,
+  ): Promise<StripeWebhookClaim> {
+    const existing = await this.prisma.stripeWebhookEvent.findUnique({
+      where: { eventId: event.id },
+    })
+
+    if (!existing) {
+      throw new ServiceUnavailableException(
+        'Webhook Stripe en cours de traitement',
+      )
+    }
+
+    if (existing.status === 'processed') {
+      return { claimed: false, duplicate: true }
+    }
+
+    const staleProcessingBefore = new Date(
+      Date.now() - this.getStripeWebhookProcessingTimeoutMs(),
+    )
+
+    const updateResult = await this.prisma.stripeWebhookEvent.updateMany({
+      where: {
+        eventId: event.id,
+        OR: [
+          { status: 'failed' },
+          {
+            status: 'processing',
+            processingStartedAt: {
+              lt: staleProcessingBefore,
+            },
+          },
+        ],
+      },
+      data: {
+        type: event.type,
+        status: 'processing',
+        attempts: {
+          increment: 1,
+        },
+        lastError: null,
+        processingStartedAt,
+        processedAt: null,
+      },
+    })
+
+    if (updateResult.count === 1) {
+      return { claimed: true, processingStartedAt }
+    }
+
+    const latest = await this.prisma.stripeWebhookEvent.findUnique({
+      where: { eventId: event.id },
+    })
+
+    if (latest?.status === 'processed') {
+      return { claimed: false, duplicate: true }
+    }
+
+    throw new ServiceUnavailableException(
+      'Webhook Stripe en cours de traitement',
+    )
+  }
+
+  private async markStripeWebhookEventProcessed(
+    eventId: string,
+    processingStartedAt: Date,
+  ) {
+    const updateResult = await this.prisma.stripeWebhookEvent.updateMany({
+      where: {
+        eventId,
+        status: 'processing',
+        processingStartedAt,
+      },
+      data: {
+        status: 'processed',
+        processedAt: new Date(),
+        lastError: null,
+      },
+    })
+
+    if (updateResult.count !== 1) {
+      throw new ServiceUnavailableException(
+        'Webhook Stripe repris par une autre tentative',
+      )
+    }
+  }
+
+  private async markStripeWebhookEventFailed(
+    eventId: string,
+    processingStartedAt: Date,
+    error: unknown,
+  ) {
+    await this.prisma.stripeWebhookEvent.updateMany({
+      where: {
+        eventId,
+        status: 'processing',
+        processingStartedAt,
+      },
+      data: {
+        status: 'failed',
+        lastError: this.formatStripeWebhookError(error),
+        processedAt: null,
+      },
+    })
+  }
+
+  private async sendOrderConfirmationBestEffort(
+    order: Awaited<ReturnType<CommandesService['confirmPaidCommande']>>,
+  ) {
+    if (!order) {
+      return
+    }
+
+    try {
+      await this.emailsService.sendOrderConfirmation(order)
+    } catch (error) {
+      this.logger.error(
+        `Email confirmation failed for order #${order.id}`,
+        error instanceof Error ? error.stack : undefined,
+      )
+    }
+  }
+
+  private getStripeWebhookProcessingTimeoutMs() {
+    const configuredValue = this.configService.get<string>(
+      'STRIPE_WEBHOOK_PROCESSING_TIMEOUT_MS',
+    )
+    const timeoutMs = configuredValue ? Number(configuredValue) : undefined
+
+    if (!timeoutMs || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return this.defaultStripeWebhookProcessingTimeoutMs
+    }
+
+    return timeoutMs
+  }
+
+  private formatStripeWebhookError(error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : 'Unknown webhook processing error'
+
+    return message.slice(0, this.maxStripeWebhookErrorLength)
   }
 
   private isUniqueConstraintError(error: unknown) {

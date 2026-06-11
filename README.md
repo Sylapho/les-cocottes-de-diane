@@ -311,9 +311,9 @@ Stripe est utilisé pour le paiement des commandes Click & Collect.
 - `POST /api/commandes/stripe/webhook` reçoit les événements Stripe.
 - Les événements `checkout.session.completed` confirment les commandes payées.
 - Les événements `checkout.session.expired` expirent les commandes en attente et libèrent le stock réservé.
-- Le modèle `StripeWebhookEvent` évite de retraiter deux fois le même événement.
+- Le modèle `StripeWebhookEvent` suit le cycle `processing` / `processed` / `failed` pour dédupliquer les événements déjà réussis, permettre le retry des échecs et reprendre un traitement `processing` bloqué.
 
-En local, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` et `SHOP_PUBLIC_URL` doivent être configurés côté API.
+En local, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_WEBHOOK_PROCESSING_TIMEOUT_MS` et `SHOP_PUBLIC_URL` doivent être configurés côté API. `STRIPE_WEBHOOK_PROCESSING_TIMEOUT_MS` vaut `300000` par défaut et autorise une nouvelle tentative Stripe à reprendre atomiquement un événement resté en `processing` au-delà de ce délai.
 
 La procédure de test manuel avec Stripe CLI est documentée dans `docs/STRIPE_CLI_CHECKOUT.md`. Elle couvre le forwarding local des webhooks, un paiement confirmé et une session Checkout expirée.
 
@@ -410,6 +410,7 @@ Vérifier côté API :
 ```env
 STRIPE_SECRET_KEY=sk_test_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
+STRIPE_WEBHOOK_PROCESSING_TIMEOUT_MS=300000
 SHOP_PUBLIC_URL=http://localhost:3001
 ```
 
