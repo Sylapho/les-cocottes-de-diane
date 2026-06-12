@@ -59,6 +59,13 @@ type TransactionClient = {
   commandeStatutHistorique: {
     create: jest.Mock
   }
+  ligneCommande: {
+    update: jest.Mock
+  }
+  commandeStockAllocation: {
+    create: jest.Mock
+    update: jest.Mock
+  }
   mouvementStock: {
     findFirst: jest.Mock
     findMany: jest.Mock
@@ -67,6 +74,7 @@ type TransactionClient = {
   stockLot: {
     aggregate: jest.Mock
     create: jest.Mock
+    update: jest.Mock
   }
 }
 
@@ -95,6 +103,13 @@ describe('Commandes integration', () => {
     commandeStatutHistorique: {
       create: jest.fn(),
     },
+    ligneCommande: {
+      update: jest.fn(),
+    },
+    commandeStockAllocation: {
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     mouvementStock: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -103,6 +118,7 @@ describe('Commandes integration', () => {
     stockLot: {
       aggregate: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     stripeWebhookEvent: {
       create: jest.fn(),
@@ -118,6 +134,8 @@ describe('Commandes integration', () => {
     article: prismaMock.article,
     commande: prismaMock.commande,
     commandeStatutHistorique: prismaMock.commandeStatutHistorique,
+    ligneCommande: prismaMock.ligneCommande,
+    commandeStockAllocation: prismaMock.commandeStockAllocation,
     mouvementStock: prismaMock.mouvementStock,
     stockLot: prismaMock.stockLot,
   }
@@ -207,11 +225,15 @@ describe('Commandes integration', () => {
       prismaMock.commande.update,
       prismaMock.commande.updateMany,
       prismaMock.commandeStatutHistorique.create,
+      prismaMock.ligneCommande.update,
+      prismaMock.commandeStockAllocation.create,
+      prismaMock.commandeStockAllocation.update,
       prismaMock.mouvementStock.findFirst,
       prismaMock.mouvementStock.findMany,
       prismaMock.mouvementStock.create,
       prismaMock.stockLot.aggregate,
       prismaMock.stockLot.create,
+      prismaMock.stockLot.update,
       prismaMock.stripeWebhookEvent.create,
       prismaMock.stripeWebhookEvent.findUnique,
       prismaMock.stripeWebhookEvent.updateMany,
@@ -250,7 +272,8 @@ describe('Commandes integration', () => {
     prismaMock.stripeWebhookEvent.updateMany.mockResolvedValue({ count: 1 })
 
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
-      id: 1,
+      movement: { id: 1 },
+      consumedLots: [],
     })
 
     mouvementsStockServiceMock.getSellableArticleStock.mockResolvedValue(
@@ -291,6 +314,9 @@ describe('Commandes integration', () => {
         object: {
           id: 'evt_unused',
         },
+      },
+      include: {
+        lignes: true,
       },
     })
 
@@ -542,6 +568,9 @@ describe('Commandes integration', () => {
           ],
         },
       },
+      include: {
+        lignes: true,
+      },
     })
 
     expect(prismaMock.article.update).toHaveBeenCalledWith({
@@ -721,6 +750,9 @@ describe('Commandes integration', () => {
             },
           ],
         },
+      },
+      include: {
+        lignes: true,
       },
     })
     expect(prismaMock.article.update).toHaveBeenCalledTimes(1)

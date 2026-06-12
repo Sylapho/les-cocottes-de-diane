@@ -74,10 +74,12 @@ describe('ArticlesService', () => {
     prismaMock.stockLot.findMany.mockResolvedValue([])
     prismaMock.matierePremiere.updateMany.mockResolvedValue({ count: 1 })
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
-      id: 1,
+      movement: { id: 1 },
+      consumedLots: [],
     })
     mouvementsStockServiceMock.recordMatierePremiereMovement.mockResolvedValue({
-      id: 2,
+      movement: { id: 2 },
+      consumedLots: [],
     })
     mouvementsStockServiceMock.getSellableMatiereStock.mockImplementation(
       (matieres: { id: number; stock: number }[]) =>

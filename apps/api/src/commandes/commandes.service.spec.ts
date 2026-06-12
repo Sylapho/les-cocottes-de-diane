@@ -45,6 +45,7 @@ type ArticleMock = {
 }
 
 type CommandeLigneMock = {
+  id?: number
   articleId: number
   quantite: number
   article?: {
@@ -80,6 +81,13 @@ describe('CommandesService', () => {
     commandeStatutHistorique: {
       create: jest.fn(),
     },
+    ligneCommande: {
+      update: jest.fn(),
+    },
+    commandeStockAllocation: {
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     mouvementStock: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -88,6 +96,7 @@ describe('CommandesService', () => {
     stockLot: {
       aggregate: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     stripeWebhookEvent: {
       create: jest.fn(),
@@ -116,6 +125,8 @@ describe('CommandesService', () => {
     article: typeof prismaMock.article
     commande: typeof prismaMock.commande
     commandeStatutHistorique: typeof prismaMock.commandeStatutHistorique
+    ligneCommande: typeof prismaMock.ligneCommande
+    commandeStockAllocation: typeof prismaMock.commandeStockAllocation
     mouvementStock: typeof prismaMock.mouvementStock
     stockLot: typeof prismaMock.stockLot
   }
@@ -127,6 +138,8 @@ describe('CommandesService', () => {
     article: prismaMock.article,
     commande: prismaMock.commande,
     commandeStatutHistorique: prismaMock.commandeStatutHistorique,
+    ligneCommande: prismaMock.ligneCommande,
+    commandeStockAllocation: prismaMock.commandeStockAllocation,
     mouvementStock: prismaMock.mouvementStock,
     stockLot: prismaMock.stockLot,
   }
@@ -249,11 +262,15 @@ describe('CommandesService', () => {
       prismaMock.commande.update,
       prismaMock.commande.updateMany,
       prismaMock.commandeStatutHistorique.create,
+      prismaMock.ligneCommande.update,
+      prismaMock.commandeStockAllocation.create,
+      prismaMock.commandeStockAllocation.update,
       prismaMock.mouvementStock.findFirst,
       prismaMock.mouvementStock.findMany,
       prismaMock.mouvementStock.create,
       prismaMock.stockLot.aggregate,
       prismaMock.stockLot.create,
+      prismaMock.stockLot.update,
       prismaMock.stripeWebhookEvent.create,
       prismaMock.stripeWebhookEvent.findUnique,
       prismaMock.stripeWebhookEvent.updateMany,
@@ -281,6 +298,9 @@ describe('CommandesService', () => {
     prismaMock.commande.findUnique.mockResolvedValue(null)
     prismaMock.commande.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.commandeStatutHistorique.create.mockResolvedValue({ id: 1 })
+    prismaMock.ligneCommande.update.mockResolvedValue({ id: 1 })
+    prismaMock.commandeStockAllocation.create.mockResolvedValue({ id: 1 })
+    prismaMock.commandeStockAllocation.update.mockResolvedValue({ id: 1 })
     prismaMock.mouvementStock.findFirst.mockResolvedValue(null)
     prismaMock.mouvementStock.findMany.mockResolvedValue([])
     prismaMock.mouvementStock.create.mockResolvedValue({ id: 1 })
@@ -290,13 +310,15 @@ describe('CommandesService', () => {
       },
     })
     prismaMock.stockLot.create.mockResolvedValue({ id: 1 })
+    prismaMock.stockLot.update.mockResolvedValue({ id: 1 })
     prismaMock.stripeWebhookEvent.create.mockResolvedValue({ id: 1 })
     prismaMock.stripeWebhookEvent.findUnique.mockResolvedValue(null)
     prismaMock.stripeWebhookEvent.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.$queryRaw.mockResolvedValue([])
 
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
-      id: 1,
+      movement: { id: 1 },
+      consumedLots: [],
     })
 
     mouvementsStockServiceMock.getSellableArticleStock.mockResolvedValue(
@@ -1102,6 +1124,9 @@ describe('CommandesService', () => {
             },
           ],
         },
+      },
+      include: {
+        lignes: true,
       },
     })
 
@@ -2728,15 +2753,7 @@ describe('CommandesService', () => {
       reference: 'commande:3:reservation:release',
     })
 
-    expect(prismaMock.stockLot.create).toHaveBeenCalledWith({
-      data: {
-        target: 'article',
-        articleId: 2,
-        initialQuantity: 4,
-        remainingQuantity: 4,
-        reference: 'commande:3:reservation:release',
-      },
-    })
+    expect(prismaMock.stockLot.create).not.toHaveBeenCalled()
 
     expect(prismaMock.commandeStatutHistorique.create).toHaveBeenCalledWith({
       data: {
