@@ -31,6 +31,7 @@ type ReservationTransaction = StockMovementTransaction
 type RawQueryTransaction = Pick<ReservationTransaction, '$queryRaw'>
 
 type ReservationLine = {
+  id?: number
   articleId: number
   quantite: number
   article?: {
@@ -157,6 +158,12 @@ type ReleaseOrderReservationOptions = {
     lastError?: string
     attempts?: number
   }
+}
+
+type CommandeStockAllocationRow = {
+  id: number
+  stockLotId: number
+  quantity: number
 }
 
 type ProductionOpenCommande = {
@@ -355,28 +362,13 @@ export class CommandesService {
         motif: 'creation_directe',
       })
 
-      for (const ligne of lignesAgregees) {
-        const article = articles.find((item) => item.id === ligne.articleId)!
-
-        await tx.article.update({
-          where: { id: article.id },
-          data: {
-            stock: {
-              decrement: ligne.quantite,
-            },
-          },
-        })
-
-        await this.mouvementsStockService.recordArticleMovement(tx, {
-          articleId: article.id,
-          quantite: -ligne.quantite,
-          stockAvant: article.stock,
-          stockApres: article.stock - ligne.quantite,
-          type: 'commande',
-          motif: `Commande en ligne #${commande.id}`,
-          reference: `commande:${commande.id}`,
-        })
-      }
+      await this.reserveCommandeStock(tx, {
+        commandeId: commande.id,
+        lignes: commande.lignes.length > 0 ? commande.lignes : lignesAgregees,
+        articles,
+        motif: `Commande en ligne #${commande.id}`,
+        reference: `commande:${commande.id}`,
+      })
 
       return commande
     })
@@ -419,6 +411,9 @@ export class CommandesService {
             }),
           },
         },
+        include: {
+          lignes: true,
+        },
       })
 
       await this.recordStatusHistory(tx, {
@@ -430,7 +425,7 @@ export class CommandesService {
 
       await this.reserveCommandeStock(tx, {
         commandeId: created.id,
-        lignes: lignesAgregees,
+        lignes: created.lignes.length > 0 ? created.lignes : lignesAgregees,
         articles,
       })
 
@@ -1684,6 +1679,8 @@ export class CommandesService {
       commandeId: number
       lignes: ReservationLine[]
       articles: ReservationArticle[]
+      motif?: string
+      reference?: string
     },
   ) {
     for (const ligne of data.lignes) {
@@ -1698,15 +1695,53 @@ export class CommandesService {
         },
       })
 
-      await this.mouvementsStockService.recordArticleMovement(tx, {
-        articleId: article.id,
-        quantite: -ligne.quantite,
-        stockAvant: article.stock,
-        stockApres: article.stock - ligne.quantite,
-        type: 'commande',
-        motif: `Réservation checkout #${data.commandeId}`,
-        reference: this.getReservationReference(data.commandeId),
+      const movement = await this.mouvementsStockService.recordArticleMovement(
+        tx,
+        {
+          articleId: article.id,
+          quantite: -ligne.quantite,
+          stockAvant: article.stock,
+          stockApres: article.stock - ligne.quantite,
+          type: 'commande',
+          motif: data.motif ?? `Réservation checkout #${data.commandeId}`,
+          reference:
+            data.reference ?? this.getReservationReference(data.commandeId),
+        },
+      )
+
+      const consumedLots = movement.consumedLots ?? []
+      const physicalQuantity = consumedLots.reduce(
+        (total, consumedLot) => total + consumedLot.quantity,
+        0,
+      )
+      const preorderedQuantity = Math.max(0, ligne.quantite - physicalQuantity)
+
+      if (!ligne.id) {
+        this.logger.warn({
+          message: 'Order line has no id while recording stock allocation',
+          commandeId: data.commandeId,
+          articleId: ligne.articleId,
+        })
+        continue
+      }
+
+      await tx.ligneCommande.update({
+        where: { id: ligne.id },
+        data: {
+          quantitePrecommande: preorderedQuantity,
+        },
       })
+
+      for (const consumedLot of consumedLots) {
+        await tx.commandeStockAllocation.create({
+          data: {
+            commandeId: data.commandeId,
+            ligneCommandeId: ligne.id,
+            stockLotId: consumedLot.stockLotId,
+            quantity: consumedLot.quantity,
+          },
+        })
+      }
     }
   }
 
@@ -1853,7 +1888,8 @@ export class CommandesService {
   ) {
     for (const ligne of commande.lignes) {
       const stockAvant = ligne.article?.stock ?? 0
-      const article = await tx.article.update({
+      const stockApres = stockAvant + ligne.quantite
+      await tx.article.update({
         where: { id: ligne.articleId },
         data: {
           stock: {
@@ -1866,55 +1902,75 @@ export class CommandesService {
         articleId: ligne.articleId,
         quantite: ligne.quantite,
         stockAvant,
-        stockApres: article.stock,
+        stockApres,
         type: 'commande',
-        motif: `Libération réservation commande #${commande.id}`,
+        motif: `Lib\u00e9ration r\u00e9servation commande #${commande.id}`,
         reference: this.getReservationReleaseReference(commande.id),
       })
 
-      await this.restoreArticleLotUpToReleasedQuantity(tx, {
-        articleId: ligne.articleId,
-        releasedQuantity: ligne.quantite,
-        stockAfter: article.stock,
-        reference: this.getReservationReleaseReference(commande.id),
+      if (!ligne.id) {
+        this.logger.warn({
+          message: 'Order line has no id while restoring stock allocation',
+          commandeId: commande.id,
+          articleId: ligne.articleId,
+        })
+        continue
+      }
+
+      await this.restoreLineStockAllocations(tx, {
+        commandeId: commande.id,
+        ligneCommandeId: ligne.id,
       })
     }
   }
 
-  private async restoreArticleLotUpToReleasedQuantity(
+  private async restoreLineStockAllocations(
     tx: ReservationTransaction,
     data: {
-      articleId: number
-      releasedQuantity: number
-      stockAfter: number
-      reference: string
+      commandeId: number
+      ligneCommandeId: number
     },
   ) {
-    const aggregate = await tx.stockLot.aggregate({
-      where: {
-        target: 'article',
-        articleId: data.articleId,
-        remainingQuantity: {
-          gt: 0,
-        },
-      },
-      _sum: {
-        remainingQuantity: true,
-      },
-    })
+    const allocations = await tx.$queryRaw<CommandeStockAllocationRow[]>`
+      SELECT "id", "stockLotId", "quantity"
+      FROM "CommandeStockAllocation"
+      WHERE "commandeId" = ${data.commandeId}
+        AND "ligneCommandeId" = ${data.ligneCommandeId}
+        AND "restoredAt" IS NULL
+      ORDER BY "stockLotId" ASC, "id" ASC
+      FOR UPDATE
+    `
 
-    const remainingLotQuantity = aggregate._sum.remainingQuantity ?? 0
-    const lotDeficit = Math.max(0, data.stockAfter - remainingLotQuantity)
-    const restoredLotQuantity = Math.min(data.releasedQuantity, lotDeficit)
+    if (allocations.length === 0) {
+      this.logger.warn({
+        message:
+          'No physical stock allocation found while restoring order line',
+        commandeId: data.commandeId,
+        ligneCommandeId: data.ligneCommandeId,
+      })
+      return
+    }
 
-    if (restoredLotQuantity > 0) {
-      await tx.stockLot.create({
+    for (const allocation of allocations) {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "StockLot"
+        WHERE "id" = ${allocation.stockLotId}
+        FOR UPDATE
+      `
+
+      await tx.stockLot.update({
+        where: { id: allocation.stockLotId },
         data: {
-          target: 'article',
-          articleId: data.articleId,
-          initialQuantity: restoredLotQuantity,
-          remainingQuantity: restoredLotQuantity,
-          reference: data.reference,
+          remainingQuantity: {
+            increment: allocation.quantity,
+          },
+        },
+      })
+      await tx.commandeStockAllocation.update({
+        where: { id: allocation.id },
+        data: {
+          restoredAt: new Date(),
         },
       })
     }

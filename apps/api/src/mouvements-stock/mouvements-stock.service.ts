@@ -23,6 +23,11 @@ type StockLotRecord = {
   createdAt: Date
 }
 
+export type ConsumedStockLot = {
+  stockLotId: number
+  quantity: number
+}
+
 type StockItem = {
   id: number
   stock: number
@@ -267,7 +272,7 @@ export class MouvementsStockService {
     },
   ) {
     this.assertValidStockMovement(data)
-    await this.applyLotMovement(tx, {
+    const consumedLots = await this.applyLotMovement(tx, {
       target: 'article',
       targetId: data.articleId,
       quantity: data.quantite,
@@ -275,7 +280,7 @@ export class MouvementsStockService {
       reference: data.reference,
     })
 
-    return tx.mouvementStock.create({
+    const movement = await tx.mouvementStock.create({
       data: {
         type: data.type,
         cible: 'article',
@@ -288,6 +293,11 @@ export class MouvementsStockService {
         createdByUserId: data.createdByUserId,
       },
     })
+
+    return {
+      movement,
+      consumedLots,
+    }
   }
 
   async recordMatierePremiereMovement(
@@ -305,7 +315,7 @@ export class MouvementsStockService {
     },
   ) {
     this.assertValidStockMovement(data)
-    await this.applyLotMovement(tx, {
+    const consumedLots = await this.applyLotMovement(tx, {
       target: 'matiere_premiere',
       targetId: data.mpId,
       quantity: data.quantite,
@@ -313,7 +323,7 @@ export class MouvementsStockService {
       reference: data.reference,
     })
 
-    return tx.mouvementStock.create({
+    const movement = await tx.mouvementStock.create({
       data: {
         type: data.type,
         cible: 'matiere_premiere',
@@ -326,6 +336,11 @@ export class MouvementsStockService {
         createdByUserId: data.createdByUserId,
       },
     })
+
+    return {
+      movement,
+      consumedLots,
+    }
   }
 
   private async ajusterArticle(data: {
@@ -476,17 +491,19 @@ export class MouvementsStockService {
           reference: data.reference,
         },
       })
-      return
+      return []
     }
 
     if (data.quantity < 0) {
-      await this.consumeLots(
+      return this.consumeLots(
         tx,
         data.target,
         data.targetId,
         Math.abs(data.quantity),
       )
     }
+
+    return []
   }
 
   private async consumeLots(
@@ -494,12 +511,13 @@ export class MouvementsStockService {
     target: StockLotTarget,
     targetId: number,
     quantity: number,
-  ) {
+  ): Promise<ConsumedStockLot[]> {
     let remainingToConsume = quantity
+    const consumedLots: ConsumedStockLot[] = []
     const lots = await this.lockConsumableLots(tx, target, targetId)
 
     for (const lot of lots) {
-      if (remainingToConsume <= 0) return
+      if (remainingToConsume <= 0) return consumedLots
 
       const consumed = Math.min(lot.remainingQuantity, remainingToConsume)
 
@@ -524,7 +542,13 @@ export class MouvementsStockService {
       }
 
       remainingToConsume -= consumed
+      consumedLots.push({
+        stockLotId: lot.id,
+        quantity: consumed,
+      })
     }
+
+    return consumedLots
   }
 
   private async lockConsumableLots(

@@ -165,6 +165,7 @@ model Commande {
   lignes        LigneCommande[]
   historique    CommandeStatutHistorique[]
   reservationRelease CommandeReservationRelease?
+  stockAllocations CommandeStockAllocation[]
   stripeCheckoutReconciliations StripeCheckoutReconciliation[]
 
   @@index([statut])
@@ -180,13 +181,39 @@ model CommandeReservationRelease {
 }
 
 model LigneCommande {
-  id            Int      @id @default(autoincrement())
-  commandeId    Int
-  articleId     Int
-  quantite      Int
-  prixUnitCents Int
-  commande      Commande @relation(fields: [commandeId], references: [id])
-  article       Article  @relation(fields: [articleId], references: [id])
+  id                  Int                       @id @default(autoincrement())
+  commandeId          Int
+  articleId           Int
+  quantite            Int
+  quantitePrecommande Int                       @default(0)
+  prixUnitCents       Int
+  commande            Commande                  @relation(fields: [commandeId], references: [id])
+  article             Article                   @relation(fields: [articleId], references: [id])
+  stockAllocations    CommandeStockAllocation[]
+
+  @@unique([id, commandeId])
+  @@index([commandeId])
+  @@index([articleId])
+}
+
+model CommandeStockAllocation {
+  id               Int            @id @default(autoincrement())
+  commandeId       Int
+  ligneCommandeId  Int
+  stockLotId       Int
+  quantity         Float
+  restoredAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  commande         Commande       @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+  ligneCommande    LigneCommande  @relation(fields: [ligneCommandeId, commandeId], references: [id, commandeId], onDelete: Cascade)
+  stockLot         StockLot       @relation(fields: [stockLotId], references: [id], onDelete: Restrict)
+
+  @@index([commandeId])
+  @@index([ligneCommandeId])
+  @@index([stockLotId])
+  @@index([commandeId, restoredAt])
+  @@unique([ligneCommandeId, stockLotId])
 }
 
 model CommandeStatutHistorique {
@@ -348,6 +375,7 @@ model StockLot {
 
   article Article?         @relation(fields: [articleId], references: [id])
   mp      MatierePremiere? @relation(fields: [mpId], references: [id])
+  commandeStockAllocations CommandeStockAllocation[]
 
   @@index([target, expiresAt])
   @@index([articleId])
