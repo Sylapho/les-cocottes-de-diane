@@ -417,7 +417,7 @@ jobs:
           push: false
           tags: localco-api:ci
           cache-from: type=gha,scope=localco-api
-          cache-to: type=gha,mode=max,scope=localco-api
+          cache-to: type=gha,mode=min,scope=localco-api
 
       - name: Build Web image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
@@ -434,7 +434,7 @@ jobs:
             BETTER_AUTH_SECRET=localco-ci-better-auth-secret-placeholder
             BETTER_AUTH_URL=http://localhost:4000
           cache-from: type=gha,scope=localco-web
-          cache-to: type=gha,mode=max,scope=localco-web
+          cache-to: type=gha,mode=min,scope=localco-web
 
       - name: Build Shop image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
@@ -447,7 +447,7 @@ jobs:
             NEXT_PUBLIC_API_URL=http://localhost:4000/api
             API_INTERNAL_URL=http://localhost:4000/api
           cache-from: type=gha,scope=localco-shop
-          cache-to: type=gha,mode=max,scope=localco-shop
+          cache-to: type=gha,mode=min,scope=localco-shop
 
   publish-images:
     name: Publish images to GHCR
