@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module'
 import { MouvementsStockModule } from './mouvements-stock/mouvements-stock.module'
 import { CommandesModule } from './commandes/commandes.module'
 import { BoutiqueModule } from './boutique/boutique.module'
+import { StripeReconciliationModule } from './stripe-reconciliation/stripe-reconciliation.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -25,6 +26,7 @@ import { AppService } from './app.service'
     CaisseModule,
     MouvementsStockModule,
     CommandesModule,
+    StripeReconciliationModule,
     BoutiqueModule,
   ],
   controllers: [AppController],

@@ -136,9 +136,7 @@ export async function getMatieresPremieres(): Promise<MatierePremiere[]> {
   return parseResponse<MatierePremiere[]>(response)
 }
 
-export async function getMatierePremiere(
-  id: number,
-): Promise<MatierePremiere> {
+export async function getMatierePremiere(id: number): Promise<MatierePremiere> {
   const response = await apiFetch(`/matieres-premieres/${id}`, {
     cache: 'no-store',
   })
@@ -206,17 +204,14 @@ export async function createNomenclatureLine(data: {
   mpId: number
   quantite: number
 }) {
-  const response = await apiFetch(
-    `/articles/${data.articleId}/nomenclature`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mpId: data.mpId,
-        quantite: data.quantite,
-      }),
-    },
-  )
+  const response = await apiFetch(`/articles/${data.articleId}/nomenclature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mpId: data.mpId,
+      quantite: data.quantite,
+    }),
+  })
 
   return parseResponse<NomenclatureLine>(response)
 }
@@ -434,6 +429,133 @@ export async function getCommande(id: number): Promise<Commande> {
   })
 
   return parseResponse<Commande>(response)
+}
+
+export type StripeReconciliationStatus =
+  | 'pending'
+  | 'manual_review'
+  | 'resolved'
+  | 'failed'
+
+export type StripeReconciliationAttempt = {
+  id: number
+  reconciliationId: number
+  attemptNumber: number
+  origin: 'automatic' | 'manual'
+  action: string
+  stripeState?: string | null
+  localState?: string | null
+  result?: string | null
+  error?: string | null
+  workerId?: string | null
+  startedAt: string
+  finishedAt?: string | null
+}
+
+export type StripeReconciliation = {
+  id: number
+  commandeId?: number | null
+  stripeSessionId: string
+  operation: string
+  status: StripeReconciliationStatus
+  attempts: number
+  lastError?: string | null
+  lastAttemptedAt?: string | null
+  nextAttemptAt: string
+  claimedAt?: string | null
+  claimedBy?: string | null
+  leaseExpiresAt?: string | null
+  failedAt?: string | null
+  resolvedAt?: string | null
+  manualReviewReason?: string | null
+  manualResolution?: string | null
+  manualResolvedByUserId?: string | null
+  createdAt: string
+  updatedAt: string
+  commande?: Pick<
+    Commande,
+    | 'id'
+    | 'nom'
+    | 'email'
+    | 'statut'
+    | 'totalTtcCents'
+    | 'stripeId'
+    | 'createdAt'
+  > | null
+  attemptsHistory?: StripeReconciliationAttempt[]
+}
+
+export type StripeReconciliationList = {
+  items: StripeReconciliation[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export type StripeReconciliationFilters = {
+  status?: string
+  operation?: string
+  stripeSessionId?: string
+  commandeId?: string
+  page?: string
+}
+
+export async function getStripeReconciliations(
+  filters: StripeReconciliationFilters = {},
+): Promise<StripeReconciliationList> {
+  const params = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) {
+      params.set(key, value)
+    }
+  }
+
+  const query = params.toString()
+  const response = await apiFetch(
+    `/stripe-reconciliations${query ? `?${query}` : ''}`,
+    {
+      cache: 'no-store',
+    },
+  )
+
+  return parseResponse<StripeReconciliationList>(response)
+}
+
+export async function getStripeReconciliation(
+  id: number,
+): Promise<StripeReconciliation> {
+  const response = await apiFetch(`/stripe-reconciliations/${id}`, {
+    cache: 'no-store',
+  })
+
+  return parseResponse<StripeReconciliation>(response)
+}
+
+export async function retryStripeReconciliation(id: number) {
+  const response = await apiFetch(`/stripe-reconciliations/${id}/retry`, {
+    method: 'POST',
+  })
+
+  return parseResponse<StripeReconciliation>(response)
+}
+
+export async function resolveStripeReconciliation(
+  id: number,
+  justification: string,
+) {
+  const response = await apiFetch(
+    `/stripe-reconciliations/${id}/manual-resolution`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ justification }),
+    },
+  )
+
+  return parseResponse<StripeReconciliation>(response)
 }
 
 export type JourneeCaisse = {
