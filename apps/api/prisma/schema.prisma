@@ -228,31 +228,78 @@ enum StripeCheckoutReconciliationOperation {
   review_checkout_payment_mismatch
   review_checkout_attachment_conflict
   review_missing_checkout_session
+  review_unmatched_checkout_session
 }
 
 enum StripeCheckoutReconciliationStatus {
   pending
+  manual_review
   resolved
   failed
 }
 
+enum StripeCheckoutReconciliationAttemptOrigin {
+  automatic
+  manual
+}
+
+enum StripeCheckoutReconciliationAttemptResult {
+  resolved
+  retry_scheduled
+  failed
+  manual_review
+  skipped
+}
+
 model StripeCheckoutReconciliation {
-  id              Int                                    @id @default(autoincrement())
-  commandeId      Int
-  stripeSessionId String
-  operation       StripeCheckoutReconciliationOperation
-  status          StripeCheckoutReconciliationStatus     @default(pending)
-  attempts        Int                                    @default(0)
-  lastError       String?
-  lastAttemptedAt DateTime?
-  resolvedAt      DateTime?
-  createdAt       DateTime                               @default(now())
-  updatedAt       DateTime                               @updatedAt
-  commande        Commande                               @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+  id                     Int                                    @id @default(autoincrement())
+  commandeId             Int?
+  stripeSessionId        String
+  operation              StripeCheckoutReconciliationOperation
+  status                 StripeCheckoutReconciliationStatus     @default(pending)
+  attempts               Int                                    @default(0)
+  lastError              String?
+  lastAttemptedAt        DateTime?
+  nextAttemptAt          DateTime                               @default(now())
+  claimedAt              DateTime?
+  claimedBy              String?
+  leaseExpiresAt         DateTime?
+  failedAt               DateTime?
+  resolvedAt             DateTime?
+  manualReviewReason     String?
+  manualResolution       String?
+  manualResolvedByUserId String?
+  metadata               Json?
+  createdAt              DateTime                               @default(now())
+  updatedAt              DateTime                               @updatedAt
+  commande               Commande?                              @relation(fields: [commandeId], references: [id], onDelete: SetNull)
+  attemptsHistory        StripeCheckoutReconciliationAttempt[]
 
   @@index([status, operation])
+  @@index([status, nextAttemptAt])
+  @@index([claimedBy, leaseExpiresAt])
   @@index([commandeId])
   @@index([stripeSessionId])
+}
+
+model StripeCheckoutReconciliationAttempt {
+  id               Int                                         @id @default(autoincrement())
+  reconciliationId Int
+  attemptNumber    Int
+  origin           StripeCheckoutReconciliationAttemptOrigin
+  action           String
+  stripeState      String?
+  localState       String?
+  result           StripeCheckoutReconciliationAttemptResult?
+  error            String?
+  workerId         String?
+  metadata         Json?
+  startedAt        DateTime                                    @default(now())
+  finishedAt       DateTime?
+  reconciliation   StripeCheckoutReconciliation                @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+
+  @@index([reconciliationId, startedAt])
+  @@index([origin, startedAt])
 }
 
 model JourneeCaisse {

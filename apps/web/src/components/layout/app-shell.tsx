@@ -57,12 +57,20 @@ const navItems: NavItem[] = [
   },
 ]
 
-const adminNavItem: NavItem = {
-  label: 'Admin',
-  href: '/admin/users',
-  short: 'Admin',
-  description: 'Utilisateurs',
-}
+const adminNavItems: NavItem[] = [
+  {
+    label: 'Admin',
+    href: '/admin/users',
+    short: 'Admin',
+    description: 'Utilisateurs',
+  },
+  {
+    label: 'Stripe',
+    href: '/admin/stripe-reconciliations',
+    short: 'Pay',
+    description: 'Reconciliations',
+  },
+]
 
 function isActive(pathname: string, href: string) {
   if (href === '/') {
@@ -85,7 +93,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const hasSession = Boolean(session)
   const isLoaded = !isPending
   const visibleNavItems =
-    role === 'gerant' ? [...navItems, adminNavItem] : navItems
+    role === 'gerant' ? [...navItems, ...adminNavItems] : navItems
 
   async function handleSignOut() {
     await authClient.signOut({
@@ -142,7 +150,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </button>
               <span>
                 <strong>{user?.name ?? 'Compte'}</strong>
-                <small>Rôle : {typeof role === 'string' ? role : 'vendeur'}</small>
+                <small>
+                  Rôle : {typeof role === 'string' ? role : 'vendeur'}
+                </small>
               </span>
             </div>
           ) : null}
@@ -161,9 +171,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <div className="lc-topbar">
           <div>
             <strong>LocalCo</strong>
-            {isLoaded && hasSession ? (
-              <span>Interface de gestion</span>
-            ) : null}
+            {isLoaded && hasSession ? <span>Interface de gestion</span> : null}
             {isLoaded && !hasSession ? (
               <span>Connecte-toi pour accéder à la gestion</span>
             ) : null}

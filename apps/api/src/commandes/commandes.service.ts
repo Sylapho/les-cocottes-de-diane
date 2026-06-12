@@ -82,6 +82,13 @@ type StripeCheckoutReconciliationOperation =
   | 'review_checkout_payment_mismatch'
   | 'review_checkout_attachment_conflict'
   | 'review_missing_checkout_session'
+  | 'review_unmatched_checkout_session'
+
+type StripeCheckoutReconciliationStatus =
+  | 'pending'
+  | 'manual_review'
+  | 'resolved'
+  | 'failed'
 
 type CheckoutSessionCommandeCandidate = {
   id: number
@@ -1199,10 +1206,26 @@ export class CommandesService {
     })
 
     if (commandes.length === 0) {
+      await this.createActiveStripeCheckoutReconciliation(this.prisma, {
+        commandeId: null,
+        stripeSessionId: session.id,
+        operation: 'review_unmatched_checkout_session',
+        status: 'manual_review',
+        lastError: 'Stripe checkout session could not be attached to an order',
+        manualReviewReason:
+          'Webhook received for a checkout session that does not match any order',
+        metadata: {
+          stripeEventId: eventId,
+          clientReferenceId: session.client_reference_id ?? null,
+          metadataCommandeId: session.metadata?.commandeId ?? null,
+          paymentStatus: session.payment_status ?? null,
+        },
+      })
       this.logger.warn({
         message: 'Stripe checkout session could not be attached to an order',
         stripeSessionId: session.id,
         stripeEventId: eventId,
+        reconciliationOperation: 'review_unmatched_checkout_session',
       })
 
       return
@@ -1367,11 +1390,15 @@ export class CommandesService {
   private async createActiveStripeCheckoutReconciliation(
     tx: RawQueryTransaction,
     data: {
-      commandeId: number
+      commandeId?: number | null
       stripeSessionId: string
       operation: StripeCheckoutReconciliationOperation
+      status?: StripeCheckoutReconciliationStatus
       lastError?: string
       attempts?: number
+      nextAttemptAt?: Date
+      manualReviewReason?: string
+      metadata?: unknown
     },
   ) {
     const lastError = data.lastError
@@ -1379,6 +1406,10 @@ export class CommandesService {
       : null
     const attempts = data.attempts ?? 0
     const lastAttemptedAt = attempts > 0 ? new Date() : null
+    const status = data.status ?? 'pending'
+    const nextAttemptAt = data.nextAttemptAt ?? new Date()
+    const manualReviewReason = data.manualReviewReason ?? null
+    const metadata = data.metadata ? JSON.stringify(data.metadata) : null
 
     await tx.$queryRaw`
       INSERT INTO "StripeCheckoutReconciliation" (
@@ -1389,26 +1420,40 @@ export class CommandesService {
         "attempts",
         "lastError",
         "lastAttemptedAt",
+        "nextAttemptAt",
+        "manualReviewReason",
+        "metadata",
         "updatedAt"
       )
       VALUES (
-        ${data.commandeId},
+        ${data.commandeId ?? null},
         ${data.stripeSessionId},
         ${data.operation}::"StripeCheckoutReconciliationOperation",
-        'pending'::"StripeCheckoutReconciliationStatus",
+        ${status}::"StripeCheckoutReconciliationStatus",
         ${attempts},
         ${lastError},
         ${lastAttemptedAt},
+        ${nextAttemptAt},
+        ${manualReviewReason},
+        ${metadata}::jsonb,
         CURRENT_TIMESTAMP
       )
       ON CONFLICT ("stripeSessionId", "operation")
       WHERE "status" <> 'resolved'
       DO UPDATE SET
         "commandeId" = EXCLUDED."commandeId",
-        "status" = 'pending'::"StripeCheckoutReconciliationStatus",
+        "status" = EXCLUDED."status",
         "attempts" = "StripeCheckoutReconciliation"."attempts" + EXCLUDED."attempts",
         "lastError" = EXCLUDED."lastError",
         "lastAttemptedAt" = COALESCE(EXCLUDED."lastAttemptedAt", "StripeCheckoutReconciliation"."lastAttemptedAt"),
+        "nextAttemptAt" = EXCLUDED."nextAttemptAt",
+        "manualReviewReason" = COALESCE(EXCLUDED."manualReviewReason", "StripeCheckoutReconciliation"."manualReviewReason"),
+        "metadata" = COALESCE(EXCLUDED."metadata", "StripeCheckoutReconciliation"."metadata"),
+        "claimedAt" = NULL,
+        "claimedBy" = NULL,
+        "leaseExpiresAt" = NULL,
+        "failedAt" = NULL,
+        "resolvedAt" = NULL,
         "updatedAt" = CURRENT_TIMESTAMP
     `
   }

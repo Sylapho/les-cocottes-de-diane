@@ -350,6 +350,8 @@ Stripe est utilisé pour le paiement des commandes Click & Collect.
 
 En local, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_WEBHOOK_PROCESSING_TIMEOUT_MS` et `SHOP_PUBLIC_URL` doivent être configurés côté API. `STRIPE_WEBHOOK_PROCESSING_TIMEOUT_MS` vaut `300000` par défaut et autorise une nouvelle tentative Stripe à reprendre atomiquement un événement resté en `processing` au-delà de ce délai.
 
+Les réconciliations Stripe sont stockées dans `StripeCheckoutReconciliation` avec un historique durable dans `StripeCheckoutReconciliationAttempt`. Le worker périodique est désactivé par défaut et s'active avec `STRIPE_RECONCILIATION_WORKER_ENABLED=true`. Les retries utilisent `STRIPE_RECONCILIATION_MAX_ATTEMPTS`, `STRIPE_RECONCILIATION_BACKOFF_BASE_MS`, `STRIPE_RECONCILIATION_BACKOFF_MAX_MS`, `STRIPE_RECONCILIATION_LEASE_MS`, `STRIPE_RECONCILIATION_BATCH_SIZE` et `STRIPE_RECONCILIATION_WORKER_INTERVAL_MS`. Les cas payés, ambigus ou sans commande passent en revue manuelle dans le back-office `Admin > Stripe`.
+
 La procédure de test manuel avec Stripe CLI est documentée dans `docs/STRIPE_CLI_CHECKOUT.md`. Elle couvre le forwarding local des webhooks, un paiement confirmé et une session Checkout expirée.
 
 ## Better Auth
