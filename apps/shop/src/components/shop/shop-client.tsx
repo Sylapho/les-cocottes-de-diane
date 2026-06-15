@@ -13,7 +13,7 @@ import { formatPickupPoint } from '@/lib/pickup-points'
 import ProductInfoPopover from './product-info-popover'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type ShopClientProps = {
   articles: ShopArticle[]
@@ -92,6 +92,10 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
   const [openCategories, setOpenCategories] = useState<
     Partial<Record<ProductCategory, boolean>>
   >({})
+
+  const [recentlyAddedArticleId, setRecentlyAddedArticleId] = useState<number | null>(
+  null,
+)
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -502,13 +506,63 @@ function ProductRow({
   onDecrease: () => void
   onIncrease: () => void
 }) {
+  const [isAddAnimating, setIsAddAnimating] = useState(false)
+  const [isStepperAnimating, setIsStepperAnimating] = useState(false)
+  const addTimeoutRef = useRef<number | null>(null)
+  const stepperTimeoutRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (addTimeoutRef.current !== null) {
+        window.clearTimeout(addTimeoutRef.current)
+      }
+
+      if (stepperTimeoutRef.current !== null) {
+        window.clearTimeout(stepperTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  function playStepperAnimation() {
+    if (stepperTimeoutRef.current !== null) {
+      window.clearTimeout(stepperTimeoutRef.current)
+    }
+
+    setIsStepperAnimating(true)
+
+    stepperTimeoutRef.current = window.setTimeout(() => {
+      setIsStepperAnimating(false)
+    }, 350)
+  }
+
+  function handleIncrease() {
+    if (isAddAnimating) return
+
+    if (quantity === 0) {
+      setIsAddAnimating(true)
+
+      addTimeoutRef.current = window.setTimeout(() => {
+        onIncrease()
+        setIsAddAnimating(false)
+        playStepperAnimation()
+      }, 180)
+
+      return
+    }
+
+    onIncrease()
+    playStepperAnimation()
+  }
+
   return (
     <article className="grid grid-cols-[4.5rem_1fr] gap-3 p-3 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center sm:p-4">
       <ProductThumbnail article={article} />
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h4 className="text-base font-black text-[#181014]">{article.nom}</h4>
+          <h4 className="text-base font-black text-[#181014]">
+            {article.nom}
+          </h4>
 
           {article.allergenes ? (
             <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
@@ -536,23 +590,35 @@ function ProductRow({
           <p className="text-lg font-black text-[#b5006e]">
             {formatCurrency(article.prixCents)}
           </p>
-
         </div>
 
         {quantity === 0 ? (
           <button
             type="button"
-            onClick={onIncrease}
-            className="rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#8c0055]"
+            onClick={handleIncrease}
+            disabled={isAddAnimating}
+            className={`rounded-full bg-[#b5006e] px-4 py-2 text-sm font-bold text-white transition-all duration-200 ${
+              isAddAnimating
+                ? 'scale-95 bg-[#8c0055] shadow-inner ring-4 ring-[#b5006e]/20'
+                : 'hover:scale-105 hover:bg-[#8c0055] active:scale-95'
+            }`}
           >
             Ajouter
           </button>
         ) : (
-          <QuantityStepper
-            quantity={quantity}
-            onDecrease={onDecrease}
-            onIncrease={onIncrease}
-          />
+          <div
+            className={`transition-all duration-300 ${
+              isStepperAnimating
+                ? 'scale-105 rounded-full ring-4 ring-[#b5006e]/20'
+                : ''
+            }`}
+          >
+            <QuantityStepper
+              quantity={quantity}
+              onDecrease={onDecrease}
+              onIncrease={handleIncrease}
+            />
+          </div>
         )}
       </div>
     </article>
