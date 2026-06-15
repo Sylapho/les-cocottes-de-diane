@@ -26,11 +26,11 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@nestjs/common": "^11.1.26",
+    "@nestjs/common": "^11.1.27",
     "@nestjs/config": "^4.0.4",
-    "@nestjs/core": "^11.1.26",
+    "@nestjs/core": "^11.1.27",
     "@nestjs/mapped-types": "^2.1.1",
-    "@nestjs/platform-express": "^11.1.26",
+    "@nestjs/platform-express": "^11.1.27",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "better-auth": "^1.6.18",
@@ -41,14 +41,14 @@
     "reflect-metadata": "^0.2.2",
     "resend": "^6.12.4",
     "rxjs": "^7.8.2",
-    "stripe": "^22.2.0"
+    "stripe": "^22.2.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.23",
     "@nestjs/schematics": "^11.1.0",
-    "@nestjs/testing": "^11.1.26",
+    "@nestjs/testing": "^11.1.27",
     "@prisma/config": "^7.8.0",
     "@types/express": "^5.0.6",
     "@types/istanbul-lib-coverage": "^2.0.6",
@@ -71,7 +71,7 @@
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.0"
+    "typescript-eslint": "^8.61.1"
   },
   "jest": {
     "moduleFileExtensions": [
