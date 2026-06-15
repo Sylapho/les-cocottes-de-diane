@@ -51,8 +51,18 @@
     "prisma:generate": "pnpm db:generate",
     "prisma:migrate": "pnpm db:migrate"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "monorepo",
+    "typescript",
+    "nextjs",
+    "nestjs",
+    "postgresql",
+    "prisma",
+    "docker",
+    "pnpm",
+    "react"
+  ],
+  "author": "Arthur Dubos",
   "license": "ISC",
   "packageManager": "pnpm@10.33.0",
   "pnpm": {
