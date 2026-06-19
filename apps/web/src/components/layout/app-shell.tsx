@@ -1,6 +1,17 @@
 'use client'
 
 import { authClient } from '@/lib/auth-client'
+import {
+  canAccessAdmin,
+  canCreateSales,
+  canManageCashRegister,
+  canViewArticles,
+  canViewCashRegister,
+  canViewOrders,
+  canViewStock,
+  getUserRole,
+  type UserWithRole,
+} from '@/lib/permissions'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -10,6 +21,7 @@ type NavItem = {
   href: string
   short: string
   description: string
+  canAccess: (user: UserWithRole) => boolean
 }
 
 const navItems: NavItem[] = [
@@ -18,48 +30,56 @@ const navItems: NavItem[] = [
     href: '/',
     short: 'Home',
     description: 'Vue générale',
+    canAccess: () => true,
   },
   {
     label: 'Caisse',
     href: '/caisse',
     short: 'Caisse',
     description: 'Journée en cours',
+    canAccess: canViewCashRegister,
   },
   {
     label: 'Ventes',
     href: '/ventes/new',
     short: 'Vente',
     description: 'Encaissement',
+    canAccess: canCreateSales,
   },
   {
     label: 'Commandes',
     href: '/commandes',
     short: 'Cmd',
     description: 'En ligne',
+    canAccess: canViewOrders,
   },
   {
     label: 'Préparation',
     href: '/preparation',
     short: 'Prep',
     description: 'Retraits du jour',
+    canAccess: canViewOrders,
   },
   {
     label: 'Articles',
     href: '/articles',
     short: 'Arts',
     description: 'Catalogue',
+    canAccess: canViewArticles,
   },
   {
     label: 'Stock',
     href: '/stock',
     short: 'Stock',
     description: 'Matières & articles',
+    canAccess: canViewStock,
   },
   {
     label: 'Historique',
     href: '/caisse/journees',
     short: 'Hist.',
     description: 'Clôtures',
+    canAccess: canManageCashRegister,
   },
 ]
 
@@ -69,18 +89,21 @@ const adminNavItems: NavItem[] = [
     href: '/admin/users',
     short: 'Admin',
     description: 'Utilisateurs',
+    canAccess: canAccessAdmin,
   },
   {
     label: 'Retraits',
     href: '/admin/pickup-points',
     short: 'Lieu',
     description: 'Points de retrait',
+    canAccess: canAccessAdmin,
   },
   {
     label: 'Stripe',
     href: '/admin/stripe-reconciliations',
     short: 'Pay',
-    description: 'Reconciliations',
+    description: 'Réconciliations',
+    canAccess: canAccessAdmin,
   },
 ]
 
@@ -101,11 +124,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter()
   const { data: session, isPending } = authClient.useSession()
   const user = session?.user
-  const role = user?.role
+  const role = getUserRole(user)
   const hasSession = Boolean(session)
   const isLoaded = !isPending
-  const visibleNavItems =
-    role === 'gerant' ? [...navItems, ...adminNavItems] : navItems
+  const visibleNavItems = [...navItems, ...adminNavItems].filter((item) =>
+    item.canAccess(user),
+  )
+  const visibleMobileNavItems = navItems
+    .filter((item) => item.canAccess(user))
+    .slice(0, 5)
 
   async function handleSignOut() {
     await authClient.signOut({
@@ -162,9 +189,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </button>
               <span>
                 <strong>{user?.name ?? 'Compte'}</strong>
-                <small>
-                  Rôle : {typeof role === 'string' ? role : 'vendeur'}
-                </small>
+                <small>Rôle : {role}</small>
               </span>
             </div>
           ) : null}
@@ -188,7 +213,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <span>Connecte-toi pour accéder à la gestion</span>
             ) : null}
           </div>
-          {isLoaded && hasSession ? (
+          {isLoaded && hasSession && canCreateSales(user) ? (
             <Link href="/ventes/new" className="lc-topbar-action">
               Nouvelle vente
             </Link>
@@ -206,7 +231,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <nav className="lc-bottom-nav" aria-label="Navigation mobile">
-        {navItems.slice(0, 5).map((item) => {
+        {visibleMobileNavItems.map((item) => {
           const active = isActive(pathname, item.href)
 
           return (

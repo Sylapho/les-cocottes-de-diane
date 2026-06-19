@@ -7,6 +7,12 @@ import {
   type Vente,
   type VenteMode,
 } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import {
+  canCreateSales,
+  canManageCashRegister,
+  canViewCashRegister,
+} from '@/lib/permissions'
 
 const modeLabels: Record<VenteMode, string> = {
   cb: 'Carte bancaire',
@@ -73,6 +79,9 @@ function getTopArticles(ventes: Vente[]) {
 }
 
 export default async function CaissePage() {
+  const session = await requireUiPermission(canViewCashRegister)
+  const userCanCreateSales = canCreateSales(session.user)
+  const userCanCloseCashRegister = canManageCashRegister(session.user)
   const [caisse, ventes] = await Promise.all([getCaisseToday(), getVentes()])
   const ventesDuJour = ventes.filter(
     (vente) => getDayKey(vente.date) === caisse.dayKey,
@@ -116,9 +125,14 @@ export default async function CaissePage() {
           <Link href="/ventes" className="rounded border px-4 py-2">
             Voir les ventes
           </Link>
-          <Link href="/ventes/new" className="rounded bg-black px-4 py-2 text-white">
-            Nouvelle vente
-          </Link>
+          {userCanCreateSales ? (
+            <Link
+              href="/ventes/new"
+              className="rounded bg-black px-4 py-2 text-white"
+            >
+              Nouvelle vente
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -138,7 +152,10 @@ export default async function CaissePage() {
             )}
           </div>
 
-          <CloseCaisseButton disabled={caisse.status === 'closed'} />
+          <CloseCaisseButton
+            disabled={caisse.status === 'closed'}
+            canClose={userCanCloseCashRegister}
+          />
         </div>
       </section>
 
@@ -247,12 +264,14 @@ export default async function CaissePage() {
               <p className="text-sm text-gray-600">
                 Aucune vente enregistrée aujourd&apos;hui.
               </p>
-              <Link
-                href="/ventes/new"
-                className="mt-4 inline-block rounded bg-black px-4 py-2 text-white"
-              >
-                Enregistrer une vente
-              </Link>
+              {userCanCreateSales ? (
+                <Link
+                  href="/ventes/new"
+                  className="mt-4 inline-block rounded bg-black px-4 py-2 text-white"
+                >
+                  Enregistrer une vente
+                </Link>
+              ) : null}
             </div>
           ) : (
             <ul className="grid gap-3">

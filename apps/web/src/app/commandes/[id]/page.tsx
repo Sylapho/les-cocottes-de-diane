@@ -4,6 +4,8 @@ import CommandeStatusBadge, {
   commandeStatusLabels,
 } from '@/components/commandes/commande-status-badge'
 import { getCommande } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canManageOrders, canViewOrders } from '@/lib/permissions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -46,6 +48,8 @@ function formatQuantity(value: number) {
 }
 
 export default async function CommandeDetailPage({ params }: PageProps) {
+  const session = await requireUiPermission(canViewOrders)
+  const userCanManageOrders = canManageOrders(session.user)
   const { id } = await params
   const commandeId = Number(id)
 
@@ -87,6 +91,7 @@ export default async function CommandeDetailPage({ params }: PageProps) {
           <CommandeStatusActions
             commandeId={commande.id}
             statut={commande.statut}
+            canManage={userCanManageOrders}
           />
         </div>
       </section>

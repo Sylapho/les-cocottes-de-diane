@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { getArticle } from '@/lib/api'
 import EditArticleForm from '@/components/articles/edit-article-form'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canManageArticles } from '@/lib/permissions'
 
 type PageProps = {
   params: Promise<{
@@ -9,6 +11,7 @@ type PageProps = {
 }
 
 export default async function EditArticlePage({ params }: PageProps) {
+  await requireUiPermission(canManageArticles)
   const { id } = await params
   const articleId = Number(id)
   const article = await getArticle(articleId)

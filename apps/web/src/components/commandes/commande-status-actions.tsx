@@ -9,6 +9,7 @@ import { useState } from 'react'
 type CommandeStatusActionsProps = {
   commandeId: number
   statut: CommandeStatut
+  canManage: boolean
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -16,6 +17,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
 export default function CommandeStatusActions({
   commandeId,
   statut,
+  canManage,
 }: CommandeStatusActionsProps) {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
@@ -61,7 +63,7 @@ export default function CommandeStatusActions({
     }
   }
 
-  if (statut === 'traitee' || statut === 'annulee') {
+  if (!canManage || statut === 'traitee' || statut === 'annulee') {
     return null
   }
 

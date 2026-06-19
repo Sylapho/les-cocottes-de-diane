@@ -1,7 +1,9 @@
-import Link from 'next/link'
-import { getMatierePremiere } from '@/lib/api'
 import DeleteMatierePremiereButton from '@/components/matieres-premieres/delete-matiere-premiere-button'
+import { getMatierePremiere } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
 import { formatCurrencyFromCents } from '@/lib/money'
+import { canManageStock, canViewStock } from '@/lib/permissions'
+import Link from 'next/link'
 
 type PageProps = {
   params: Promise<{
@@ -12,6 +14,8 @@ type PageProps = {
 export default async function MatierePremiereDetailPage({
   params,
 }: PageProps) {
+  const session = await requireUiPermission(canViewStock)
+  const userCanManageStock = canManageStock(session.user)
   const { id } = await params
   const matiereId = Number(id)
   const matiere = await getMatierePremiere(matiereId)
@@ -23,15 +27,17 @@ export default async function MatierePremiereDetailPage({
           href="/matieres-premieres"
           className="rounded border px-3 py-2 text-sm"
         >
-          ← Retour à la liste
+          Retour à la liste
         </Link>
 
-        <Link
-          href={`/matieres-premieres/${matiere.id}/edit`}
-          className="rounded border px-3 py-2 text-sm"
-        >
-          Modifier
-        </Link>
+        {userCanManageStock ? (
+          <Link
+            href={`/matieres-premieres/${matiere.id}/edit`}
+            className="rounded border px-3 py-2 text-sm"
+          >
+            Modifier
+          </Link>
+        ) : null}
       </div>
 
       <div className="rounded border p-6 shadow-sm">
@@ -55,9 +61,11 @@ export default async function MatierePremiereDetailPage({
           </p>
         </div>
 
-        <div className="mt-6">
-          <DeleteMatierePremiereButton matiereId={matiere.id} />
-        </div>
+        {userCanManageStock ? (
+          <div className="mt-6">
+            <DeleteMatierePremiereButton matiereId={matiere.id} />
+          </div>
+        ) : null}
       </div>
     </main>
   )

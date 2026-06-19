@@ -1,43 +1,32 @@
 'use client'
 
-import type { Article } from '@/lib/api'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
 import {
   articleCategories,
   articleCategoryLabels,
   defaultArticleCategory,
-  isArticleCategory,
   type ArticleCategory,
 } from '@/lib/article-categories'
-import { centsToEuros, eurosToCents } from '@/lib/money'
+import { eurosToCents } from '@/lib/money'
 import { useSessionFetch } from '@/lib/use-session-fetch'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useState } from 'react'
 
-type EditArticleFormProps = {
-  article: Article
-}
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
-export default function EditArticleForm({
-  article,
-}: EditArticleFormProps) {
+export default function NewArticleForm() {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
 
-  const [nom, setNom] = useState(article.nom)
+  const [nom, setNom] = useState('')
   const [category, setCategory] = useState<ArticleCategory>(
-    isArticleCategory(article.category)
-      ? article.category
-      : defaultArticleCategory,
+    defaultArticleCategory,
   )
-  const [prix, setPrix] = useState(String(centsToEuros(article.prixCents)))
-  const [imageUrl, setImageUrl] = useState(article.imageUrl ?? '')
-  const [description, setDescription] = useState(article.description ?? '')
-  const [online, setOnline] = useState(article.online)
-  const [loading, setLoading] = useState(false)
+  const [prix, setPrix] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [description, setDescription] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -45,8 +34,8 @@ export default function EditArticleForm({
     setLoading(true)
 
     try {
-      const response = await sessionFetch(`${API_URL}/articles/${article.id}`, {
-        method: 'PATCH',
+      const response = await sessionFetch(`${API_URL}/articles`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -54,19 +43,19 @@ export default function EditArticleForm({
           nom,
           category,
           prixCents: eurosToCents(Number(prix)),
-          imageUrl: imageUrl || null,
+          online: true,
+          imageUrl: imageUrl || undefined,
           description: description || undefined,
-          online,
         }),
       })
 
       if (!response.ok) {
         throw new Error(
-          await getApiErrorMessage(response, 'Erreur lors de la mise à jour.'),
+          await getApiErrorMessage(response, 'Erreur lors de la création.'),
         )
       }
 
-      router.push(`/articles/${article.id}`)
+      router.push('/articles')
       router.refresh()
     } catch (err) {
       setError(getUnknownErrorMessage(err))
@@ -119,13 +108,6 @@ export default function EditArticleForm({
       </div>
 
       <div className="grid gap-1">
-        <span>Stock</span>
-        <p className="rounded border bg-gray-50 px-3 py-2 text-gray-700">
-          {article.stock}
-        </p>
-      </div>
-
-      <div className="grid gap-1">
         <label htmlFor="description">Description</label>
         <textarea
           id="description"
@@ -146,36 +128,21 @@ export default function EditArticleForm({
           className="rounded border px-3 py-2"
           placeholder="https://exemple.fr/photo.jpg"
         />
+        <p className="text-sm text-gray-600">
+          Pour le moment, colle une URL d&apos;image. On pourra ajouter
+          l&apos;upload de fichier ensuite.
+        </p>
       </div>
-
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={online}
-          onChange={(e) => setOnline(e.target.checked)}
-        />
-        En ligne
-      </label>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-        >
-          {loading ? 'Enregistrement...' : 'Enregistrer'}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => router.push(`/articles/${article.id}`)}
-          className="rounded border px-4 py-2"
-        >
-          Annuler
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={loading}
+        className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
+      >
+        {loading ? 'Création...' : 'Créer'}
+      </button>
     </form>
   )
 }

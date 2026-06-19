@@ -8,6 +8,14 @@ import {
   type Article,
   type MatierePremiere,
 } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import {
+  canCreateSales,
+  canViewArticles,
+  canViewCashRegister,
+  canViewOrders,
+  canViewStock,
+} from '@/lib/permissions'
 import { getProductionNeeds } from '@/lib/production-needs'
 
 const quickLinks = [
@@ -15,23 +23,27 @@ const quickLinks = [
     label: 'Caisse',
     href: '/caisse',
     description: 'Suivre la journée et clôturer la caisse.',
+    section: 'cash',
   },
   {
     label: 'Articles',
     href: '/articles',
     description: 'Gérer le catalogue, les prix et les stocks.',
+    section: 'articles',
   },
   {
     label: 'Stock',
     href: '/stock',
     description: 'Contrôler les lots, DLC et alertes.',
+    section: 'stock',
   },
   {
     label: 'Commandes',
     href: '/commandes',
     description: 'Préparer les commandes en ligne.',
+    section: 'orders',
   },
-]
+] as const
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('fr-FR', {
@@ -79,13 +91,25 @@ function getLowStockItems(
 }
 
 export default async function Home() {
+  const session = await requireUiPermission(() => true)
+  const userCanCreateSales = canCreateSales(session.user)
+  const userCanViewArticles = canViewArticles(session.user)
+  const userCanViewCashRegister = canViewCashRegister(session.user)
+  const userCanViewOrders = canViewOrders(session.user)
+  const userCanViewStock = canViewStock(session.user)
   const [caisse, commandes, articles, matieres, lots] = await Promise.all([
-    getCaisseToday(),
-    getCommandes(),
-    getArticles(),
-    getMatieresPremieres(),
-    getStockLots(),
+    userCanViewCashRegister ? getCaisseToday() : Promise.resolve(null),
+    userCanViewOrders ? getCommandes() : Promise.resolve([]),
+    userCanViewArticles ? getArticles() : Promise.resolve([]),
+    userCanViewStock ? getMatieresPremieres() : Promise.resolve([]),
+    userCanViewStock ? getStockLots() : Promise.resolve([]),
   ])
+  const visibleQuickLinks = quickLinks.filter((link) => {
+    if (link.section === 'cash') return userCanViewCashRegister
+    if (link.section === 'articles') return userCanViewArticles
+    if (link.section === 'stock') return userCanViewStock
+    return userCanViewOrders
+  })
 
   const commandesAPreparer = commandes.filter(
     (commande) =>
@@ -135,66 +159,78 @@ export default async function Home() {
               </p>
             </div>
 
-            <Link
-              href="/ventes/new"
-              className="rounded bg-black px-4 py-2 text-sm font-medium text-white"
-            >
-              Nouvelle vente
-            </Link>
+            {userCanCreateSales ? (
+              <Link
+                href="/ventes/new"
+                className="rounded bg-black px-4 py-2 text-sm font-medium text-white"
+              >
+                Nouvelle vente
+              </Link>
+            ) : null}
           </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded border bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-600">Ventes du jour</p>
-            <p className="mt-2 text-2xl font-bold">
-              {formatCurrency(caisse.totals.totalTtcCents)}
-            </p>
-            <p className="mt-1 text-sm text-gray-600">
-              {caisse.totals.nbVentes} vente(s)
-            </p>
-          </div>
+          {caisse ? (
+            <>
+              <div className="rounded border bg-white p-4 shadow-sm">
+                <p className="text-sm text-gray-600">Ventes du jour</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {formatCurrency(caisse.totals.totalTtcCents)}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  {caisse.totals.nbVentes} vente(s)
+                </p>
+              </div>
 
-          <div className="rounded border bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-600">État de caisse</p>
-            <p className="mt-2 text-2xl font-bold">
-              {caisse.status === 'closed' ? 'Clôturée' : 'Ouverte'}
-            </p>
-            <p className="mt-1 text-sm text-gray-600">
-              Journée du {formatDate(caisse.date)}
-            </p>
-          </div>
+              <div className="rounded border bg-white p-4 shadow-sm">
+                <p className="text-sm text-gray-600">État de caisse</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {caisse.status === 'closed' ? 'Clôturée' : 'Ouverte'}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  Journée du {formatDate(caisse.date)}
+                </p>
+              </div>
+            </>
+          ) : null}
 
-          <div className="rounded border bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-600">Commandes à préparer</p>
-            <p className="mt-2 text-2xl font-bold">
-              {commandesAPreparer.length}
-            </p>
-            <p className="mt-1 text-sm text-gray-600">
-              Nouvelles ou en préparation
-            </p>
-          </div>
+          {userCanViewOrders ? (
+            <>
+              <div className="rounded border bg-white p-4 shadow-sm">
+                <p className="text-sm text-gray-600">Commandes à préparer</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {commandesAPreparer.length}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  Nouvelles ou en préparation
+                </p>
+              </div>
 
-          <div className="rounded border border-amber-200 bg-amber-50 p-4 shadow-sm">
-            <p className="text-sm text-amber-800">À produire</p>
-            <p className="mt-2 text-2xl font-bold text-amber-950">
-              {formatQuantity(totalProductionNeeds)}
-            </p>
-            <p className="mt-1 text-sm text-amber-800">
-              Articles à faire ou ajuster
-            </p>
-          </div>
+              <div className="rounded border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                <p className="text-sm text-amber-800">À produire</p>
+                <p className="mt-2 text-2xl font-bold text-amber-950">
+                  {formatQuantity(totalProductionNeeds)}
+                </p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Articles à faire ou ajuster
+                </p>
+              </div>
+            </>
+          ) : null}
 
-          <div className="rounded border bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-600">Alertes stock</p>
-            <p className="mt-2 text-2xl font-bold">{lowStockItems.length}</p>
-            <p className="mt-1 text-sm text-gray-600">
-              Articles ou matières sous seuil
-            </p>
-          </div>
+          {userCanViewArticles || userCanViewStock ? (
+            <div className="rounded border bg-white p-4 shadow-sm">
+              <p className="text-sm text-gray-600">Alertes stock</p>
+              <p className="mt-2 text-2xl font-bold">{lowStockItems.length}</p>
+              <p className="mt-1 text-sm text-gray-600">
+                Articles ou matières sous seuil
+              </p>
+            </div>
+          ) : null}
         </section>
 
-        {productionNeeds.length > 0 ? (
+        {userCanViewOrders && productionNeeds.length > 0 ? (
           <section className="rounded border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -237,7 +273,8 @@ export default async function Home() {
         ) : null}
 
         <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-          <div className="rounded border bg-white p-4 shadow-sm">
+          {userCanViewOrders ? (
+            <div className="rounded border bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold">Commandes prioritaires</h2>
               <Link href="/commandes" className="text-sm font-medium">
@@ -272,9 +309,11 @@ export default async function Home() {
                 ))}
               </ul>
             )}
-          </div>
+            </div>
+          ) : null}
 
-          <div className="rounded border bg-white p-4 shadow-sm">
+          {userCanViewArticles || userCanViewStock ? (
+            <div className="rounded border bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold">Stock à surveiller</h2>
               <Link href="/stock" className="text-sm font-medium">
@@ -304,14 +343,15 @@ export default async function Home() {
                 ))}
               </ul>
             )}
-          </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
           <div className="rounded border bg-white p-4 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold">Accès rapides</h2>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {quickLinks.map((link) => (
+              {visibleQuickLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -326,36 +366,41 @@ export default async function Home() {
             </div>
           </div>
 
-          <aside className="rounded border bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold">Lots à contrôler</h2>
-              <span className="rounded bg-gray-100 px-2 py-1 text-xs font-medium">
-                DLC
-              </span>
-            </div>
+          {userCanViewStock ? (
+            <aside className="rounded border bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <h2 className="text-lg font-semibold">Lots à contrôler</h2>
+                <span className="rounded bg-gray-100 px-2 py-1 text-xs font-medium">
+                  DLC
+                </span>
+              </div>
 
-            {expiringLots.length === 0 ? (
-              <p className="text-sm text-gray-600">
-                Aucun lot proche de sa DLC.
-              </p>
-            ) : (
-              <ul className="grid gap-3">
-                {expiringLots.map((lot) => {
-                  const name = lot.article?.nom ?? lot.mp?.nom ?? 'Lot'
+              {expiringLots.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  Aucun lot proche de sa DLC.
+                </p>
+              ) : (
+                <ul className="grid gap-3">
+                  {expiringLots.map((lot) => {
+                    const name = lot.article?.nom ?? lot.mp?.nom ?? 'Lot'
 
-                  return (
-                    <li key={lot.id} className="border-b pb-3 last:border-b-0 last:pb-0">
-                      <p className="font-medium">{name}</p>
-                      <p className="text-sm text-gray-600">
-                        {lot.remainingQuantity} restant(s) - DLC{' '}
-                        {formatDate(lot.expiresAt ?? lot.createdAt)}
-                      </p>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </aside>
+                    return (
+                      <li
+                        key={lot.id}
+                        className="border-b pb-3 last:border-b-0 last:pb-0"
+                      >
+                        <p className="font-medium">{name}</p>
+                        <p className="text-sm text-gray-600">
+                          {lot.remainingQuantity} restant(s) - DLC{' '}
+                          {formatDate(lot.expiresAt ?? lot.createdAt)}
+                        </p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </aside>
+          ) : null}
         </section>
       </div>
     </main>
