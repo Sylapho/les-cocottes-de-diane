@@ -2,7 +2,7 @@ import { getSessionCookie } from 'better-auth/cookies'
 import { NextRequest, NextResponse } from 'next/server'
 
 const publicRoutes = [
-  '/',
+  '/403',
   '/api/auth',
   '/boutique',
   '/sign-in',

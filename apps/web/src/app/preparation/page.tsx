@@ -2,6 +2,8 @@ import CommandeStatusBadge from '@/components/commandes/commande-status-badge'
 import PreparationStatusActions from '@/components/commandes/preparation-status-actions'
 import PrintButton from '@/components/layout/print-button'
 import { getCommandes } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canManageOrders, canViewOrders } from '@/lib/permissions'
 import {
   aggregatePreparationLines,
   getPreparationCommandes,
@@ -92,6 +94,8 @@ function PreparationLines({ lines }: { lines: PreparationLine[] }) {
 export default async function PreparationPage({
   searchParams,
 }: PreparationPageProps) {
+  const session = await requireUiPermission(canViewOrders)
+  const userCanManageOrders = canManageOrders(session.user)
   const params = (await searchParams) ?? {}
   const dateParam = getParam(params, 'date')
   const selectedPickupPoint = getParam(params, 'lieu')
@@ -347,6 +351,7 @@ export default async function PreparationPage({
                               <PreparationStatusActions
                                 commandeId={commande.id}
                                 statut={commande.statut}
+                                canManage={userCanManageOrders}
                               />
                             </div>
                           </div>

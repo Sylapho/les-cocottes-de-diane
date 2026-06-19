@@ -5,6 +5,8 @@ import {
   getMatieresPremieres,
 } from '@/lib/api'
 import ArticleNomenclature from '@/components/articles/article-nomenclature'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canManageArticleProduction } from '@/lib/permissions'
 
 type PageProps = {
   params: Promise<{
@@ -13,6 +15,7 @@ type PageProps = {
 }
 
 export default async function ArticleNomenclaturePage({ params }: PageProps) {
+  await requireUiPermission(canManageArticleProduction)
   const { id } = await params
   const articleId = Number(id)
 

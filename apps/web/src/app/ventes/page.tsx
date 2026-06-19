@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import ArticleImage from '@/components/articles/article-image'
 import { getVentes } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canCreateSales, canViewCashRegister } from '@/lib/permissions'
 
 const modeLabels = {
   cb: 'Carte bancaire',
@@ -23,6 +25,8 @@ function formatDate(value: string) {
 }
 
 export default async function VentesPage() {
+  const session = await requireUiPermission(canViewCashRegister)
+  const userCanCreateSales = canCreateSales(session.user)
   const ventes = await getVentes()
 
   const totalTTC = ventes.reduce((total, vente) => total + vente.totalTtcCents, 0)
@@ -41,12 +45,14 @@ export default async function VentesPage() {
           <Link href="/caisse" className="rounded border px-4 py-2">
             Caisse du jour
           </Link>
-          <Link
-            href="/ventes/new"
-            className="rounded bg-black px-4 py-2 text-white"
-          >
-            Nouvelle vente
-          </Link>
+          {userCanCreateSales ? (
+            <Link
+              href="/ventes/new"
+              className="rounded bg-black px-4 py-2 text-white"
+            >
+              Nouvelle vente
+            </Link>
+          ) : null}
         </div>
       </div>
 

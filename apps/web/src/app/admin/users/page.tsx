@@ -1,8 +1,9 @@
 import CreateEmployeeForm from '@/components/admin/create-employee-form'
 import UserRoleSelect from '@/components/admin/user-role-select'
-import { getCurrentAuthSession, listAdminUsers } from '@/lib/admin-users'
+import { listAdminUsers } from '@/lib/admin-users'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canAccessAdmin } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roles'
-import { notFound, redirect } from 'next/navigation'
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -12,16 +13,7 @@ function formatDate(date: Date) {
 }
 
 export default async function AdminUsersPage() {
-  const session = await getCurrentAuthSession()
-
-  if (!session) {
-    redirect('/sign-in')
-  }
-
-  if (session.user.role !== 'gerant') {
-    notFound()
-  }
-
+  const session = await requireUiPermission(canAccessAdmin)
   const users = await listAdminUsers()
 
   return (

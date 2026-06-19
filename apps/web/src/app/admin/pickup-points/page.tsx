@@ -6,9 +6,9 @@ import {
   updatePickupPoint,
   type PickupPoint,
 } from '@/lib/api'
-import { getCurrentAuthSession } from '@/lib/admin-users'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canAccessAdmin } from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
-import { notFound, redirect } from 'next/navigation'
 import type React from 'react'
 
 const weekdays = [
@@ -96,16 +96,7 @@ function formatWeekdays(values: number[]) {
 }
 
 export default async function AdminPickupPointsPage() {
-  const session = await getCurrentAuthSession()
-
-  if (!session) {
-    redirect('/sign-in')
-  }
-
-  if (session.user.role !== 'gerant') {
-    notFound()
-  }
-
+  await requireUiPermission(canAccessAdmin)
   const pickupPoints = await getPickupPoints()
 
   return (
