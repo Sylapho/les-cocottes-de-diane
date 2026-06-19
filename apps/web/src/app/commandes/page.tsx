@@ -4,6 +4,13 @@ import CommandeStatusBadge, {
   commandeStatusLabels,
 } from '@/components/commandes/commande-status-badge'
 import { getCommandes, type Commande, type CommandeStatut } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import {
+  canManageArticleProduction,
+  canManageOrders,
+  canManageStock,
+  canViewOrders,
+} from '@/lib/permissions'
 import {
   getProductionNeeds,
   getProductionNeedsByCommandeId,
@@ -360,6 +367,10 @@ function CommandeFiltersForm({
 export default async function CommandesPage({
   searchParams,
 }: CommandesPageProps) {
+  const session = await requireUiPermission(canViewOrders)
+  const userCanManageOrders = canManageOrders(session.user)
+  const userCanAddStock = canManageStock(session.user)
+  const userCanProduceArticles = canManageArticleProduction(session.user)
   const params = searchParams ? await searchParams : {}
   const filters = getCommandeFilters(params)
   const commandes = await getCommandes()
@@ -463,12 +474,14 @@ export default async function CommandesPage({
                     précommandes à produire ou à ajuster avant retrait.
                   </p>
                 </div>
-                <Link
-                  href="/stock#lot-article"
-                  className="rounded border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900"
-                >
-                  Ajouter un lot
-                </Link>
+                {userCanAddStock || userCanProduceArticles ? (
+                  <Link
+                    href="/stock#lot-article"
+                    className="rounded border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900"
+                  >
+                    Ajouter un lot
+                  </Link>
+                ) : null}
               </div>
 
               <div className="mt-4 grid gap-4">
@@ -538,12 +551,14 @@ export default async function CommandesPage({
                                 </Link>
                               ))}
                             </div>
-                            <Link
-                              href="/stock#lot-article"
-                              className="rounded border px-2 py-1 text-xs font-medium"
-                            >
-                              Produire
-                            </Link>
+                            {userCanProduceArticles ? (
+                              <Link
+                                href="/stock#lot-article"
+                                className="rounded border px-2 py-1 text-xs font-medium"
+                              >
+                                Produire
+                              </Link>
+                            ) : null}
                           </div>
                         </li>
                       ))}
@@ -698,6 +713,7 @@ export default async function CommandesPage({
                       <CommandeStatusActions
                         commandeId={commande.id}
                         statut={commande.statut}
+                        canManage={userCanManageOrders}
                       />
                     </div>
                   </div>

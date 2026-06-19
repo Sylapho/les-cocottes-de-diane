@@ -1,8 +1,12 @@
 import Link from 'next/link'
 import NewVenteForm from '@/components/ventes/new-vente-form'
 import { getArticles } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canCreateSales, canManageArticles } from '@/lib/permissions'
 
 export default async function NewVentePage() {
+  const session = await requireUiPermission(canCreateSales)
+  const userCanManageArticles = canManageArticles(session.user)
   const articles = await getArticles()
 
   return (
@@ -23,12 +27,14 @@ export default async function NewVentePage() {
       {articles.length === 0 ? (
         <div className="rounded border p-4">
           <p>Aucun article disponible pour créer une vente.</p>
-          <Link
-            href="/articles/new"
-            className="mt-4 inline-block rounded bg-black px-4 py-2 text-white"
-          >
-            Créer un article
-          </Link>
+          {userCanManageArticles ? (
+            <Link
+              href="/articles/new"
+              className="mt-4 inline-block rounded bg-black px-4 py-2 text-white"
+            >
+              Créer un article
+            </Link>
+          ) : null}
         </div>
       ) : (
         <NewVenteForm articles={articles} />

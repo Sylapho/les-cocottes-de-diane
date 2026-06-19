@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { getMatierePremiere } from '@/lib/api'
 import EditMatierePremiereForm from '@/components/matieres-premieres/edit-matiere-premiere-form'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canManageStock } from '@/lib/permissions'
 
 type PageProps = {
   params: Promise<{
@@ -11,6 +13,7 @@ type PageProps = {
 export default async function EditMatierePremierePage({
   params,
 }: PageProps) {
+  await requireUiPermission(canManageStock)
   const { id } = await params
   const matiereId = Number(id)
   const matiere = await getMatierePremiere(matiereId)

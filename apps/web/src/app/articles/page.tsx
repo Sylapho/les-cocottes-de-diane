@@ -1,21 +1,27 @@
 import Link from 'next/link'
 import ArticleImage from '@/components/articles/article-image'
 import { getArticles } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
 import { formatCurrencyFromCents } from '@/lib/money'
+import { canManageArticles, canViewArticles } from '@/lib/permissions'
 
 export default async function ArticlesPage() {
+  const session = await requireUiPermission(canViewArticles)
+  const userCanManageArticles = canManageArticles(session.user)
   const articles = await getArticles()
 
   return (
     <main className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Articles</h1>
-        <Link
-          href="/articles/new"
-          className="rounded bg-black px-4 py-2 text-white"
-        >
-          Nouvel article
-        </Link>
+        {userCanManageArticles ? (
+          <Link
+            href="/articles/new"
+            className="rounded bg-black px-4 py-2 text-white"
+          >
+            Nouvel article
+          </Link>
+        ) : null}
       </div>
 
       {articles.length === 0 ? (
@@ -49,12 +55,14 @@ export default async function ArticlesPage() {
                   Voir
                 </Link>
 
-                <Link
-                  href={`/articles/${article.id}/edit`}
-                  className="rounded border px-3 py-2 text-sm"
-                >
-                  Modifier
-                </Link>
+                {userCanManageArticles ? (
+                  <Link
+                    href={`/articles/${article.id}/edit`}
+                    className="rounded border px-3 py-2 text-sm"
+                  >
+                    Modifier
+                  </Link>
+                ) : null}
               </div>
             </li>
           ))}

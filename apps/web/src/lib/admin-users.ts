@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { auth } from '@/lib/auth'
+import { getCurrentAuthSession } from '@/lib/auth-session'
 import { isRole, type Role } from '@/lib/roles'
 import { headers } from 'next/headers'
 import { Pool } from 'pg'
@@ -15,25 +16,12 @@ const pool = new Pool({
   connectionString: databaseUrl,
 })
 
-type AuthSession = {
-  user: {
-    id: string
-    role?: unknown
-  }
-}
-
 export type AdminUser = {
   id: string
   name: string
   email: string
   role: Role
   createdAt: Date
-}
-
-export async function getCurrentAuthSession() {
-  return (await auth.api.getSession({
-    headers: await headers(),
-  })) as AuthSession | null
 }
 
 export async function requireGerantSession() {

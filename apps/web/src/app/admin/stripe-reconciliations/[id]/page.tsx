@@ -1,12 +1,13 @@
-import { getCurrentAuthSession } from '@/lib/admin-users'
 import {
   getStripeReconciliation,
   resolveStripeReconciliation,
   retryStripeReconciliation,
   type StripeReconciliation,
 } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canAccessAdmin } from '@/lib/permissions'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
 function formatDate(value?: string | null) {
@@ -32,16 +33,7 @@ export default async function StripeReconciliationDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await getCurrentAuthSession()
-
-  if (!session) {
-    redirect('/sign-in')
-  }
-
-  if (session.user.role !== 'gerant') {
-    notFound()
-  }
-
+  await requireUiPermission(canAccessAdmin)
   const { id } = await params
   const reconciliationId = Number(id)
 

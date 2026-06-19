@@ -7,11 +7,15 @@ import { useState } from 'react'
 
 type CloseCaisseButtonProps = {
   disabled: boolean
+  canClose: boolean
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
-export default function CloseCaisseButton({ disabled }: CloseCaisseButtonProps) {
+export default function CloseCaisseButton({
+  disabled,
+  canClose,
+}: CloseCaisseButtonProps) {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
   const [loading, setLoading] = useState(false)
@@ -44,6 +48,14 @@ export default function CloseCaisseButton({ disabled }: CloseCaisseButtonProps) 
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!canClose) {
+    return (
+      <p className="max-w-sm text-sm text-gray-600">
+        Clôture réservée au gérant ou au comptable.
+      </p>
+    )
   }
 
   return (

@@ -5,8 +5,15 @@ import {
   getMouvementsStock,
   getStockLots,
 } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import {
+  canManageArticleProduction,
+  canManageStock,
+  canViewStock,
+} from '@/lib/permissions'
 
 export default async function StockPage() {
+  const session = await requireUiPermission(canViewStock)
   const [articles, matieres, mouvements, lots] = await Promise.all([
     getArticles(),
     getMatieresPremieres(),
@@ -20,6 +27,8 @@ export default async function StockPage() {
       matieres={matieres}
       mouvements={mouvements}
       lots={lots}
+      canManageStock={canManageStock(session.user)}
+      canProduceArticles={canManageArticleProduction(session.user)}
     />
   )
 }

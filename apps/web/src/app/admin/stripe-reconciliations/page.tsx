@@ -1,7 +1,7 @@
-import { getCurrentAuthSession } from '@/lib/admin-users'
 import { getStripeReconciliations, type StripeReconciliation } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
+import { canAccessAdmin } from '@/lib/permissions'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
 
 const statusLabels: Record<string, string> = {
   pending: 'En attente',
@@ -60,16 +60,7 @@ export default async function StripeReconciliationsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const session = await getCurrentAuthSession()
-
-  if (!session) {
-    redirect('/sign-in')
-  }
-
-  if (session.user.role !== 'gerant') {
-    notFound()
-  }
-
+  await requireUiPermission(canAccessAdmin)
   const params = await searchParams
   const filters = {
     status: typeof params.status === 'string' ? params.status : undefined,

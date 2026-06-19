@@ -24,6 +24,8 @@ type StockDashboardProps = {
   matieres: MatierePremiere[]
   mouvements: MouvementStock[]
   lots: StockLot[]
+  canManageStock: boolean
+  canProduceArticles: boolean
 }
 
 type StockTab = 'mp' | 'articles'
@@ -219,6 +221,8 @@ export default function StockDashboard({
   matieres,
   mouvements,
   lots,
+  canManageStock,
+  canProduceArticles,
 }: StockDashboardProps) {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
@@ -325,6 +329,8 @@ export default function StockDashboard({
   }, [articles, expiredQuantityByArticle, filter, sort])
 
   async function markLotAsLoss(lot: StockLot) {
+    if (!canManageStock) return
+
     const confirmed = window.confirm('Passer ce lot périmé en perte ?')
 
     if (!confirmed) return
@@ -401,15 +407,27 @@ export default function StockDashboard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Link href="/matieres-premieres/new" className="rounded border px-4 py-2 text-sm">
-            + Matière première
-          </Link>
-          <a href="#lot-article" className="rounded border px-4 py-2 text-sm">
-            + Lot article
-          </a>
-          <a href="#reappro" className="rounded bg-black px-4 py-2 text-sm text-white">
-            + Réappro
-          </a>
+          {canManageStock ? (
+            <Link
+              href="/matieres-premieres/new"
+              className="rounded border px-4 py-2 text-sm"
+            >
+              + Matière première
+            </Link>
+          ) : null}
+          {canProduceArticles ? (
+            <a href="#lot-article" className="rounded border px-4 py-2 text-sm">
+              + Lot article
+            </a>
+          ) : null}
+          {canManageStock ? (
+            <a
+              href="#reappro"
+              className="rounded bg-black px-4 py-2 text-sm text-white"
+            >
+              + Réappro
+            </a>
+          ) : null}
         </div>
       </div>
 
@@ -530,7 +548,7 @@ export default function StockDashboard({
                         </span>
                       </td>
                       <td className="py-3 pr-4">
-                        {status === 'Périmé' ? (
+                        {status === 'Périmé' && canManageStock ? (
                           <button
                             type="button"
                             onClick={() => markLotAsLoss(lot)}
@@ -738,38 +756,46 @@ export default function StockDashboard({
         )}
       </section>
 
-      <section className="mt-6 grid gap-4 xl:grid-cols-3">
-        <div id="reappro">
-          <ReceptionMatiereForm
-            matieres={matieres.map((matiere) => ({
-              id: matiere.id,
-              nom: matiere.nom,
-              unite: matiere.unite,
-            }))}
-          />
-        </div>
+      {canManageStock || canProduceArticles ? (
+        <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          {canManageStock ? (
+            <div id="reappro">
+              <ReceptionMatiereForm
+                matieres={matieres.map((matiere) => ({
+                  id: matiere.id,
+                  nom: matiere.nom,
+                  unite: matiere.unite,
+                }))}
+              />
+            </div>
+          ) : null}
 
-        <ProduceLotForm
-          articles={articles.map((article) => ({
-            id: article.id,
-            nom: article.nom,
-          }))}
-        />
+          {canProduceArticles ? (
+            <ProduceLotForm
+              articles={articles.map((article) => ({
+                id: article.id,
+                nom: article.nom,
+              }))}
+            />
+          ) : null}
 
-        <AdjustStockForm
-          articles={articles.map((article) => ({
-            id: article.id,
-            nom: article.nom,
-            stock: article.stock,
-          }))}
-          matieres={matieres.map((matiere) => ({
-            id: matiere.id,
-            nom: matiere.nom,
-            stock: matiere.stock,
-            unite: matiere.unite,
-          }))}
-        />
-      </section>
+          {canManageStock ? (
+            <AdjustStockForm
+              articles={articles.map((article) => ({
+                id: article.id,
+                nom: article.nom,
+                stock: article.stock,
+              }))}
+              matieres={matieres.map((matiere) => ({
+                id: matiere.id,
+                nom: matiere.nom,
+                stock: matiere.stock,
+                unite: matiere.unite,
+              }))}
+            />
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="mt-6 rounded border bg-white p-4 shadow-sm">
         <h2 className="text-xl font-semibold">Derniers mouvements</h2>

@@ -1,20 +1,26 @@
-import Link from 'next/link'
 import { getMatieresPremieres } from '@/lib/api'
+import { requireUiPermission } from '@/lib/auth-session'
 import { formatCurrencyFromCents } from '@/lib/money'
+import { canManageStock, canViewStock } from '@/lib/permissions'
+import Link from 'next/link'
 
 export default async function MatieresPremieresPage() {
+  const session = await requireUiPermission(canViewStock)
+  const userCanManageStock = canManageStock(session.user)
   const matieres = await getMatieresPremieres()
 
   return (
     <main className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Matières premières</h1>
-        <Link
-          href="/matieres-premieres/new"
-          className="rounded bg-black px-4 py-2 text-white"
-        >
-          Nouvelle matière première
-        </Link>
+        {userCanManageStock ? (
+          <Link
+            href="/matieres-premieres/new"
+            className="rounded bg-black px-4 py-2 text-white"
+          >
+            Nouvelle matière première
+          </Link>
+        ) : null}
       </div>
 
       {matieres.length === 0 ? (
@@ -41,12 +47,14 @@ export default async function MatieresPremieresPage() {
                 >
                   Voir
                 </Link>
-                <Link
-                  href={`/matieres-premieres/${matiere.id}/edit`}
-                  className="rounded border px-3 py-2 text-sm"
-                >
-                  Modifier
-                </Link>
+                {userCanManageStock ? (
+                  <Link
+                    href={`/matieres-premieres/${matiere.id}/edit`}
+                    className="rounded border px-3 py-2 text-sm"
+                  >
+                    Modifier
+                  </Link>
+                ) : null}
               </div>
             </li>
           ))}
