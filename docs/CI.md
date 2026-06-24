@@ -1,4 +1,4 @@
-# CI LocalCo
+# CI Les cocottes de Diane
 
 La CI est définie dans `.github/workflows/ci.yml` et se déclenche sur les pull requests vers `main` et les pushes sur `main`.
 

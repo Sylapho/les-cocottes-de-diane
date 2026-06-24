@@ -1,6 +1,6 @@
 # Matrice des roles
 
-Ce document definit les roles de l'application LocalCo et les permissions associees.
+Ce document definit les roles de l'application Les cocottes de Diane et les permissions associees.
 
 ## Roles
 

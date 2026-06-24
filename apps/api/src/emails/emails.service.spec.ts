@@ -72,7 +72,7 @@ describe('EmailsService', () => {
     configGet.mockImplementation((key: string) => {
       if (key === 'RESEND_API_KEY') return 're_test'
       if (key === 'RESEND_FROM_EMAIL') {
-        return 'Les Cocottes de Diane <commande@example.com>'
+        return 'Les cocottes de Diane <commande@example.com>'
       }
       if (key === 'SHOP_PUBLIC_URL') return 'https://shop.example.com'
 
@@ -84,7 +84,7 @@ describe('EmailsService', () => {
     expect(Resend).toHaveBeenCalledWith('re_test')
     expect(sendMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: 'Les Cocottes de Diane <commande@example.com>',
+        from: 'Les cocottes de Diane <commande@example.com>',
         to: 'marie@example.fr',
         subject: 'Confirmation de votre commande #42',
         html: expect.stringContaining(

@@ -1,6 +1,6 @@
-# Démo portfolio LocalCo
+# Démo portfolio Les cocottes de Diane
 
-Cette page sert de guide court pour lancer LocalCo en local et présenter le scénario métier à un recruteur technique.
+Cette page sert de guide court pour lancer Les cocottes de Diane en local et présenter le scénario métier à un recruteur technique.
 
 ## Objectif
 

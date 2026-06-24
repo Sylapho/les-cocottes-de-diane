@@ -5,7 +5,7 @@ import LegalPage, {
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Mentions légales - Les Cocottes de Diane',
+  title: 'Mentions légales - Les cocottes de Diane',
 }
 
 export default function MentionsLegalesPage() {
@@ -16,12 +16,12 @@ export default function MentionsLegalesPage() {
     >
       <LegalSection title="Éditeur du site">
         <p>
-          Le présent site est édité par <strong>Les Cocottes de Diane</strong>,
+          Le présent site est édité par <strong>Les cocottes de Diane</strong>,
           immatriculée sous le numéro SIRET <strong>90136070100014</strong>, dont le
           siège social est situé à <strong>46 Rue de la Muette, 27490 Clef Vallée d’Eure</strong>.
         </p>
         <p>
-          Nom commercial : <strong>Les Cocottes de Diane</strong>.
+          Nom commercial : <strong>Les cocottes de Diane</strong>.
         </p>
         <p>
           Statut juridique : <strong>Entrepreneur individuel</strong>
@@ -46,7 +46,7 @@ export default function MentionsLegalesPage() {
         <p>
           Le responsable de la publication est{' '}
           <strong>BAUDOIN QUENTIN</strong>, représentant de{' '}
-          <strong>Les Cocottes de Diane</strong>.
+          <strong>Les cocottes de Diane</strong>.
         </p>
       </LegalSection>
 
@@ -84,7 +84,7 @@ export default function MentionsLegalesPage() {
         <p>
           Toute reproduction, représentation, modification ou exploitation,
           totale ou partielle, sans autorisation préalable écrite de{' '}
-          <strong>Les Cocottes de Diane</strong>, est interdite.
+          <strong>Les cocottes de Diane</strong>, est interdite.
         </p>
       </LegalSection>
     </LegalPage>

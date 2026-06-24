@@ -124,7 +124,7 @@ export class EmailsService {
 
         ${this.renderTrackingLinkHtml(trackingUrl)}
 
-        <p style="margin-top: 24px;">À très vite,<br />Les Cocottes de Diane</p>
+        <p style="margin-top: 24px;">À très vite,<br />Les cocottes de Diane</p>
       </div>
     `
   }
@@ -158,7 +158,7 @@ export class EmailsService {
         ? ['Vous pouvez suivre votre commande ici :', trackingUrl, '']
         : []),
       'À très vite,',
-      'Les Cocottes de Diane',
+      'Les cocottes de Diane',
     ].join('\n')
   }
 

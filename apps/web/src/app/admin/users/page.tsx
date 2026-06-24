@@ -25,7 +25,7 @@ export default async function AdminUsersPage() {
           </p>
           <h1 className="mt-2 text-3xl font-bold">Utilisateurs</h1>
           <p className="mt-2 max-w-2xl text-zinc-600">
-            Gere les roles qui donnent acces aux actions sensibles de LocalCo.
+            Gere les roles qui donnent acces aux actions sensibles du projet Les cocottes de Diane.
           </p>
         </div>
       </div>

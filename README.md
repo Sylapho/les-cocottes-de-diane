@@ -1,8 +1,8 @@
-# LocalCo
+# Les cocottes de Diane
 
-![CI](https://github.com/Sylapho/localco/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Sylapho/les-cocottes-de-diane/actions/workflows/ci.yml/badge.svg)
 
-LocalCo est un monorepo TypeScript pour gérer une activité de commerce local, avec une API métier, une interface interne et une boutique Click & Collect.
+Les cocottes de Diane est un monorepo TypeScript pour gérer une activité de commerce local, avec une API métier, une interface interne et une boutique Click & Collect.
 
 Le projet regroupe :
 
@@ -31,7 +31,7 @@ Le projet regroupe :
 ## Structure du monorepo
 
 ```txt
-localco/
+les-cocottes-de-diane/
 ├── apps/
 │   ├── api/        # API NestJS, Prisma, paiements, e-mails, logique métier
 │   ├── web/        # Application interne Next.js pour la gestion
@@ -57,8 +57,8 @@ Le workspace pnpm inclut tous les packages `apps/*`.
 ## Installation
 
 ```bash
-git clone https://github.com/Sylapho/localco.git
-cd localco
+git clone https://github.com/Sylapho/les-cocottes-de-diane.git
+cd les-cocottes-de-diane
 pnpm install
 ```
 
@@ -355,7 +355,7 @@ Parcours principal :
 
 Le stock négatif est un comportement métier volontaire. Il ne doit pas être interprété comme une erreur technique ni comme une raison de bloquer le checkout.
 
-Dans LocalCo, une commande qui dépasse le stock disponible représente une précommande. Le stock négatif sert à mesurer les quantités à produire ou à préparer pour honorer les commandes déjà passées.
+Dans Les cocottes de Diane, une commande qui dépasse le stock disponible représente une précommande. Le stock négatif sert à mesurer les quantités à produire ou à préparer pour honorer les commandes déjà passées.
 
 Le back-office doit donc afficher clairement ces besoins de production et de préparation au lieu de les empêcher. Les écrans internes doivent aider l'équipe à repérer les articles en déficit, prioriser la production et traiter les commandes concernées.
 
@@ -363,7 +363,7 @@ Les quantités à produire sont recalculées depuis le stock courant et les comm
 
 #### Stock physique, stock réservé et déficit de précommande
 
-LocalCo distingue les notions suivantes :
+Les cocottes de Diane distingue les notions suivantes :
 
 - Le stock physique par lot est représenté par
   `StockLot.remainingQuantity`. Un lot périmé conserve une quantité physique
@@ -441,7 +441,7 @@ Variables concernées :
 
 ```env
 RESEND_API_KEY=re_replace_me
-RESEND_FROM_EMAIL="Les Cocottes de Diane <commande@example.com>"
+RESEND_FROM_EMAIL="Les cocottes de Diane <commande@example.com>"
 ```
 
 ## CI
@@ -539,4 +539,4 @@ API_CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 
 ## Licence
 
-Projet privé / personnel pour le développement de LocalCo.
+Projet privé / personnel pour Les cocottes de Diane.

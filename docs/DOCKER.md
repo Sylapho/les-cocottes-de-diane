@@ -1,6 +1,6 @@
 # Docker development
 
-Ce guide décrit l'environnement Docker de développement de LocalCo.
+Ce guide décrit l'environnement Docker de développement du projet Les cocottes de Diane.
 
 ## État actuel
 

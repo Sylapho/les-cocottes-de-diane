@@ -1,6 +1,6 @@
 # Les cocottes de Diane Web
 
-Back-office Next.js de Les cocottes de Diane pour piloter l'activité interne.
+Back-office Next.js pour piloter l'activité interne du projet Les cocottes de Diane.
 
 ## Rôle
 

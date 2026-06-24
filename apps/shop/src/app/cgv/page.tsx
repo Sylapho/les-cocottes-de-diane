@@ -4,7 +4,7 @@ import { formatPickupPoint } from '@/lib/pickup-points'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'CGV - Les Cocottes de Diane',
+  title: 'CGV - Les cocottes de Diane',
 }
 
 export default async function CgvPage() {

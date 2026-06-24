@@ -1,4 +1,4 @@
-# Déploiement LocalCo
+# Déploiement Les cocottes de Diane
 
 Aucune cible de déploiement réelle n'est configurée dans le dépôt à ce stade. Il n'existe pas de configuration Vercel, Railway, Render, Fly.io, Kubernetes, Terraform, serveur SSH ou cloud provider vérifiable.
 

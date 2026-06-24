@@ -4,7 +4,7 @@ import LegalPage, {
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Politique de confidentialité - Les Cocottes de Diane',
+  title: 'Politique de confidentialité - Les cocottes de Diane',
 }
 
 export default function ConfidentialitePage() {
@@ -15,7 +15,7 @@ export default function ConfidentialitePage() {
     >
       <LegalSection title="Responsable du traitement">
         <p>
-          Le responsable du traitement est <strong>Les Cocottes de Diane</strong>,
+          Le responsable du traitement est <strong>Les cocottes de Diane</strong>,
           immatriculée sous le numéro SIRET <strong>90136070100014</strong>, située à{' '}
           <strong>46 Rue de la Muette, 27490 Clef Vallée d’Eure</strong>.
         </p>
@@ -47,7 +47,7 @@ export default function ConfidentialitePage() {
           Les traitements liés à la commande reposent principalement sur
           l’exécution du contrat conclu avec le client. Certains traitements
           peuvent également être nécessaires au respect d’obligations légales ou
-          reposer sur l’intérêt légitime de <strong>Les Cocottes de Diane</strong>,
+          reposer sur l’intérêt légitime de <strong>Les cocottes de Diane</strong>,
           notamment pour la gestion de la relation client et la sécurité du site.
         </p>
       </LegalSection>
@@ -55,7 +55,7 @@ export default function ConfidentialitePage() {
       <LegalSection title="Paiement">
         <p>
           Les paiements sont traités par le prestataire de paiement utilisé sur
-          le site. <strong>Les Cocottes de Diane</strong> ne conserve pas les
+          le site. <strong>Les cocottes de Diane</strong> ne conserve pas les
           données complètes de carte bancaire.
         </p>
       </LegalSection>
@@ -85,7 +85,7 @@ export default function ConfidentialitePage() {
         </p>
         <p>
           Pour exercer ses droits, le client peut contacter{' '}
-          <strong>Les Cocottes de Diane</strong> à l’adresse suivante :{' '}
+          <strong>Les cocottes de Diane</strong> à l’adresse suivante :{' '}
           <strong>contact@lescocottesdediane.fr</strong>.
         </p>
         <p>

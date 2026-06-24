@@ -1,8 +1,8 @@
 {
-  "name": "localco",
+  "name": "les-cocottes-de-diane",
   "private": true,
   "version": "1.0.0",
-  "description": "LocalCo monorepo",
+  "description": "Les cocottes de Diane monorepo",
   "scripts": {
     "dev": "pnpm -r --parallel --if-present dev",
     "dev:api": "pnpm --filter @localco/api start:dev",
