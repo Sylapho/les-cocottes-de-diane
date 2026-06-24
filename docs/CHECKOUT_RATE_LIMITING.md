@@ -5,7 +5,7 @@
 Le checkout est l'endpoint public le plus sensible de la boutique, car il cree
 une commande en attente et prepare une session Stripe Checkout.
 
-LocalCo applique donc un rate limit sur :
+Les cocottes de Diane applique donc un rate limit sur :
 
 ```txt
 POST /api/commandes/checkout
@@ -55,7 +55,7 @@ production multi-instance.
 
 ## Strategie production attendue
 
-Sans decision d'hebergement, LocalCo ne doit pas ajouter Redis ou un service
+Sans decision d'hebergement, Les cocottes de Diane ne doit pas ajouter Redis ou un service
 externe uniquement pour ce ticket.
 
 La strategie recommandee est :

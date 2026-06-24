@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Click & Collect - Les Cocottes de Diane',
+  title: 'Click & Collect - Les cocottes de Diane',
 }
 
 export default async function ClickAndCollectPage() {

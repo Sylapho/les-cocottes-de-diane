@@ -6,8 +6,8 @@ This document tracks the safe migration from the old public name `LocalCo` / `lo
 
 - Public project name: `Les cocottes de Diane`
 - Recommended GitHub slug: `les-cocottes-de-diane`
-- Current repository: `Sylapho/localco`
-- Future repository: `Sylapho/les-cocottes-de-diane`
+- Previous repository: `Sylapho/localco`
+- Current repository: `Sylapho/les-cocottes-de-diane`
 
 ## What should be renamed
 

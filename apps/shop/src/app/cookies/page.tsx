@@ -2,7 +2,7 @@ import LegalPage, { LegalSection } from '@/components/shop/legal-page'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Cookies - Les Cocottes de Diane',
+  title: 'Cookies - Les cocottes de Diane',
 }
 
 export default function CookiesPage() {
@@ -56,7 +56,7 @@ export default function CookiesPage() {
       <LegalSection title="Contact">
         <p>
           Pour toute question relative aux cookies ou à vos données personnelles,
-          vous pouvez contacter <strong>Les Cocottes de Diane</strong> à l’adresse
+          vous pouvez contacter <strong>Les cocottes de Diane</strong> à l’adresse
           suivante : <strong>contact@lescocottesdediane.fr</strong>.
         </p>
       </LegalSection>

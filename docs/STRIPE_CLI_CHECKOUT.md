@@ -1,6 +1,6 @@
 # Tester le checkout avec Stripe CLI
 
-Cette procédure permet de vérifier en local le parcours Stripe Checkout de LocalCo et les webhooks `checkout.session.completed` et `checkout.session.expired`.
+Cette procédure permet de vérifier en local le parcours Stripe Checkout de la boutique Les cocottes de Diane et les webhooks `checkout.session.completed` et `checkout.session.expired`.
 
 Elle complète les tests automatisés API. Elle sert surtout à valider l'intégration réelle entre Stripe, l'API locale, la boutique et le back-office.
 
@@ -22,7 +22,7 @@ SHOP_PUBLIC_URL=http://localhost:3001
 
 Ne jamais commit `apps/api/.env`.
 
-## Lancer LocalCo
+## Lancer Les cocottes de Diane
 
 Démarrer PostgreSQL :
 

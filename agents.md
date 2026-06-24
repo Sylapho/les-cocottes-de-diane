@@ -2,7 +2,7 @@
 
 ## Project
 
-This repository is **LocalCo**, a monorepo application.
+This repository is **Les cocottes de Diane**, a monorepo application.
 
 The project contains:
 
@@ -472,9 +472,9 @@ If some checks could not be run, explain why.
 
 ---
 
-## LocalCo-specific priorities
+## Project-specific priorities
 
-For LocalCo, prioritize:
+For Les cocottes de Diane, prioritize:
 
 1. Correct separation between merchant features and customer features.
 2. Clean stock, articles, orders, and accounting logic.

@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Mettre en place une organisation simple, lisible et durable pour faire avancer Localco sans perdre le fil entre les idees, le code, les tests et les livraisons.
+Mettre en place une organisation simple, lisible et durable pour faire avancer Les cocottes de Diane sans perdre le fil entre les idees, le code, les tests et les livraisons.
 
 ## Decisions d'organisation
 
@@ -15,7 +15,7 @@ Mettre en place une organisation simple, lisible et durable pour faire avancer L
 
 A faire :
 
-- Ecrire une phrase de vision : "Localco permet a [type d'utilisateur] de [resultat principal]".
+- Ecrire une phrase de vision : "Les cocottes de Diane permet a [type d'utilisateur] de [resultat principal]".
 - Definir le perimetre de la V1.
 - Definir ce qui est explicitement hors V1.
 - Identifier les 3 workflows critiques :

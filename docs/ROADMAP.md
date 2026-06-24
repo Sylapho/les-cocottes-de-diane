@@ -1,8 +1,8 @@
-# Roadmap Localco
+# Roadmap Les cocottes de Diane
 
 ## 1. Vision produit
 
-Localco est une boutique Click & Collect pour produits alimentaires locaux, adossée à un back-office interne de gestion commerciale et opérationnelle.
+Les cocottes de Diane est une boutique Click & Collect pour produits alimentaires locaux, adossée à un back-office interne de gestion commerciale et opérationnelle.
 
 Le produit doit servir trois usages complémentaires :
 

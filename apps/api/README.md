@@ -1,6 +1,6 @@
-# LocalCo API
+# Les cocottes de Diane API
 
-API NestJS de LocalCo. Elle concentre la logique métier utilisée par la boutique et le back-office.
+API NestJS pour Les cocottes de Diane. Elle concentre la logique métier utilisée par la boutique et le back-office.
 
 ## Rôle
 

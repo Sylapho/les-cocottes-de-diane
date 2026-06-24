@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Better Auth gere les sessions internes de LocalCo. L'API NestJS verifie ces
+Better Auth gere les sessions internes du projet Les cocottes de Diane. L'API NestJS verifie ces
 sessions avec `BetterAuthGuard`, puis applique les permissions avec
 `RolesGuard` et le decorateur `@Roles(...)`.
 

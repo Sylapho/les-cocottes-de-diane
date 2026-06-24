@@ -1,64 +1,34 @@
-# LocalCo Shop
+# Les cocottes de Diane Shop
 
 Boutique publique Next.js pour le parcours Click & Collect client.
 
 ## Rôle
 
-- Afficher le catalogue client sur `http://localhost:3001`.
-- Gérer le panier côté navigateur.
-- Collecter les coordonnées et le point/date de retrait.
-- Appeler l'API pour créer une commande et une session Stripe Checkout.
-- Afficher les pages de succès, annulation et suivi client.
+Cette application affiche le catalogue client, gère le panier côté navigateur, collecte les coordonnées et le point de retrait, puis lance le parcours de commande avec l'API.
 
-## Variables utiles
+Elle contient aussi les pages de retour après paiement, d'annulation, de suivi public et les pages d'information client.
 
-Copier `apps/shop/.env.example` vers `apps/shop/.env.local`.
+## Configuration
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:4000/api
-API_INTERNAL_URL=http://localhost:4000/api
-```
-
-La boutique ne contient pas de secret Stripe. Le paiement est préparé par l'API avec des clés Stripe de test.
+Copier le fichier d'exemple de configuration de l'application shop vers le fichier local attendu par Next.js, puis renseigner l'URL de l'API locale.
 
 ## Commandes
 
-Depuis la racine du monorepo :
+Depuis la racine du monorepo, utiliser les scripts shop déjà exposés pour lancer, vérifier, tester et builder l'application.
 
-```bash
-pnpm dev:shop
-pnpm lint:shop
-pnpm typecheck:shop
-pnpm test:shop:e2e
-pnpm test:shop:smoke
-pnpm build:shop
-```
-
-Commandes propres au package :
-
-```bash
-pnpm --filter @localco/shop dev
-pnpm --filter @localco/shop lint
-pnpm --filter @localco/shop typecheck
-pnpm --filter @localco/shop test:e2e
-pnpm --filter @localco/shop test:e2e:smoke
-pnpm --filter @localco/shop build
-pnpm --filter @localco/shop start
-```
-
-Il n'existe pas de script `test` unitaire pour `apps/shop` actuellement ; les tests disponibles sont Playwright E2E.
+Les commandes internes conservent volontairement le scope technique localco pour ne pas casser les scripts pnpm existants.
 
 ## Pages utiles en démo
 
-- `/` : catalogue et panier.
-- `/checkout` : coordonnées, retrait et préparation du paiement.
-- `/success` : retour après paiement Stripe.
-- `/cancel` : retour après annulation Stripe.
-- `/suivi` : suivi public par token.
-- `/click-and-collect`, `/cgv`, `/mentions-legales`, `/confidentialite`, `/cookies` : pages d'information.
+- Page catalogue et panier.
+- Page checkout.
+- Page succès.
+- Page annulation.
+- Page suivi public.
+- Pages d'information client.
 
 ## Documentation liée
 
-- [README principal](../../README.md)
-- [Démo portfolio](../../docs/DEMO.md)
-- [Déploiement](../../docs/DEPLOYMENT.md)
+- README principal.
+- Documentation de démo.
+- Documentation de déploiement.

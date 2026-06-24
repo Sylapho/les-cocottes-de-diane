@@ -184,7 +184,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
           <div className="flex items-center gap-4">
             <Image
               src="/logo.svg"
-              alt="Les Cocottes de Diane"
+              alt="Les cocottes de Diane"
               width={112}
               height={112}
               className="h-28 w-28 rounded-full bg-white object-contain p-3 shadow-sm"
@@ -192,7 +192,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
 
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-[#b5006e]">
-                Les Cocottes de Diane
+                Les cocottes de Diane
               </p>
               <h2 className="mt-1 text-2xl font-black text-[#181014]">
                 Boutique en ligne

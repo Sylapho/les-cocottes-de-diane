@@ -16,7 +16,7 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Les Cocottes de Diane',
+  title: 'Les cocottes de Diane',
   description: 'Commande en ligne',
   icons: {
     icon: '/logo.svg',
