@@ -2,13 +2,17 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common'
+import { unlink } from 'fs/promises'
+import { basename, dirname, resolve } from 'path'
 import { Prisma } from '../../prisma/generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { CreateArticleDto } from './dto/create-article.dto'
 import { ProduceArticleDto } from './dto/produce-article.dto'
 import { UpdateArticleDto } from './dto/update-article.dto'
+import { ARTICLE_IMAGE_UPLOAD_DIR } from './article-image-upload'
 
 type ProductionArticle = {
   id: number
@@ -93,6 +97,32 @@ export class ArticlesService {
         imageUrl: data.imageUrl,
       },
     })
+  }
+
+  async updateImage(id: number, imageUrl: string, uploadedFilePath?: string) {
+    const existingArticle = await this.prisma.article.findUnique({
+      where: { id },
+      select: { imageUrl: true },
+    })
+
+    if (!existingArticle) {
+      await this.deleteFile(uploadedFilePath)
+      throw new NotFoundException('Article introuvable')
+    }
+
+    try {
+      const updatedArticle = await this.prisma.article.update({
+        where: { id },
+        data: { imageUrl },
+      })
+
+      await this.deleteLocalArticleImage(existingArticle.imageUrl)
+
+      return updatedArticle
+    } catch (error) {
+      await this.deleteFile(uploadedFilePath)
+      throw error
+    }
   }
 
   remove(id: number) {
@@ -445,5 +475,50 @@ export class ArticlesService {
     today.setHours(0, 0, 0, 0)
 
     return today
+  }
+
+  private async deleteLocalArticleImage(imageUrl?: string | null) {
+    const localPath = this.getLocalArticleImagePath(imageUrl)
+
+    if (!localPath) return
+
+    await this.deleteFile(localPath)
+  }
+
+  private getLocalArticleImagePath(imageUrl?: string | null) {
+    if (!imageUrl) return null
+
+    const uploadsPath = '/uploads/articles/'
+    let pathname: string
+
+    try {
+      pathname = new URL(imageUrl).pathname
+    } catch {
+      pathname = imageUrl
+    }
+
+    if (!pathname.startsWith(uploadsPath)) {
+      return null
+    }
+
+    const filename = basename(pathname)
+    const uploadDir = resolve(ARTICLE_IMAGE_UPLOAD_DIR)
+    const localPath = resolve(uploadDir, filename)
+
+    if (dirname(localPath) !== uploadDir) {
+      return null
+    }
+
+    return localPath
+  }
+
+  private async deleteFile(filePath?: string | null) {
+    if (!filePath) return
+
+    try {
+      await unlink(filePath)
+    } catch {
+      return
+    }
   }
 }
