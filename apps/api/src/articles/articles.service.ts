@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { unlink } from 'fs/promises'
-import { join } from 'path'
+import { resolve, sep } from 'path'
 import { Prisma } from '../../prisma/generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
@@ -507,8 +507,16 @@ export class ArticlesService {
   private async deleteArticleImageFile(filename?: string | null) {
     if (!filename || !this.isArticleImageFilename(filename)) return
 
+    const uploadRoot = resolve(ARTICLE_IMAGE_UPLOAD_DIR)
+    const targetPath = resolve(uploadRoot, filename)
+    const uploadRootWithSep = uploadRoot.endsWith(sep)
+      ? uploadRoot
+      : `${uploadRoot}${sep}`
+
+    if (!targetPath.startsWith(uploadRootWithSep)) return
+
     try {
-      await unlink(join(ARTICLE_IMAGE_UPLOAD_DIR, filename))
+      await unlink(targetPath)
     } catch {
       return
     }
