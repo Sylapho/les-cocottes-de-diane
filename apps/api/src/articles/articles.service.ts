@@ -517,9 +517,14 @@ export class ArticlesService {
 
     const uploadDir = resolve(ARTICLE_IMAGE_UPLOAD_DIR)
     const resolvedFilePath = resolve(uploadDir, filePath)
-    const uploadDirWithSep = uploadDir.endsWith(sep) ? uploadDir : `${uploadDir}${sep}`
+    const uploadDirWithSep = uploadDir.endsWith(sep)
+      ? uploadDir
+      : `${uploadDir}${sep}`
 
-    if (resolvedFilePath !== uploadDir && !resolvedFilePath.startsWith(uploadDirWithSep)) {
+    if (
+      resolvedFilePath !== uploadDir &&
+      !resolvedFilePath.startsWith(uploadDirWithSep)
+    ) {
       return
     }
 
