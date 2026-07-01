@@ -129,8 +129,39 @@ export class ArticlesService {
   }
 
   remove(id: number) {
-    return this.prisma.article.delete({
-      where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      const article = await tx.article.findUniqueOrThrow({
+        where: { id },
+        select: {
+          archivedAt: true,
+          _count: {
+            select: {
+              lignesVente: true,
+              lignesCmd: true,
+              mouvementsStock: true,
+              stockLots: true,
+            },
+          },
+        },
+      })
+
+      if (this.hasBusinessHistory(article._count)) {
+        return tx.article.update({
+          where: { id },
+          data: {
+            archivedAt: article.archivedAt ?? new Date(),
+            online: false,
+          },
+        })
+      }
+
+      await tx.nomenclature.deleteMany({
+        where: { articleId: id },
+      })
+
+      return tx.article.delete({
+        where: { id },
+      })
     })
   }
 
@@ -478,6 +509,20 @@ export class ArticlesService {
     today.setHours(0, 0, 0, 0)
 
     return today
+  }
+
+  private hasBusinessHistory(counts: {
+    lignesVente: number
+    lignesCmd: number
+    mouvementsStock: number
+    stockLots: number
+  }) {
+    return (
+      counts.lignesVente > 0 ||
+      counts.lignesCmd > 0 ||
+      counts.mouvementsStock > 0 ||
+      counts.stockLots > 0
+    )
   }
 
   private async deleteLocalArticleImage(imageUrl?: string | null) {

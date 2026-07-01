@@ -30,8 +30,10 @@ export default async function ArticlesPage() {
   const session = await requireUiPermission(canViewArticles)
   const userCanManageArticles = canManageArticles(session.user)
   const articles = await getArticles()
-  const onlineArticles = articles.filter((article) => article.online)
-  const lowStockArticles = articles.filter((article) => article.stock <= 3)
+  const activeArticles = articles.filter((article) => !article.archivedAt)
+  const archivedArticles = articles.filter((article) => article.archivedAt)
+  const onlineArticles = activeArticles.filter((article) => article.online)
+  const lowStockArticles = activeArticles.filter((article) => article.stock <= 3)
   const averagePrice = articles.length
     ? Math.round(
         articles.reduce((total, article) => total + article.prixCents, 0) /
@@ -58,7 +60,7 @@ export default async function ArticlesPage() {
         <StatCard
           label="Articles"
           value={articles.length}
-          detail="Références au catalogue"
+          detail={`${archivedArticles.length} archivé${archivedArticles.length > 1 ? 's' : ''}`}
         />
         <StatCard
           label="En ligne"
@@ -112,12 +114,18 @@ export default async function ArticlesPage() {
                         <h2>{article.nom}</h2>
                         <span
                           className={
-                            article.online
-                              ? 'lc-status-pill lc-status-pill-success'
-                              : 'lc-status-pill lc-status-pill-muted'
+                            article.archivedAt
+                              ? 'lc-status-pill lc-status-pill-muted'
+                              : article.online
+                                ? 'lc-status-pill lc-status-pill-success'
+                                : 'lc-status-pill lc-status-pill-muted'
                           }
                         >
-                          {article.online ? 'En ligne' : 'Hors ligne'}
+                          {article.archivedAt
+                            ? 'Archivé'
+                            : article.online
+                              ? 'En ligne'
+                              : 'Hors ligne'}
                         </span>
                       </div>
                       <p className="lc-catalog-category">

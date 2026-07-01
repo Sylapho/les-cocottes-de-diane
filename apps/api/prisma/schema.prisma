@@ -26,6 +26,7 @@ model Article {
   description     String?
   ingredients     String?
   allergenes      String?
+  archivedAt      DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   nomen           Nomenclature[]
@@ -35,6 +36,8 @@ model Article {
   stockLots       StockLot[]
 
   @@index([online])
+  @@index([online, archivedAt])
+  @@index([archivedAt])
   @@index([category])
 }
 
@@ -389,7 +392,7 @@ model MouvementStock {
   createdByUserId String?
   createdAt       DateTime @default(now())
 
-  article Article?         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  article Article?         @relation(fields: [articleId], references: [id], onDelete: SetNull)
   mp      MatierePremiere? @relation(fields: [mpId], references: [id], onDelete: Cascade)
 }
 

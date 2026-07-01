@@ -115,6 +115,10 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             <span className="font-medium">En ligne :</span>{' '}
             {article.online ? 'Oui' : 'Non'}
           </p>
+          <p>
+            <span className="font-medium">Archivé :</span>{' '}
+            {article.archivedAt ? 'Oui' : 'Non'}
+          </p>
         </div>
 
         {article.description ? (

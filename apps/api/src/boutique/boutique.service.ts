@@ -9,6 +9,7 @@ export class BoutiqueService {
     return this.prisma.article.findMany({
       where: {
         online: true,
+        archivedAt: null,
       },
       orderBy: {
         nom: 'asc',

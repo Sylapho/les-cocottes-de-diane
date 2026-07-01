@@ -21,7 +21,7 @@ export default function DeleteArticleButton({
 
   async function handleDelete() {
     const confirmed = window.confirm(
-      'Voulez-vous vraiment supprimer cet article ?',
+      "Voulez-vous vraiment supprimer cet article ? S'il est utilisé dans l'historique, il sera archivé.",
     )
 
     if (!confirmed) return
@@ -57,7 +57,7 @@ export default function DeleteArticleButton({
         disabled={loading}
         className="w-fit rounded bg-red-600 px-4 py-2 text-white disabled:opacity-50"
       >
-        {loading ? 'Suppression...' : 'Supprimer'}
+        {loading ? 'Suppression...' : 'Supprimer ou archiver'}
       </button>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

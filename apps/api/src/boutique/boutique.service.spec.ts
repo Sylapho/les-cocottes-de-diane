@@ -34,6 +34,7 @@ describe('BoutiqueService', () => {
     expect(prismaMock.article.findMany).toHaveBeenCalledWith({
       where: {
         online: true,
+        archivedAt: null,
       },
       orderBy: {
         nom: 'asc',
