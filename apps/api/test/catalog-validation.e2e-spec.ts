@@ -34,6 +34,15 @@ describe('API E2E - public catalog and validation', () => {
       stock: 10,
       online: false,
     })
+    await testApp.prisma.article.create({
+      data: {
+        nom: 'Archived article',
+        prixCents: 999,
+        stock: 10,
+        online: true,
+        archivedAt: new Date(),
+      },
+    })
 
     const response = await request(testApp.app.getHttpServer())
       .get('/api/boutique/articles')
@@ -47,6 +56,33 @@ describe('API E2E - public catalog and validation', () => {
       stock: -2,
       online: true,
     })
+  })
+
+  it('POST /api/commandes/checkout rejects an archived article', async () => {
+    const article = await testApp.prisma.article.create({
+      data: {
+        nom: 'Archived checkout article',
+        prixCents: 450,
+        stock: 10,
+        online: true,
+        archivedAt: new Date(),
+      },
+    })
+
+    await request(testApp.app.getHttpServer())
+      .post('/api/commandes/checkout')
+      .send({
+        nom: 'Client E2E',
+        email: 'client.e2e@example.com',
+        tel: '0600000000',
+        lieu: validPickupPoint,
+        dateRetrait: getNextDateForWeekday(2),
+        lignes: [{ articleId: article.id, quantite: 1 }],
+      })
+      .expect(400)
+
+    expect(await testApp.prisma.commande.count()).toBe(0)
+    expect(testApp.stripe.createdSessions).toHaveLength(0)
   })
 
   it.each([

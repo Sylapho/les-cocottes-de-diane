@@ -16,6 +16,7 @@ export type ShopArticle = {
   description?: string | null
   ingredients?: string | null
   allergenes?: string | null
+  archivedAt?: string | null
 }
 
 export type CreateCommandePayload = {

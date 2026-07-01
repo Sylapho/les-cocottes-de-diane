@@ -2336,6 +2336,7 @@ export class CommandesService {
           in: articleIds,
         },
         online: true,
+        archivedAt: null,
       },
     })
 

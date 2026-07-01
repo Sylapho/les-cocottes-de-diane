@@ -413,6 +413,7 @@ describe('Commandes integration', () => {
           in: [1],
         },
         online: true,
+        archivedAt: null,
       },
     })
 
@@ -533,6 +534,7 @@ describe('Commandes integration', () => {
           in: [1],
         },
         online: true,
+        archivedAt: null,
       },
     })
 

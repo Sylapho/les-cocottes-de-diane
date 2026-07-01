@@ -17,6 +17,9 @@ describe('ArticlesService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    nomenclature: {
+      deleteMany: jest.fn(),
+    },
     matierePremiere: {
       update: jest.fn(),
       updateMany: jest.fn(),
@@ -39,6 +42,7 @@ describe('ArticlesService', () => {
     article: typeof prismaMock.article
     matierePremiere: typeof prismaMock.matierePremiere
     stockLot: typeof prismaMock.stockLot
+    nomenclature: typeof prismaMock.nomenclature
   }
 
   type TransactionCallback<T> = (tx: TransactionClient) => Promise<T>
@@ -48,6 +52,7 @@ describe('ArticlesService', () => {
     article: prismaMock.article,
     matierePremiere: prismaMock.matierePremiere,
     stockLot: prismaMock.stockLot,
+    nomenclature: prismaMock.nomenclature,
   }
 
   beforeEach(async () => {
@@ -74,6 +79,7 @@ describe('ArticlesService', () => {
     prismaMock.$queryRaw.mockResolvedValue([])
     prismaMock.stockLot.findMany.mockResolvedValue([])
     prismaMock.matierePremiere.updateMany.mockResolvedValue({ count: 1 })
+    prismaMock.nomenclature.deleteMany.mockResolvedValue({ count: 0 })
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       movement: { id: 1 },
       consumedLots: [],
@@ -238,15 +244,73 @@ describe('ArticlesService', () => {
     expect(prismaMock.article.update).not.toHaveBeenCalled()
   })
 
-  it('remove should delete an article', async () => {
+  it('remove should delete an unused article', async () => {
     const deleted = { id: 1, nom: 'Baguette', prixCents: 120 }
 
+    prismaMock.article.findUniqueOrThrow.mockResolvedValue({
+      archivedAt: null,
+      _count: {
+        lignesVente: 0,
+        lignesCmd: 0,
+        mouvementsStock: 0,
+        stockLots: 0,
+      },
+    })
     prismaMock.article.delete.mockResolvedValue(deleted)
 
     await expect(service.remove(1)).resolves.toEqual(deleted)
+    expect(prismaMock.article.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: 1 },
+      select: {
+        archivedAt: true,
+        _count: {
+          select: {
+            lignesVente: true,
+            lignesCmd: true,
+            mouvementsStock: true,
+            stockLots: true,
+          },
+        },
+      },
+    })
+    expect(prismaMock.nomenclature.deleteMany).toHaveBeenCalledWith({
+      where: { articleId: 1 },
+    })
     expect(prismaMock.article.delete).toHaveBeenCalledWith({
       where: { id: 1 },
     })
+  })
+
+  it('remove should archive an article used in business history', async () => {
+    const archived = {
+      id: 1,
+      nom: 'Baguette',
+      prixCents: 120,
+      online: false,
+      archivedAt: new Date('2026-07-01T10:00:00.000Z'),
+    }
+
+    prismaMock.article.findUniqueOrThrow.mockResolvedValue({
+      archivedAt: null,
+      _count: {
+        lignesVente: 0,
+        lignesCmd: 1,
+        mouvementsStock: 0,
+        stockLots: 0,
+      },
+    })
+    prismaMock.article.update.mockResolvedValue(archived)
+
+    await expect(service.remove(1)).resolves.toEqual(archived)
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        archivedAt: expect.any(Date),
+        online: false,
+      },
+    })
+    expect(prismaMock.nomenclature.deleteMany).not.toHaveBeenCalled()
+    expect(prismaMock.article.delete).not.toHaveBeenCalled()
   })
 
   it('getProductionCapacity should return zero without nomenclature', async () => {

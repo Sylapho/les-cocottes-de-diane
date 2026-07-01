@@ -38,6 +38,7 @@ export type Article = {
   description?: string | null
   ingredients?: string | null
   allergenes?: string | null
+  archivedAt?: string | null
   createdAt: string
   updatedAt: string
 }

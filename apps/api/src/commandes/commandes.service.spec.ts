@@ -978,6 +978,7 @@ describe('CommandesService', () => {
           in: [1],
         },
         online: true,
+        archivedAt: null,
       },
     })
 
@@ -1175,6 +1176,7 @@ describe('CommandesService', () => {
           in: [1],
         },
         online: true,
+        archivedAt: null,
       },
     })
 
