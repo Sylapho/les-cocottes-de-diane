@@ -10,9 +10,9 @@ const webRoot = resolve(scriptDir, '..')
 const repoRoot = resolve(webRoot, '..', '..')
 
 for (const envFile of [
-  resolve(repoRoot, '.env'),
-  resolve(webRoot, '.env'),
   resolve(webRoot, '.env.local'),
+  resolve(webRoot, '.env'),
+  resolve(repoRoot, '.env'),
 ]) {
   if (existsSync(envFile)) {
     process.loadEnvFile(envFile)
