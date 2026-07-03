@@ -204,7 +204,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
           </div>
 
           <div className="mt-4 grid gap-3 text-sm text-[#4a3d43] sm:grid-cols-2 lg:grid-cols-4">
-            {pickupPoints.slice(0, 80).map((point) => (
+            {pickupPoints.map((point) => (
               <div
                 key={formatPickupPoint(point)}
                 className="rounded-2xl bg-[#faf7f8] px-4 py-3"
