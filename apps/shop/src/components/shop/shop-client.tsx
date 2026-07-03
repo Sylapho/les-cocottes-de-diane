@@ -190,8 +190,12 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
                 Retrait
               </p>
               <h2 className="text-2xl font-black text-[#181014]">
-                Choisissez votre point de retrait au paiement
+                Les différents points de retraits disponible 
               </h2>
+              <p className="mt-1 text-sm text-[#7a6d73]">
+                Choisissez votre point de retrait et votre créneau horaire lors de
+                la finalisation de votre commande.
+              </p>
             </div>
 
             <p className="text-sm text-[#7a6d73]">
@@ -200,7 +204,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
           </div>
 
           <div className="mt-4 grid gap-3 text-sm text-[#4a3d43] sm:grid-cols-2 lg:grid-cols-4">
-            {pickupPoints.slice(0, 4).map((point) => (
+            {pickupPoints.slice(0, 80).map((point) => (
               <div
                 key={formatPickupPoint(point)}
                 className="rounded-2xl bg-[#faf7f8] px-4 py-3"
