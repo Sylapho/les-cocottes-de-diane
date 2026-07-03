@@ -240,18 +240,6 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
               placeholder="Rechercher un produit, un ingrédient, un allergène..."
               className="min-h-11 flex-1 rounded-full border border-[#e8e1e4] bg-white px-4 text-sm shadow-sm"
             />
-
-            <button
-              type="button"
-              onClick={() => setOnlyAvailable((value) => !value)}
-              className={`min-h-11 rounded-full border px-4 text-sm font-bold ${
-                onlyAvailable
-                  ? 'border-[#b5006e] bg-[#fceef6] text-[#8c0055]'
-                  : 'border-[#e8e1e4] bg-white text-[#4a3d43]'
-              }`}
-            >
-              En stock uniquement
-            </button>
           </div>
         </div>
 
