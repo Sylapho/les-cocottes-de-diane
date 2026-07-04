@@ -555,39 +555,3 @@ jobs:
         run: |
           echo "${{ steps.image.outputs.name }}:${{ steps.target.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
-
-  deploy-staging:
-    name: Deploy staging to VPS
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs:
-      - publish-images
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    environment:
-      name: staging
-      url: https://dev.lescocottesdediane.fr
-
-    steps:
-      - name: Setup SSH
-        shell: bash
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-
-          echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-          ssh-keyscan -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-      - name: Deploy staging
-        shell: bash
-        run: |
-          ssh -i ~/.ssh/deploy_key \
-            -p "${{ secrets.VPS_PORT }}" \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'set -e
-             cd /opt/les-cocottes-de-diane/staging
-             docker compose -p cocottes-staging -f docker-compose-staging.yml pull
-             docker compose -p cocottes-staging -f docker-compose-staging.yml up -d --remove-orphans
-             docker image prune -f'
