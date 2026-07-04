@@ -4,9 +4,11 @@ on:
   pull_request:
     branches:
       - main
+      - develop
   push:
     branches:
       - main
+      - develop
 
 permissions:
   contents: read
@@ -425,9 +427,9 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: false
-          tags: localco-api:ci
-          cache-from: type=gha,scope=localco-api
-          cache-to: type=gha,mode=min,scope=localco-api
+          tags: les-cocottes-api:ci
+          cache-from: type=gha,scope=les-cocottes-api
+          cache-to: type=gha,mode=min,scope=les-cocottes-api
 
       - name: Build Web image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
@@ -435,7 +437,7 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: false
-          tags: localco-web:ci
+          tags: les-cocottes-web:ci
           build-args: |
             NEXT_PUBLIC_API_URL=http://localhost:4000/api
             API_INTERNAL_URL=http://localhost:4000/api
@@ -443,8 +445,8 @@ jobs:
             DATABASE_URL=postgresql://localco:localco_dev@localhost:5432/localco_build
             BETTER_AUTH_SECRET=localco-ci-better-auth-secret-placeholder
             BETTER_AUTH_URL=http://localhost:4000
-          cache-from: type=gha,scope=localco-web
-          cache-to: type=gha,mode=min,scope=localco-web
+          cache-from: type=gha,scope=les-cocottes-web
+          cache-to: type=gha,mode=min,scope=les-cocottes-web
 
       - name: Build Shop image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
@@ -452,12 +454,12 @@ jobs:
           context: .
           file: apps/shop/Dockerfile
           push: false
-          tags: localco-shop:ci
+          tags: les-cocottes-shop:ci
           build-args: |
             NEXT_PUBLIC_API_URL=http://localhost:4000/api
             API_INTERNAL_URL=http://localhost:4000/api
-          cache-from: type=gha,scope=localco-shop
-          cache-to: type=gha,mode=min,scope=localco-shop
+          cache-from: type=gha,scope=les-cocottes-shop
+          cache-to: type=gha,mode=min,scope=les-cocottes-shop
 
   publish-images:
     name: Publish images to GHCR
@@ -465,7 +467,9 @@ jobs:
     timeout-minutes: 30
     needs:
       - docker-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     permissions:
       contents: read
       packages: write
@@ -474,26 +478,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: localco-api
+          - image: les-cocottes-api
             dockerfile: apps/api/Dockerfile
-            cache-scope: localco-api
-            build-args: ""
-          - image: localco-web
+            cache_scope: les-cocottes-api
+          - image: les-cocottes-web
             dockerfile: apps/web/Dockerfile
-            cache-scope: localco-web
-            build-args: |
-              NEXT_PUBLIC_API_URL=http://localhost:4000/api
-              API_INTERNAL_URL=http://localhost:4000/api
-              NEXT_PUBLIC_AUTH_URL=http://localhost:4000
-              DATABASE_URL=postgresql://localco:localco_dev@localhost:5432/localco_build
-              BETTER_AUTH_SECRET=localco-ci-better-auth-secret-placeholder
-              BETTER_AUTH_URL=http://localhost:4000
-          - image: localco-shop
+            cache_scope: les-cocottes-web
+          - image: les-cocottes-shop
             dockerfile: apps/shop/Dockerfile
-            cache-scope: localco-shop
-            build-args: |
-              NEXT_PUBLIC_API_URL=http://localhost:4000/api
-              API_INTERNAL_URL=http://localhost:4000/api
+            cache_scope: les-cocottes-shop
 
     steps:
       - name: Checkout
@@ -511,6 +504,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve deployment target
+        id: target
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "tag=prod" >> "$GITHUB_OUTPUT"
+            echo "public_api_url=https://api.lescocottesdediane.fr/api" >> "$GITHUB_OUTPUT"
+            echo "auth_url=https://api.lescocottesdediane.fr" >> "$GITHUB_OUTPUT"
+          elif [ "${GITHUB_REF_NAME}" = "develop" ]; then
+            echo "tag=staging" >> "$GITHUB_OUTPUT"
+            echo "public_api_url=https://dev.api.lescocottesdediane.fr/api" >> "$GITHUB_OUTPUT"
+            echo "auth_url=https://dev.api.lescocottesdediane.fr" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unsupported branch: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+          echo "internal_api_url=http://api:4000/api" >> "$GITHUB_OUTPUT"
+
       - name: Prepare image name
         id: image
         shell: bash
@@ -526,13 +538,20 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
+            ${{ steps.image.outputs.name }}:${{ steps.target.outputs.tag }}
             ${{ steps.image.outputs.name }}:${{ github.sha }}
-            ${{ steps.image.outputs.name }}:main
-          build-args: ${{ matrix.build-args }}
-          cache-from: type=gha,scope=${{ matrix.cache-scope }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.cache-scope }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ steps.target.outputs.public_api_url }}
+            API_INTERNAL_URL=${{ steps.target.outputs.internal_api_url }}
+            NEXT_PUBLIC_AUTH_URL=${{ steps.target.outputs.auth_url }}
+            DATABASE_URL=postgresql://localco:localco_dev@localhost:5432/localco_build
+            BETTER_AUTH_SECRET=localco-ci-better-auth-secret-placeholder
+            BETTER_AUTH_URL=${{ steps.target.outputs.auth_url }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
 
       - name: Record image digest
         shell: bash
         run: |
+          echo "${{ steps.image.outputs.name }}:${{ steps.target.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
