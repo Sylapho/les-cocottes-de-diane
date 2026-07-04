@@ -10,7 +10,7 @@ const legalLinks = [
 
 export default function ShopFooter() {
   return (
-    <footer className="border-t border-[#eee2e7] bg-white">
+    <footer className="mt-auto border-t border-[#eee2e7]  bg-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-xs text-[#7a6d73] sm:flex-row sm:items-center sm:justify-between">
         <p className="font-semibold text-[#181014]">
           © {new Date().getFullYear()} Les cocottes de Diane
