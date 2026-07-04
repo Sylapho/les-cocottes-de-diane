@@ -32,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className={`${inter.variable} ${playfair.variable}`}>
-      <body>
+      <body className="flex min-h-screen flex-col bg-stone-50 font-sans text-stone-900 antialiased">
         {children}
         <ShopFooter />
       </body>
