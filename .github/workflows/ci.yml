@@ -557,39 +557,37 @@ jobs:
           echo "${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
 
   deploy-staging:
-    name: Deploy staging
+    name: Deploy staging to VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/develop' &&
-      github.repository_owner == 'les-cocottes-de-diane'
+    timeout-minutes: 10
     needs:
       - publish-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     environment:
       name: staging
       url: https://dev.lescocottesdediane.fr
 
     steps:
-      - name: Configure SSH
+      - name: Setup SSH
         shell: bash
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          printf '%s\n' "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/staging_deploy_key
-          chmod 600 ~/.ssh/staging_deploy_key
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
-          ssh-keyscan -p "${{ secrets.STAGING_SSH_PORT }}" -H "${{ secrets.STAGING_SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${{ secrets.STAGING_SSH_PORT }}" "${{ secrets.STAGING_SSH_HOST }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-      - name: Deploy staging over SSH
+      - name: Deploy staging
         shell: bash
         run: |
-          ssh \
-            -T \
-            -i ~/.ssh/staging_deploy_key \
+          ssh -i ~/.ssh/deploy_key \
             -p "${{ secrets.STAGING_SSH_PORT }}" \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
             "${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }}" \
-            "/opt/les-cocottes-de-diane/scripts/deploy-staging.sh"
+            'set -e
+             cd /opt/les-cocottes-de-diane/staging
+             docker compose -p cocottes-staging -f docker-compose-staging.yml pull
+             docker compose -p cocottes-staging -f docker-compose-staging.yml up -d --remove-orphans
+             docker image prune -f'
