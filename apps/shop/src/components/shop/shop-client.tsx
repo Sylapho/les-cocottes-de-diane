@@ -92,7 +92,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
     .filter((group) => group.articles.length > 0)
 
   function isCategoryOpen(categoryName: ArticleCategory, index: number) {
-    return openCategories[categoryName] ?? index === 0
+    return openCategories[categoryName] ?? true
   }
 
   function toggleCategory(categoryName: ArticleCategory, index: number) {
