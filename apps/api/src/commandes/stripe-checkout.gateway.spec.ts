@@ -7,6 +7,7 @@ import {
 const mockStripeCheckoutSessionsCreate = jest.fn()
 const mockStripeCheckoutSessionsRetrieve = jest.fn()
 const mockStripeCheckoutSessionsExpire = jest.fn()
+const mockStripeRefundsCreate = jest.fn()
 const mockStripeConstructEvent = jest.fn()
 
 jest.mock('stripe', () => {
@@ -17,6 +18,9 @@ jest.mock('stripe', () => {
         retrieve: mockStripeCheckoutSessionsRetrieve,
         expire: mockStripeCheckoutSessionsExpire,
       },
+    },
+    refunds: {
+      create: mockStripeRefundsCreate,
     },
     webhooks: {
       constructEvent: mockStripeConstructEvent,
@@ -74,6 +78,40 @@ describe('StripeCheckoutGateway', () => {
       },
       {
         idempotencyKey: 'checkout:test',
+      },
+    )
+  })
+
+  it('creates a refund with the configured Stripe client', async () => {
+    const stripeRefund = {
+      id: 're_created',
+      amount: 500,
+      payment_intent: 'pi_paid',
+      status: 'succeeded',
+    }
+    mockStripeRefundsCreate.mockResolvedValueOnce(stripeRefund)
+
+    await expect(
+      gateway.createRefund(
+        {
+          payment_intent: 'pi_paid',
+          amount: 500,
+          reason: 'requested_by_customer',
+        },
+        {
+          idempotencyKey: 'refund:test',
+        },
+      ),
+    ).resolves.toBe(stripeRefund)
+
+    expect(mockStripeRefundsCreate).toHaveBeenCalledWith(
+      {
+        payment_intent: 'pi_paid',
+        amount: 500,
+        reason: 'requested_by_customer',
+      },
+      {
+        idempotencyKey: 'refund:test',
       },
     )
   })
@@ -152,6 +190,54 @@ describe('StripeCheckoutGateway', () => {
       ).resolves.toEqual(result)
     },
   )
+
+  it('retrieves paid checkout session payment details', async () => {
+    mockStripeCheckoutSessionsRetrieve.mockResolvedValueOnce({
+      id: 'cs_paid',
+      status: 'complete',
+      payment_status: 'paid',
+      payment_intent: 'pi_paid',
+      amount_total: 1250,
+      currency: 'eur',
+    })
+
+    await expect(
+      gateway.retrieveCheckoutSessionPaymentDetails('cs_paid'),
+    ).resolves.toEqual({
+      status: 'paid',
+      paymentIntentId: 'pi_paid',
+      amountTotal: 1250,
+      currency: 'eur',
+    })
+  })
+
+  it('reports missing payment intent for paid checkout details', async () => {
+    mockStripeCheckoutSessionsRetrieve.mockResolvedValueOnce({
+      id: 'cs_paid',
+      status: 'complete',
+      payment_status: 'paid',
+    })
+
+    await expect(
+      gateway.retrieveCheckoutSessionPaymentDetails('cs_paid'),
+    ).resolves.toEqual({
+      status: 'missing_payment_intent',
+    })
+  })
+
+  it('reports not paid checkout details', async () => {
+    mockStripeCheckoutSessionsRetrieve.mockResolvedValueOnce({
+      id: 'cs_open',
+      status: 'open',
+      payment_status: 'unpaid',
+    })
+
+    await expect(
+      gateway.retrieveCheckoutSessionPaymentDetails('cs_open'),
+    ).resolves.toEqual({
+      status: 'not_paid',
+    })
+  })
 
   it.each([
     [
