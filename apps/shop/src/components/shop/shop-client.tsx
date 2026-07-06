@@ -488,7 +488,7 @@ function ProductRow({
         </div>
 
         {article.description ? (
-          <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#7a6d73]">
+          <p className="mt-1 text-sm leading-6 text-[#7a6d73]">
             {article.description}
           </p>
         ) : null}
