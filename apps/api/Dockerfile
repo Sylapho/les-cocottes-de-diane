@@ -35,7 +35,7 @@ FROM manifests AS prod-deps
 
 RUN pnpm install --frozen-lockfile --prod --filter @localco/api
 
-FROM node:22-bookworm-slim AS runtime
+FROM base AS runtime
 
 ENV NODE_ENV=production
 ENV PORT=4000
@@ -52,6 +52,7 @@ COPY --from=build --chown=node:node /workspace/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=node:node /workspace/apps/api/package.json ./apps/api/package.json
 COPY --from=build --chown=node:node /workspace/apps/api/prisma/schema.prisma ./apps/api/prisma/schema.prisma
 COPY --from=build --chown=node:node /workspace/apps/api/prisma/migrations ./apps/api/prisma/migrations
+COPY --from=build --chown=node:node /workspace/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 
 WORKDIR /app/apps/api
 

@@ -589,5 +589,6 @@ jobs:
             'set -e
              cd /opt/les-cocottes-de-diane/staging
              docker compose -p cocottes-staging -f docker-compose-staging.yml pull
+             docker compose -p cocottes-staging -f docker-compose-staging.yml run --rm migrate
              docker compose -p cocottes-staging -f docker-compose-staging.yml up -d --remove-orphans
              docker image prune -f'
