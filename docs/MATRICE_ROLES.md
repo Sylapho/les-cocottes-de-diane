@@ -31,6 +31,7 @@ Ce document definit les roles de l'application Les cocottes de Diane et les perm
 | Voir la capacite de production | Oui | Non | Oui | Oui | Non |
 | Creer une vente | Oui | Oui | Non | Non | Non |
 | Voir les ventes | Oui | Oui | Non | Non | Oui |
+| Rembourser une commande Stripe | Oui | Non | Non | Non | Non |
 | Voir la caisse du jour | Oui | Oui | Non | Non | Oui |
 | Cloturer la caisse | Oui | Non | Non | Non | Oui |
 | Voir l'historique de caisse | Oui | Non | Non | Non | Oui |
@@ -69,6 +70,8 @@ Ce document definit les roles de l'application Les cocottes de Diane et les perm
 | `/api/caisse/today` | `GET` | `gerant`, `vendeur`, `comptable` |
 | `/api/caisse/cloturer` | `POST` | `gerant`, `comptable` |
 | `/api/caisse/journees` | `GET` | `gerant`, `comptable` |
+| `/api/commandes/:id/refunds` | `GET` | `gerant`, `vendeur`, `production`, `comptable` |
+| `/api/commandes/:id/refunds` | `POST` | `gerant` |
 
 ## Permissions frontend
 
@@ -87,6 +90,7 @@ Ce document definit les roles de l'application Les cocottes de Diane et les perm
 | `/ventes/new` | `gerant`, `vendeur` |
 | `/caisse` | `gerant`, `vendeur`, `comptable` |
 | `/caisse/journees` | `gerant`, `comptable` |
+| `/commandes/[id]` remboursement Stripe | `gerant` pour l'action, roles de consultation pour l'historique |
 
 ## Note d'implementation
 
