@@ -761,21 +761,31 @@ textarea::placeholder {
     position: fixed;
     inset: auto 0 0;
     z-index: 60;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
     background: var(--primary-dark);
     padding-bottom: env(safe-area-inset-bottom, 0);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lc-mobile-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .lc-mobile-nav a {
     display: grid;
+    flex: 0 0 72px;
     min-height: 60px;
     place-items: center;
     color: rgba(255, 255, 255, 0.62);
     text-decoration: none;
     font-size: 11px;
     font-weight: 800;
+    scroll-snap-align: center;
   }
 
   .lc-mobile-nav span {

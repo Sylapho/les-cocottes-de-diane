@@ -14,7 +14,7 @@ import {
 } from '@/lib/permissions'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 type NavItem = {
   label: string
@@ -151,7 +151,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const visibleAdminNavItems = adminNavItems.filter((item) =>
     item.canAccess(user),
   )
-  const visibleMobileNavItems = visibleNavItems.slice(0, 5)
+  const visibleMobileNavItems = [...visibleNavItems, ...visibleAdminNavItems]
+  const activeMobileLinkRef = useRef<HTMLAnchorElement | null>(null)
+
+  useEffect(() => {
+    activeMobileLinkRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    })
+  }, [pathname])
 
   async function handleSignOut() {
     await authClient.signOut({
@@ -243,6 +252,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             return (
               <Link
                 key={item.href}
+                ref={active ? activeMobileLinkRef : undefined}
                 href={item.href}
                 className={active ? 'active' : undefined}
                 aria-current={active ? 'page' : undefined}
