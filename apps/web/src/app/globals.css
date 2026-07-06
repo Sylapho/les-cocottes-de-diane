@@ -183,6 +183,11 @@ textarea::placeholder {
   text-transform: uppercase;
 }
 
+.lc-nav-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .lc-nav-item.active .lc-nav-mark {
   background: var(--accent);
   color: var(--primary-dark);

@@ -14,12 +14,26 @@ import {
 } from '@/lib/permissions'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode, type SVGProps } from 'react'
+
+type NavIconName =
+  | 'home'
+  | 'cash-register'
+  | 'sale'
+  | 'orders'
+  | 'preparation'
+  | 'articles'
+  | 'stock'
+  | 'history'
+  | 'users'
+  | 'pickup'
+  | 'stripe'
 
 type NavItem = {
   label: string
   href: string
   short: string
+  icon: NavIconName
   description: string
   canAccess: (user: UserWithRole) => boolean
 }
@@ -29,6 +43,7 @@ const navItems: NavItem[] = [
     label: 'Accueil',
     href: '/',
     short: 'Home',
+    icon: 'home',
     description: 'Vue générale',
     canAccess: () => true,
   },
@@ -36,6 +51,7 @@ const navItems: NavItem[] = [
     label: 'Caisse',
     href: '/caisse',
     short: 'Caisse',
+    icon: 'cash-register',
     description: 'Journée en cours',
     canAccess: canViewCashRegister,
   },
@@ -43,6 +59,7 @@ const navItems: NavItem[] = [
     label: 'Ventes',
     href: '/ventes/new',
     short: 'Vente',
+    icon: 'sale',
     description: 'Encaissement rapide',
     canAccess: canCreateSales,
   },
@@ -50,6 +67,7 @@ const navItems: NavItem[] = [
     label: 'Commandes',
     href: '/commandes',
     short: 'Cmd',
+    icon: 'orders',
     description: 'Click & Collect',
     canAccess: canViewOrders,
   },
@@ -57,6 +75,7 @@ const navItems: NavItem[] = [
     label: 'Préparation',
     href: '/preparation',
     short: 'Prep',
+    icon: 'preparation',
     description: 'Retraits à servir',
     canAccess: canViewOrders,
   },
@@ -64,6 +83,7 @@ const navItems: NavItem[] = [
     label: 'Articles',
     href: '/articles',
     short: 'Arts',
+    icon: 'articles',
     description: 'Catalogue boutique',
     canAccess: canViewArticles,
   },
@@ -71,6 +91,7 @@ const navItems: NavItem[] = [
     label: 'Stock',
     href: '/stock',
     short: 'Stock',
+    icon: 'stock',
     description: 'Lots, DLC et alertes',
     canAccess: canViewStock,
   },
@@ -78,6 +99,7 @@ const navItems: NavItem[] = [
     label: 'Historique',
     href: '/caisse/journees',
     short: 'Hist.',
+    icon: 'history',
     description: 'Clôtures de caisse',
     canAccess: canManageCashRegister,
   },
@@ -88,6 +110,7 @@ const adminNavItems: NavItem[] = [
     label: 'Utilisateurs',
     href: '/admin/users',
     short: 'Admin',
+    icon: 'users',
     description: 'Rôles et accès',
     canAccess: canAccessAdmin,
   },
@@ -95,6 +118,7 @@ const adminNavItems: NavItem[] = [
     label: 'Retraits',
     href: '/admin/pickup-points',
     short: 'Lieu',
+    icon: 'pickup',
     description: 'Points de retrait',
     canAccess: canAccessAdmin,
   },
@@ -102,10 +126,129 @@ const adminNavItems: NavItem[] = [
     label: 'Stripe',
     href: '/admin/stripe-reconciliations',
     short: 'Pay',
+    icon: 'stripe',
     description: 'Paiements à vérifier',
     canAccess: canAccessAdmin,
   },
 ]
+
+function NavIcon({
+  name,
+  ...props
+}: SVGProps<SVGSVGElement> & { name: NavIconName }) {
+  const commonProps = {
+    'aria-hidden': true,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    strokeWidth: 1.8,
+    viewBox: '0 0 24 24',
+    ...props,
+  }
+
+  switch (name) {
+    case 'home':
+      return (
+        <svg {...commonProps}>
+          <path d="M3 11.5 12 4l9 7.5" />
+          <path d="M5.5 10.5V20h13v-9.5" />
+          <path d="M9.5 20v-5h5v5" />
+        </svg>
+      )
+    case 'cash-register':
+      return (
+        <svg {...commonProps}>
+          <path d="M6 9V4h9l3 5" />
+          <path d="M4 9h16v11H4z" />
+          <path d="M7 13h4" />
+          <path d="M7 16h2" />
+          <path d="M14 16h3" />
+        </svg>
+      )
+    case 'sale':
+      return (
+        <svg {...commonProps}>
+          <path d="M4 7h16l-2 9H7L4 7Z" />
+          <path d="M9 7a3 3 0 0 1 6 0" />
+          <path d="M9 20h.01" />
+          <path d="M17 20h.01" />
+        </svg>
+      )
+    case 'orders':
+      return (
+        <svg {...commonProps}>
+          <path d="M7 4h10l2 3v13H5V7l2-3Z" />
+          <path d="M7 7h10" />
+          <path d="M9 11h6" />
+          <path d="M9 15h4" />
+        </svg>
+      )
+    case 'preparation':
+      return (
+        <svg {...commonProps}>
+          <path d="M5 13h14" />
+          <path d="M7 13a5 5 0 0 1 10 0" />
+          <path d="M4 17h16" />
+          <path d="M12 4v3" />
+          <path d="M9 4h6" />
+        </svg>
+      )
+    case 'articles':
+      return (
+        <svg {...commonProps}>
+          <path d="M4 7h16" />
+          <path d="M6 7v13h12V7" />
+          <path d="M8 7a4 4 0 0 1 8 0" />
+          <path d="M9 13h6" />
+          <path d="M9 16h4" />
+        </svg>
+      )
+    case 'stock':
+      return (
+        <svg {...commonProps}>
+          <path d="M12 3 4 7l8 4 8-4-8-4Z" />
+          <path d="m4 12 8 4 8-4" />
+          <path d="m4 17 8 4 8-4" />
+        </svg>
+      )
+    case 'history':
+      return (
+        <svg {...commonProps}>
+          <path d="M4 12a8 8 0 1 0 2.35-5.65" />
+          <path d="M4 5v5h5" />
+          <path d="M12 8v5l3 2" />
+        </svg>
+      )
+    case 'users':
+      return (
+        <svg {...commonProps}>
+          <path d="M16 20v-1.5a4 4 0 0 0-8 0V20" />
+          <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+          <path d="M20 20v-1a3 3 0 0 0-3-3" />
+          <path d="M17 5.2a3 3 0 0 1 0 5.6" />
+        </svg>
+      )
+    case 'pickup':
+      return (
+        <svg {...commonProps}>
+          <path d="M4 10h16l-1.2 10H5.2L4 10Z" />
+          <path d="M8 10a4 4 0 0 1 8 0" />
+          <path d="M9 14h6" />
+          <path d="M12 14v3" />
+        </svg>
+      )
+    case 'stripe':
+      return (
+        <svg {...commonProps}>
+          <path d="M4 7h16v10H4z" />
+          <path d="M4 10h16" />
+          <path d="M7 14h4" />
+          <path d="M15 14h2" />
+        </svg>
+      )
+  }
+}
 
 function isActive(pathname: string, href: string) {
   if (href === '/') {
@@ -129,7 +272,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       aria-current={active ? 'page' : undefined}
     >
       <span className="lc-nav-mark" aria-hidden="true">
-        {item.short.slice(0, 2)}
+        <NavIcon name={item.icon} className="lc-nav-icon" />
       </span>
       <span>
         <span className="lc-nav-label">{item.label}</span>
@@ -257,7 +400,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 className={active ? 'active' : undefined}
                 aria-current={active ? 'page' : undefined}
               >
-                <span>{item.short.slice(0, 2)}</span>
+                <span>
+                  <NavIcon name={item.icon} className="lc-nav-icon" />
+                </span>
                 <small>{item.short}</small>
               </Link>
             )
