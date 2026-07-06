@@ -14,7 +14,6 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CommandePreparationService } from './commande-preparation.service'
 import { CommandeProductionNeedsService } from './commande-production-needs.service'
 import { CommandePublicSummaryService } from './commande-public-summary.service'
-import { CommandeRefundsService } from './commande-refunds.service'
 import { CommandeStatusHistoryService } from './commande-status-history.service'
 import { CommandeStockReservationService } from './commande-stock-reservation.service'
 import { CommandesService } from './commandes.service'
@@ -132,11 +131,6 @@ describe('CommandesService', () => {
     validatePickupSlot: jest.fn(),
   }
 
-  const commandeRefundsServiceMock = {
-    isStripeRefundWebhookEvent: jest.fn(),
-    handleStripeRefundWebhook: jest.fn(),
-  }
-
   type TransactionClient = {
     $queryRaw: jest.Mock
     article: typeof prismaMock.article
@@ -249,10 +243,6 @@ describe('CommandesService', () => {
         CommandePreparationService,
         CommandeProductionNeedsService,
         CommandePublicSummaryService,
-        {
-          provide: CommandeRefundsService,
-          useValue: commandeRefundsServiceMock,
-        },
         CommandeStatusHistoryService,
         CommandeStockReservationService,
         {
@@ -313,8 +303,6 @@ describe('CommandesService', () => {
       emailsServiceMock.sendOrderConfirmation,
       pickupPointsServiceMock.findPublicPickupPoints,
       pickupPointsServiceMock.validatePickupSlot,
-      commandeRefundsServiceMock.isStripeRefundWebhookEvent,
-      commandeRefundsServiceMock.handleStripeRefundWebhook,
       mockStripeCheckoutSessionsCreate,
       mockStripeCheckoutSessionsRetrieve,
       mockStripeCheckoutSessionsExpire,
@@ -371,10 +359,6 @@ describe('CommandesService', () => {
 
     pickupPointsServiceMock.findPublicPickupPoints.mockResolvedValue([])
     pickupPointsServiceMock.validatePickupSlot.mockResolvedValue(undefined)
-    commandeRefundsServiceMock.isStripeRefundWebhookEvent.mockReturnValue(false)
-    commandeRefundsServiceMock.handleStripeRefundWebhook.mockResolvedValue(
-      undefined,
-    )
 
     mockStripeCheckoutSessionsCreate.mockResolvedValue({
       id: 'cs_test_123',
@@ -3234,7 +3218,6 @@ describe('CommandesService', () => {
         ),
         new CommandeProductionNeedsService(prismaMock as never),
         new CommandePublicSummaryService(),
-        commandeRefundsServiceMock as never,
         new CommandeStatusHistoryService(),
         new CommandeStockReservationService(
           mouvementsStockServiceMock as never,

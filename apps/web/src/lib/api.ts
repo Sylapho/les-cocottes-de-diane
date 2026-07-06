@@ -414,7 +414,6 @@ export type Commande = {
   dateRetrait?: string | null
   statut: CommandeStatut
   stripeId?: string | null
-  stripePaymentIntentId?: string | null
   createdAt: string
   lignes: LigneCommande[]
   historique?: CommandeStatutHistorique[]
@@ -434,86 +433,6 @@ export async function getCommande(id: number): Promise<Commande> {
   })
 
   return parseResponse<Commande>(response)
-}
-
-export type RefundStatus =
-  | 'pending'
-  | 'requires_action'
-  | 'succeeded'
-  | 'failed'
-  | 'canceled'
-
-export type RefundAggregateStatus =
-  | 'none'
-  | 'partial'
-  | 'full'
-  | 'failed'
-  | 'pending'
-
-export type CommandeRefundReason =
-  | 'requested_by_customer'
-  | 'duplicate'
-  | 'fraudulent'
-  | 'other'
-
-export type CommandeRefund = {
-  id: number
-  commandeId: number
-  stripeRefundId?: string | null
-  stripePaymentIntentId: string
-  amountCents: number
-  currency: string
-  reason: string
-  internalNote?: string | null
-  status: RefundStatus
-  requestedByUserId?: string | null
-  stripeRawStatus?: string | null
-  failureReason?: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export type CommandeRefundSummary = {
-  commandeId: number
-  totalAmountCents: number
-  refundedAmountCents: number
-  pendingAmountCents: number
-  refundableAmountCents: number
-  refundStatus: RefundAggregateStatus
-  isRefundable: boolean
-  refunds: CommandeRefund[]
-}
-
-export type CommandeRefundPayload = {
-  amountCents?: number
-  reason: CommandeRefundReason
-  internalNote?: string
-  requestId?: string
-}
-
-export async function getCommandeRefunds(
-  commandeId: number,
-): Promise<CommandeRefundSummary> {
-  const response = await apiFetch(`/commandes/${commandeId}/refunds`, {
-    cache: 'no-store',
-  })
-
-  return parseResponse<CommandeRefundSummary>(response)
-}
-
-export async function createCommandeRefund(
-  commandeId: number,
-  data: CommandeRefundPayload,
-): Promise<CommandeRefundSummary> {
-  const response = await apiFetch(`/commandes/${commandeId}/refunds`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  })
-
-  return parseResponse<CommandeRefundSummary>(response)
 }
 
 export type StripeReconciliationStatus =

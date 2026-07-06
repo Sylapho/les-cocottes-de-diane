@@ -15,7 +15,6 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CommandePreparationService } from './commande-preparation.service'
 import { CommandeProductionNeedsService } from './commande-production-needs.service'
 import { CommandePublicSummaryService } from './commande-public-summary.service'
-import { CommandeRefundsService } from './commande-refunds.service'
 import { CommandeStatusHistoryService } from './commande-status-history.service'
 import { CommandeStockReservationService } from './commande-stock-reservation.service'
 import { CommandesController } from './commandes.controller'
@@ -171,13 +170,6 @@ describe('Commandes integration', () => {
     validatePickupSlot: jest.fn(),
   }
 
-  const commandeRefundsServiceMock = {
-    listForCommande: jest.fn(),
-    createRefund: jest.fn(),
-    isStripeRefundWebhookEvent: jest.fn(),
-    handleStripeRefundWebhook: jest.fn(),
-  }
-
   const validPickupPoint = 'Marché de Gaillon - Mardi matin, 8h-12h'
   const validPickupDate = getNextDateForWeekday(2)
 
@@ -211,10 +203,6 @@ describe('Commandes integration', () => {
         {
           provide: PickupPointsService,
           useValue: pickupPointsServiceMock,
-        },
-        {
-          provide: CommandeRefundsService,
-          useValue: commandeRefundsServiceMock,
         },
       ],
     })
@@ -253,7 +241,6 @@ describe('Commandes integration', () => {
     await app.init()
 
     jest.clearAllMocks()
-    commandeRefundsServiceMock.isStripeRefundWebhookEvent.mockReturnValue(false)
     ;[
       prismaMock.article.findMany,
       prismaMock.article.update,

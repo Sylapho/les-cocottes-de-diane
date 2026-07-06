@@ -20,10 +20,6 @@ export function canManageOrders(user: UserWithRole) {
   return hasRole(user, ['gerant', 'vendeur', 'production'])
 }
 
-export function canRefundOrders(user: UserWithRole) {
-  return getUserRole(user) === 'gerant'
-}
-
 export function canViewArticles(user: UserWithRole) {
   return hasRole(user, ['gerant', 'vendeur', 'production', 'stock'])
 }

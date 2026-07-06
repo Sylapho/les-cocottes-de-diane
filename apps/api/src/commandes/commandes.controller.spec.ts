@@ -1,9 +1,7 @@
 import { ConfigService } from '@nestjs/config'
 import { Test, TestingModule } from '@nestjs/testing'
-import { CommandeRefundsService } from './commande-refunds.service'
 import { CommandesController } from './commandes.controller'
 import { CommandesService } from './commandes.service'
-import { CreateCommandeRefundDto } from './dto/create-commande-refund.dto'
 import { CreateCommandeDto } from './dto/create-commande.dto'
 
 describe('CommandesController', () => {
@@ -21,10 +19,6 @@ describe('CommandesController', () => {
     updateStatut: jest.fn(),
     cleanupAbandonedCommandes: jest.fn(),
   }
-  const commandeRefundsServiceMock = {
-    listForCommande: jest.fn(),
-    createRefund: jest.fn(),
-  }
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,10 +27,6 @@ describe('CommandesController', () => {
         {
           provide: CommandesService,
           useValue: commandesServiceMock,
-        },
-        {
-          provide: CommandeRefundsService,
-          useValue: commandeRefundsServiceMock,
         },
         {
           provide: ConfigService,
@@ -114,34 +104,6 @@ describe('CommandesController', () => {
 
     await expect(controller.findOne(1)).resolves.toEqual(result)
     expect(commandesServiceMock.findOne).toHaveBeenCalledWith(1)
-  })
-
-  it('listRefunds should return order refunds', async () => {
-    const result = { commandeId: 1, refunds: [] }
-    commandeRefundsServiceMock.listForCommande.mockResolvedValue(result)
-
-    await expect(controller.listRefunds(1)).resolves.toEqual(result)
-    expect(commandeRefundsServiceMock.listForCommande).toHaveBeenCalledWith(1)
-  })
-
-  it('createRefund should create an order refund', async () => {
-    const body: CreateCommandeRefundDto = {
-      reason: 'requested_by_customer',
-      requestId: 'test-request',
-    }
-    const request = { userId: 'user_1' } as never
-    const result = { commandeId: 1, refunds: [{ id: 1 }] }
-
-    commandeRefundsServiceMock.createRefund.mockResolvedValue(result)
-
-    await expect(controller.createRefund(1, body, request)).resolves.toEqual(
-      result,
-    )
-    expect(commandeRefundsServiceMock.createRefund).toHaveBeenCalledWith(
-      1,
-      body,
-      'user_1',
-    )
   })
 
   it('findCheckoutSessionSummary should return public checkout summary', async () => {

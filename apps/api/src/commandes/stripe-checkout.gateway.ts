@@ -9,9 +9,7 @@ type CreateCheckoutSessionArgs = Parameters<
 type RetrievedCheckoutSession = Awaited<
   ReturnType<StripeClient['checkout']['sessions']['retrieve']>
 >
-type CreateRefundArgs = Parameters<StripeClient['refunds']['create']>
 export type CreatedCheckoutSession = Stripe.Response<Stripe.Checkout.Session>
-export type CreatedStripeRefund = Stripe.Response<Stripe.Refund>
 
 export type CheckoutSessionStateResult =
   | {
@@ -55,28 +53,6 @@ export type CheckoutSessionExpirationResult =
 
 export type ExpireCheckoutSessionResult = CheckoutSessionExpirationResult
 
-export type CheckoutSessionPaymentDetailsResult =
-  | {
-      status: 'paid'
-      paymentIntentId: string
-      amountTotal?: number
-      currency?: string
-    }
-  | {
-      status: 'not_paid'
-    }
-  | {
-      status: 'missing_payment_intent'
-    }
-  | {
-      status: 'not_found'
-    }
-  | {
-      status: 'failed'
-      retryable: boolean
-      reason: string
-    }
-
 export class ExpireCheckoutSessionError extends Error {
   constructor(
     message: string,
@@ -100,13 +76,6 @@ export class StripeCheckoutGateway {
     return this.getStripe().checkout.sessions.create(params, options)
   }
 
-  createRefund(
-    params: CreateRefundArgs[0],
-    options?: CreateRefundArgs[1],
-  ): Promise<CreatedStripeRefund> {
-    return this.getStripe().refunds.create(params, options)
-  }
-
   async retrieveCheckoutSession(
     sessionId: string,
   ): Promise<CheckoutSessionStateResult> {
@@ -115,48 +84,6 @@ export class StripeCheckoutGateway {
         await this.getStripe().checkout.sessions.retrieve(sessionId)
 
       return this.getCheckoutSessionState(session)
-    } catch (error) {
-      const stripeError = this.normalizeStripeError(error)
-
-      if (stripeError.code === 'resource_missing') {
-        return { status: 'not_found' }
-      }
-
-      return {
-        status: 'failed',
-        retryable: this.isRetryableStripeError(error),
-        reason: stripeError.message,
-      }
-    }
-  }
-
-  async retrieveCheckoutSessionPaymentDetails(
-    sessionId: string,
-  ): Promise<CheckoutSessionPaymentDetailsResult> {
-    try {
-      const session =
-        await this.getStripe().checkout.sessions.retrieve(sessionId)
-
-      if (
-        session.payment_status !== 'paid' &&
-        session.payment_status !== 'no_payment_required' &&
-        session.status !== 'complete'
-      ) {
-        return { status: 'not_paid' }
-      }
-
-      const paymentIntentId = this.getPaymentIntentId(session)
-
-      if (!paymentIntentId) {
-        return { status: 'missing_payment_intent' }
-      }
-
-      return {
-        status: 'paid',
-        paymentIntentId,
-        amountTotal: session.amount_total ?? undefined,
-        currency: session.currency ?? undefined,
-      }
     } catch (error) {
       const stripeError = this.normalizeStripeError(error)
 

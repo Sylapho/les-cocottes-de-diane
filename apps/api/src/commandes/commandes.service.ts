@@ -29,7 +29,6 @@ import {
   type CommandeWithProductionLines,
 } from './commande-production-needs.service'
 import { CommandePublicSummaryService } from './commande-public-summary.service'
-import { CommandeRefundsService } from './commande-refunds.service'
 import { CommandeStatusHistoryService } from './commande-status-history.service'
 import { CommandeStockReservationService } from './commande-stock-reservation.service'
 
@@ -49,11 +48,11 @@ type ReservationLine = {
   } | null
 }
 
-type StripeWebhookEvent = {
+type StripeCheckoutWebhookEvent = {
   id: string
   type: string
   data: {
-    object: unknown
+    object: StripeCheckoutSessionWebhookObject
   }
 }
 
@@ -63,7 +62,6 @@ type StripeCheckoutSessionWebhookObject = {
   amount_total?: number | null
   currency?: string | null
   client_reference_id?: string | null
-  payment_intent?: string | { id?: string | null } | null
   metadata?: Record<string, string | null | undefined> | null
 }
 
@@ -183,7 +181,6 @@ export class CommandesService {
     private readonly commandePreparationService: CommandePreparationService,
     private readonly commandeProductionNeedsService: CommandeProductionNeedsService,
     private readonly commandePublicSummaryService: CommandePublicSummaryService,
-    private readonly commandeRefundsService: CommandeRefundsService,
     private readonly commandeStatusHistoryService: CommandeStatusHistoryService,
     private readonly commandeStockReservationService: CommandeStockReservationService,
   ) {
@@ -552,14 +549,14 @@ export class CommandesService {
       throw new BadRequestException('Webhook Stripe invalide')
     }
 
-    let event: StripeWebhookEvent
+    let event: StripeCheckoutWebhookEvent
 
     try {
       event = this.stripeCheckoutGateway.constructWebhookEvent(
         rawBody,
         stripeSignature,
         webhookSecret,
-      )
+      ) as StripeCheckoutWebhookEvent
     } catch (error) {
       throw new BadRequestException('Webhook Stripe invalide', {
         cause: error,
@@ -575,7 +572,7 @@ export class CommandesService {
     try {
       if (event.type === 'checkout.session.completed') {
         const confirmedOrder = await this.confirmPaidCommande(
-          event.data.object as StripeCheckoutSessionWebhookObject,
+          event.data.object,
           event.id,
         )
 
@@ -585,13 +582,7 @@ export class CommandesService {
       }
 
       if (event.type === 'checkout.session.expired') {
-        await this.expirePendingCommande(
-          event.data.object as StripeCheckoutSessionWebhookObject,
-        )
-      }
-
-      if (this.commandeRefundsService.isStripeRefundWebhookEvent(event.type)) {
-        await this.commandeRefundsService.handleStripeRefundWebhook(event)
+        await this.expirePendingCommande(event.data.object)
       }
 
       await this.markStripeWebhookEventProcessed(
@@ -1067,9 +1058,6 @@ export class CommandesService {
         data: {
           statut: 'nouvelle',
           stripeId: lockedCommande.stripeId ?? session.id,
-          stripePaymentIntentId:
-            lockedCommande.stripePaymentIntentId ??
-            this.getStripePaymentIntentId(session),
         },
         include: {
           lignes: {
@@ -1292,22 +1280,6 @@ export class CommandesService {
     return Number(value)
   }
 
-  private getStripePaymentIntentId(
-    session: StripeCheckoutSessionWebhookObject,
-  ) {
-    const paymentIntent = session.payment_intent
-
-    if (!paymentIntent) {
-      return undefined
-    }
-
-    if (typeof paymentIntent === 'string') {
-      return paymentIntent
-    }
-
-    return paymentIntent.id ?? undefined
-  }
-
   private validateCheckoutSessionForCommande(
     session: StripeCheckoutSessionWebhookObject,
     commande: {
@@ -1485,7 +1457,7 @@ export class CommandesService {
   }
 
   private async claimStripeWebhookEvent(
-    event: StripeWebhookEvent,
+    event: StripeCheckoutWebhookEvent,
   ): Promise<StripeWebhookClaim> {
     const processingStartedAt = new Date()
 
@@ -1513,7 +1485,7 @@ export class CommandesService {
   }
 
   private async claimExistingStripeWebhookEvent(
-    event: StripeWebhookEvent,
+    event: StripeCheckoutWebhookEvent,
     processingStartedAt: Date,
   ): Promise<StripeWebhookClaim> {
     const existing = await this.prisma.stripeWebhookEvent.findUnique({

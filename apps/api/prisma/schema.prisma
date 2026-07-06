@@ -181,18 +181,15 @@ model Commande {
   dateRetrait   DateTime?
   statut        String                     @default("nouvelle")
   stripeId      String?
-  stripePaymentIntentId String?
   createdAt     DateTime                   @default(now())
   lignes        LigneCommande[]
   historique    CommandeStatutHistorique[]
   reservationRelease CommandeReservationRelease?
   stockAllocations CommandeStockAllocation[]
   stripeCheckoutReconciliations StripeCheckoutReconciliation[]
-  refunds       Refund[]
 
   @@index([statut])
   @@index([stripeId])
-  @@index([stripePaymentIntentId])
   @@index([dateRetrait])
 }
 
@@ -365,38 +362,6 @@ model StripeCheckoutReconciliationAttempt {
 
   @@index([reconciliationId, startedAt])
   @@index([origin, startedAt])
-}
-
-enum RefundStatus {
-  pending
-  requires_action
-  succeeded
-  failed
-  canceled
-}
-
-model Refund {
-  id                    Int          @id @default(autoincrement())
-  commandeId            Int
-  commande              Commande     @relation(fields: [commandeId], references: [id], onDelete: Cascade)
-  stripeRefundId        String?      @unique
-  stripePaymentIntentId String
-  amountCents           Int
-  currency              String       @default("eur")
-  reason                String
-  internalNote          String?
-  status                RefundStatus @default(pending)
-  requestedByUserId     String?
-  stripeRawStatus       String?
-  failureReason         String?
-  idempotencyKey        String       @unique
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-
-  @@index([commandeId])
-  @@index([commandeId, status])
-  @@index([stripePaymentIntentId])
-  @@index([status])
 }
 
 model JourneeCaisse {

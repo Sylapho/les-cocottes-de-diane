@@ -6,7 +6,6 @@ import request from 'supertest'
 import { BetterAuthGuard } from '../auth/better-auth.guard'
 import { ROLES } from '../auth/roles'
 import { RolesGuard } from '../auth/roles.guard'
-import { CommandeRefundsService } from './commande-refunds.service'
 import { CommandesController } from './commandes.controller'
 import { CommandesService } from './commandes.service'
 
@@ -23,13 +22,6 @@ describe('Commandes admin auth integration', () => {
     cleanupAbandonedCommandes: jest.fn(),
     findOne: jest.fn(),
     updateStatut: jest.fn(),
-  }
-
-  const commandeRefundsServiceMock = {
-    listForCommande: jest.fn(),
-    createRefund: jest.fn(),
-    isStripeRefundWebhookEvent: jest.fn(),
-    handleStripeRefundWebhook: jest.fn(),
   }
 
   const configServiceMock = {
@@ -57,10 +49,6 @@ describe('Commandes admin auth integration', () => {
         {
           provide: CommandesService,
           useValue: commandesServiceMock,
-        },
-        {
-          provide: CommandeRefundsService,
-          useValue: commandeRefundsServiceMock,
         },
         {
           provide: ConfigService,

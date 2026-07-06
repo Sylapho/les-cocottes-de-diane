@@ -8,7 +8,6 @@ import {
   canManageCashRegister,
   canManageOrders,
   canManageStock,
-  canRefundOrders,
   canViewArticles,
   canViewCashRegister,
   canViewOrders,
@@ -30,12 +29,10 @@ test('normalizes missing or unknown roles to vendeur', () => {
 test('matches admin-only permissions to gerant', () => {
   assert.equal(canAccessAdmin(user('gerant')), true)
   assert.equal(canManageArticles(user('gerant')), true)
-  assert.equal(canRefundOrders(user('gerant')), true)
 
   for (const role of ['vendeur', 'production', 'stock', 'comptable'] as const) {
     assert.equal(canAccessAdmin(user(role)), false)
     assert.equal(canManageArticles(user(role)), false)
-    assert.equal(canRefundOrders(user(role)), false)
   }
 })
 

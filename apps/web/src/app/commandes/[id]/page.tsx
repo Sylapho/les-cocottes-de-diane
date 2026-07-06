@@ -1,17 +1,12 @@
 import ArticleImage from '@/components/articles/article-image'
-import CommandeRefundsPanel from '@/components/commandes/commande-refunds-panel'
 import CommandeStatusActions from '@/components/commandes/commande-status-actions'
 import CommandeStatusBadge, {
   commandeStatusLabels,
 } from '@/components/commandes/commande-status-badge'
 import { ButtonLink, Page, SectionCard } from '@/components/ui/dashboard'
-import { getCommande, getCommandeRefunds } from '@/lib/api'
+import { getCommande } from '@/lib/api'
 import { requireUiPermission } from '@/lib/auth-session'
-import {
-  canManageOrders,
-  canRefundOrders,
-  canViewOrders,
-} from '@/lib/permissions'
+import { canManageOrders, canViewOrders } from '@/lib/permissions'
 import { notFound } from 'next/navigation'
 
 type PageProps = {
@@ -55,7 +50,6 @@ function formatQuantity(value: number) {
 export default async function CommandeDetailPage({ params }: PageProps) {
   const session = await requireUiPermission(canViewOrders)
   const userCanManageOrders = canManageOrders(session.user)
-  const userCanRefundOrders = canRefundOrders(session.user)
   const { id } = await params
   const commandeId = Number(id)
 
@@ -63,10 +57,7 @@ export default async function CommandeDetailPage({ params }: PageProps) {
     notFound()
   }
 
-  const [commande, refunds] = await Promise.all([
-    getCommande(commandeId),
-    getCommandeRefunds(commandeId),
-  ])
+  const commande = await getCommande(commandeId)
   const productionLines = commande.lignes.filter(
     (ligne) => (ligne.productionQuantity ?? 0) > 0,
   )
@@ -152,14 +143,6 @@ export default async function CommandeDetailPage({ params }: PageProps) {
           </dl>
         </SectionCard>
       </div>
-
-      <SectionCard className="mt-6" title="Remboursements Stripe">
-        <CommandeRefundsPanel
-          commandeId={commande.id}
-          refunds={refunds}
-          canRefund={userCanRefundOrders}
-        />
-      </SectionCard>
 
       <SectionCard className="mt-6">
         <h2 className="text-lg font-semibold">Articles</h2>

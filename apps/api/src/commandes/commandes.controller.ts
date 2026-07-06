@@ -15,18 +15,13 @@ import { BetterAuthGuard } from '../auth/better-auth.guard'
 import { ROLES } from '../auth/roles'
 import { Roles } from '../auth/roles.decorator'
 import { RolesGuard } from '../auth/roles.guard'
-import { CommandeRefundsService } from './commande-refunds.service'
 import { CommandesService } from './commandes.service'
-import { CreateCommandeRefundDto } from './dto/create-commande-refund.dto'
 import { CreateCommandeDto } from './dto/create-commande.dto'
 import { UpdateCommandeStatutDto } from './dto/update-commande-statut.dto'
 
 @Controller('commandes')
 export class CommandesController {
-  constructor(
-    private readonly commandesService: CommandesService,
-    private readonly commandeRefundsService: CommandeRefundsService,
-  ) {}
+  constructor(private readonly commandesService: CommandesService) {}
 
   @Post('checkout')
   createCheckout(@Body() body: CreateCommandeDto) {
@@ -82,24 +77,6 @@ export class CommandesController {
   @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.commandesService.findOne(id)
-  }
-
-  @Get(':id/refunds')
-  @UseGuards(BetterAuthGuard, RolesGuard)
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE)
-  listRefunds(@Param('id', ParseIntPipe) id: number) {
-    return this.commandeRefundsService.listForCommande(id)
-  }
-
-  @Post(':id/refunds')
-  @UseGuards(BetterAuthGuard, RolesGuard)
-  @Roles(ROLES.GERANT)
-  createRefund(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: CreateCommandeRefundDto,
-    @Req() request: Request & { userId?: string },
-  ) {
-    return this.commandeRefundsService.createRefund(id, body, request.userId)
   }
 
   @Patch(':id/statut')
