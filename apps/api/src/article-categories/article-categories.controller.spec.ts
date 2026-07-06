@@ -56,6 +56,14 @@ describe('ArticleCategoriesController', () => {
     await expect(controller.findAll('true')).resolves.toEqual(result)
   })
 
+  it('findOne should delegate to the service', async () => {
+    const result = { id: 1, name: 'Bocaux' }
+    articleCategoriesServiceMock.findOne.mockResolvedValue(result)
+
+    await expect(controller.findOne(1)).resolves.toEqual(result)
+    expect(articleCategoriesServiceMock.findOne).toHaveBeenCalledWith(1)
+  })
+
   it('create should delegate to the service', async () => {
     const body = { name: 'Packs' }
     const result = { id: 2, name: 'Packs' }
