@@ -219,7 +219,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
             </div>
 
             <p className="text-sm text-[#7a6d73]">
-              Marchés, ferme et AMAP selon disponibilité.
+              Marchés et ferme selon disponibilité.
             </p>
           </div>
 
