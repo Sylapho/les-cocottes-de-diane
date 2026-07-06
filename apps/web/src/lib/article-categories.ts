@@ -1,33 +1,21 @@
-export const articleCategories = [
-  'JARS',
-  'CUTS',
-  'PREPARATIONS',
-  'SKEWERS',
-  'EGGS',
-  'PACKS',
-  'OTHER',
-] as const
-
-export type ArticleCategory = (typeof articleCategories)[number]
-
-export const defaultArticleCategory: ArticleCategory = 'OTHER'
-
-export const articleCategoryLabels: Record<ArticleCategory, string> = {
-  JARS: 'Bocaux',
-  CUTS: 'Découpes',
-  PREPARATIONS: 'Préparations',
-  SKEWERS: 'Brochettes',
-  EGGS: 'Œufs',
-  PACKS: 'Packs',
-  OTHER: 'Autres',
+export type ArticleCategory = {
+  id: number
+  name: string
+  slug: string
+  description?: string | null
+  sortOrder: number
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+  _count?: {
+    articles: number
+  }
 }
 
-export function isArticleCategory(value: unknown): value is ArticleCategory {
-  return articleCategories.includes(value as ArticleCategory)
-}
+export const defaultArticleCategoryLabel = 'Autres'
 
-export function getArticleCategoryLabel(value: unknown) {
-  return articleCategoryLabels[
-    isArticleCategory(value) ? value : defaultArticleCategory
-  ]
+export function getArticleCategoryLabel(
+  category?: Pick<ArticleCategory, 'name'> | null,
+) {
+  return category?.name ?? defaultArticleCategoryLabel
 }

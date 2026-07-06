@@ -71,4 +71,14 @@ export async function truncateBusinessTables(prisma: PrismaService) {
     })),
     skipDuplicates: true,
   })
+
+  await prisma.articleCategory.create({
+    data: {
+      name: 'Autres',
+      slug: 'autres',
+      description: 'Articles sans categorie dediee.',
+      sortOrder: 999,
+      isActive: true,
+    },
+  })
 }

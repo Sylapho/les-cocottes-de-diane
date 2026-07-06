@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getArticle } from '@/lib/api'
+import { getArticle, getArticleCategories } from '@/lib/api'
 import EditArticleForm from '@/components/articles/edit-article-form'
 import { requireUiPermission } from '@/lib/auth-session'
 import { canManageArticles } from '@/lib/permissions'
@@ -14,7 +14,10 @@ export default async function EditArticlePage({ params }: PageProps) {
   await requireUiPermission(canManageArticles)
   const { id } = await params
   const articleId = Number(id)
-  const article = await getArticle(articleId)
+  const [article, categories] = await Promise.all([
+    getArticle(articleId),
+    getArticleCategories({ activeOnly: true }),
+  ])
 
   return (
     <main className="p-8">
@@ -33,7 +36,7 @@ export default async function EditArticlePage({ params }: PageProps) {
 
       <h1 className="mb-6 text-2xl font-bold">Modifier : {article.nom}</h1>
 
-      <EditArticleForm article={article} />
+      <EditArticleForm article={article} categories={categories} />
     </main>
   )
 }

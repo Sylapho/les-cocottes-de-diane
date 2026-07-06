@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
+import { ArticleCategoriesService } from '../article-categories/article-categories.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { ArticlesService } from './articles.service'
 import { CreateArticleDto } from './dto/create-article.dto'
@@ -37,6 +38,11 @@ describe('ArticlesService', () => {
     getSellableMatiereStock: jest.fn(),
   }
 
+  const articleCategoriesServiceMock = {
+    ensureAssignableCategory: jest.fn(),
+    ensureAssignableCategorySlug: jest.fn(),
+  }
+
   type TransactionClient = {
     $queryRaw: typeof prismaMock.$queryRaw
     article: typeof prismaMock.article
@@ -67,6 +73,10 @@ describe('ArticlesService', () => {
           provide: MouvementsStockService,
           useValue: mouvementsStockServiceMock,
         },
+        {
+          provide: ArticleCategoriesService,
+          useValue: articleCategoriesServiceMock,
+        },
       ],
     }).compile()
 
@@ -92,6 +102,10 @@ describe('ArticlesService', () => {
       (matieres: { id: number; stock: number }[]) =>
         new Map(matieres.map((matiere) => [matiere.id, matiere.stock])),
     )
+    articleCategoriesServiceMock.ensureAssignableCategory.mockResolvedValue(7)
+    articleCategoriesServiceMock.ensureAssignableCategorySlug.mockResolvedValue(
+      3,
+    )
   })
 
   it('should be defined', () => {
@@ -109,6 +123,7 @@ describe('ArticlesService', () => {
     await expect(service.findAll()).resolves.toEqual(articles)
     expect(prismaMock.article.findMany).toHaveBeenCalledWith({
       include: {
+        category: true,
         nomen: {
           include: {
             mp: true,
@@ -130,6 +145,7 @@ describe('ArticlesService', () => {
     expect(prismaMock.article.findUniqueOrThrow).toHaveBeenCalledWith({
       where: { id: 1 },
       include: {
+        category: true,
         nomen: {
           include: {
             mp: true,
@@ -161,7 +177,7 @@ describe('ArticlesService', () => {
     expect(prismaMock.article.create).toHaveBeenCalledWith({
       data: {
         nom: 'Pain au chocolat',
-        category: undefined,
+        categoryId: 7,
         prixCents: 150,
         tvaBps: 550,
         stock: 0,
@@ -172,6 +188,9 @@ describe('ArticlesService', () => {
         imageUrl: undefined,
       },
     })
+    expect(
+      articleCategoriesServiceMock.ensureAssignableCategory,
+    ).toHaveBeenCalledWith(undefined)
   })
 
   it('update should update an article', async () => {
@@ -190,8 +209,42 @@ describe('ArticlesService', () => {
       where: { id: 1 },
       data: {
         nom: undefined,
-        category: undefined,
+        categoryId: undefined,
         prixCents: 130,
+        tvaBps: undefined,
+        online: undefined,
+        description: undefined,
+        ingredients: undefined,
+        allergenes: undefined,
+        imageUrl: undefined,
+      },
+    })
+    expect(
+      articleCategoriesServiceMock.ensureAssignableCategory,
+    ).not.toHaveBeenCalled()
+  })
+
+  it('update should accept legacy article category values', async () => {
+    const updated = {
+      id: 1,
+      nom: 'Baguette tradition',
+      categoryId: 3,
+    }
+
+    prismaMock.article.update.mockResolvedValue(updated)
+
+    await expect(
+      service.update(1, { category: 'PREPARATIONS' }),
+    ).resolves.toEqual(updated)
+    expect(
+      articleCategoriesServiceMock.ensureAssignableCategorySlug,
+    ).toHaveBeenCalledWith('preparations')
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        nom: undefined,
+        categoryId: 3,
+        prixCents: undefined,
         tvaBps: undefined,
         online: undefined,
         description: undefined,

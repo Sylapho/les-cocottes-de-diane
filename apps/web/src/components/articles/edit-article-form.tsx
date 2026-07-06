@@ -3,13 +3,7 @@
 import ArticleImage from '@/components/articles/article-image'
 import type { Article } from '@/lib/api'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
-import {
-  articleCategories,
-  articleCategoryLabels,
-  defaultArticleCategory,
-  isArticleCategory,
-  type ArticleCategory,
-} from '@/lib/article-categories'
+import type { ArticleCategory } from '@/lib/article-categories'
 import { centsToEuros, eurosToCents } from '@/lib/money'
 import { useSessionFetch } from '@/lib/use-session-fetch'
 import Image from 'next/image'
@@ -18,21 +12,23 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react'
 
 type EditArticleFormProps = {
   article: Article
+  categories: ArticleCategory[]
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 const ARTICLE_IMAGE_MAX_SIZE_BYTES = 2 * 2048 * 2048
 const ARTICLE_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp'
 
-export default function EditArticleForm({ article }: EditArticleFormProps) {
+export default function EditArticleForm({
+  article,
+  categories,
+}: EditArticleFormProps) {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
 
   const [nom, setNom] = useState(article.nom)
-  const [category, setCategory] = useState<ArticleCategory>(
-    isArticleCategory(article.category)
-      ? article.category
-      : defaultArticleCategory,
+  const [categoryId, setCategoryId] = useState(
+    article.categoryId ?? categories[0]?.id ?? 0,
   )
   const [prix, setPrix] = useState(String(centsToEuros(article.prixCents)))
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -109,7 +105,7 @@ export default function EditArticleForm({ article }: EditArticleFormProps) {
 
     if (!response.ok) {
       throw new Error(
-        await getApiErrorMessage(response, 'Erreur lors de l’upload image.'),
+        await getApiErrorMessage(response, "Erreur lors de l'upload image."),
       )
     }
   }
@@ -127,7 +123,7 @@ export default function EditArticleForm({ article }: EditArticleFormProps) {
         },
         body: JSON.stringify({
           nom,
-          category,
+          categoryId: categoryId || undefined,
           prixCents: eurosToCents(Number(prix)),
           description: description || undefined,
           online,
@@ -184,16 +180,25 @@ export default function EditArticleForm({ article }: EditArticleFormProps) {
         <label htmlFor="category">Catégorie</label>
         <select
           id="category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as ArticleCategory)}
+          value={categoryId}
+          onChange={(e) => setCategoryId(Number(e.target.value))}
           className="rounded border px-3 py-2"
+          required
         >
-          {articleCategories.map((item) => (
-            <option key={item} value={item}>
-              {articleCategoryLabels[item]}
+          {article.category && !article.category.isActive ? (
+            <option value={article.category.id}>{article.category.name}</option>
+          ) : null}
+          {categories.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
             </option>
           ))}
         </select>
+        {categories.length === 0 ? (
+          <p className="text-sm text-red-600">
+            Aucune catégorie active disponible.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-1">
@@ -224,7 +229,7 @@ export default function EditArticleForm({ article }: EditArticleFormProps) {
           className="rounded border px-3 py-2"
         />
         <p className="text-sm text-gray-600">
-          Sélectionnez un nouveau fichier pour remplacer l’image actuelle.
+          Sélectionnez un nouveau fichier pour remplacer l&apos;image actuelle.
           Formats acceptés : JPEG, PNG ou WebP, 2 Mo maximum.
         </p>
         {imagePreviewUrl ? (
@@ -262,7 +267,7 @@ export default function EditArticleForm({ article }: EditArticleFormProps) {
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || categories.length === 0}
           className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
         >
           {loading ? 'Enregistrement...' : 'Enregistrer'}
