@@ -1,30 +1,27 @@
 'use client'
 
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
-import {
-  articleCategories,
-  articleCategoryLabels,
-  defaultArticleCategory,
-  type ArticleCategory,
-} from '@/lib/article-categories'
+import type { ArticleCategory } from '@/lib/article-categories'
 import { eurosToCents } from '@/lib/money'
 import { useSessionFetch } from '@/lib/use-session-fetch'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react'
 
+type NewArticleFormProps = {
+  categories: ArticleCategory[]
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 const ARTICLE_IMAGE_MAX_SIZE_BYTES = 2 * 2048 * 2048
 const ARTICLE_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp'
 
-export default function NewArticleForm() {
+export default function NewArticleForm({ categories }: NewArticleFormProps) {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
 
   const [nom, setNom] = useState('')
-  const [category, setCategory] = useState<ArticleCategory>(
-    defaultArticleCategory,
-  )
+  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? 0)
   const [prix, setPrix] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState('')
@@ -99,7 +96,7 @@ export default function NewArticleForm() {
 
     if (!response.ok) {
       throw new Error(
-        await getApiErrorMessage(response, 'Erreur lors de l’upload image.'),
+        await getApiErrorMessage(response, "Erreur lors de l'upload image."),
       )
     }
   }
@@ -117,7 +114,7 @@ export default function NewArticleForm() {
         },
         body: JSON.stringify({
           nom,
-          category,
+          categoryId: categoryId || undefined,
           prixCents: eurosToCents(Number(prix)),
           online: true,
           description: description || undefined,
@@ -176,16 +173,22 @@ export default function NewArticleForm() {
         <label htmlFor="category">Catégorie</label>
         <select
           id="category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as ArticleCategory)}
+          value={categoryId}
+          onChange={(e) => setCategoryId(Number(e.target.value))}
           className="rounded border px-3 py-2"
+          required
         >
-          {articleCategories.map((item) => (
-            <option key={item} value={item}>
-              {articleCategoryLabels[item]}
+          {categories.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
             </option>
           ))}
         </select>
+        {categories.length === 0 ? (
+          <p className="text-sm text-red-600">
+            Aucune catégorie active disponible.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-1">
@@ -214,7 +217,7 @@ export default function NewArticleForm() {
         {imagePreviewUrl ? (
           <Image
             src={imagePreviewUrl}
-            alt="Aperçu de l’image sélectionnée"
+            alt="Aperçu de l'image sélectionnée"
             width={128}
             height={128}
             unoptimized
@@ -227,7 +230,7 @@ export default function NewArticleForm() {
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || categories.length === 0}
         className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
       >
         {loading ? 'Création...' : 'Créer'}

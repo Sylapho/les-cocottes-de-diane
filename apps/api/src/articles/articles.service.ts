@@ -9,6 +9,7 @@ import { resolve, sep } from 'path'
 import { Prisma } from '../../prisma/generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
+import { ArticleCategoriesService } from '../article-categories/article-categories.service'
 import { CreateArticleDto } from './dto/create-article.dto'
 import { ProduceArticleDto } from './dto/produce-article.dto'
 import { UpdateArticleDto } from './dto/update-article.dto'
@@ -16,6 +17,16 @@ import { ARTICLE_IMAGE_UPLOAD_DIR } from './article-image-upload'
 
 const ARTICLE_IMAGE_FILENAME_PATTERN =
   /^article-\d+-\d+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i
+
+const LEGACY_ARTICLE_CATEGORY_SLUGS: Record<string, string> = {
+  JARS: 'bocaux',
+  CUTS: 'decoupes',
+  PREPARATIONS: 'preparations',
+  SKEWERS: 'brochettes',
+  EGGS: 'oeufs',
+  PACKS: 'packs',
+  OTHER: 'autres',
+}
 
 type ProductionArticle = {
   id: number
@@ -44,11 +55,13 @@ export class ArticlesService {
   constructor(
     private prisma: PrismaService,
     private readonly mouvementsStockService: MouvementsStockService,
+    private readonly articleCategoriesService: ArticleCategoriesService,
   ) {}
 
   findAll() {
     return this.prisma.article.findMany({
       include: {
+        category: true,
         nomen: {
           include: { mp: true },
         },
@@ -61,6 +74,7 @@ export class ArticlesService {
     return this.prisma.article.findUniqueOrThrow({
       where: { id },
       include: {
+        category: true,
         nomen: {
           include: { mp: true },
         },
@@ -68,11 +82,13 @@ export class ArticlesService {
     })
   }
 
-  create(data: CreateArticleDto) {
+  async create(data: CreateArticleDto) {
+    const categoryId = await this.resolveCategoryId(data, true)
+
     return this.prisma.article.create({
       data: {
         nom: data.nom,
-        category: data.category,
+        categoryId,
         prixCents: data.prixCents,
         tvaBps: data.tvaBps ?? 550,
         stock: 0,
@@ -85,12 +101,14 @@ export class ArticlesService {
     })
   }
 
-  update(id: number, data: UpdateArticleDto) {
+  async update(id: number, data: UpdateArticleDto) {
+    const categoryId = await this.resolveCategoryId(data, false)
+
     return this.prisma.article.update({
       where: { id },
       data: {
         nom: data.nom,
-        category: data.category,
+        categoryId,
         prixCents: data.prixCents,
         tvaBps: data.tvaBps,
         online: data.online,
@@ -509,6 +527,40 @@ export class ArticlesService {
     today.setHours(0, 0, 0, 0)
 
     return today
+  }
+
+  private async resolveCategoryId(
+    data: Pick<CreateArticleDto, 'category' | 'categoryId'>,
+    defaultWhenMissing: boolean,
+  ) {
+    if (data.categoryId !== undefined) {
+      return this.articleCategoriesService.ensureAssignableCategory(
+        data.categoryId,
+      )
+    }
+
+    if (data.category !== undefined) {
+      return this.articleCategoriesService.ensureAssignableCategorySlug(
+        this.getLegacyCategorySlug(data.category),
+      )
+    }
+
+    return defaultWhenMissing
+      ? this.articleCategoriesService.ensureAssignableCategory(undefined)
+      : undefined
+  }
+
+  private getLegacyCategorySlug(category: string) {
+    return (
+      LEGACY_ARTICLE_CATEGORY_SLUGS[category] ??
+      category
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+    )
   }
 
   private hasBusinessHistory(counts: {

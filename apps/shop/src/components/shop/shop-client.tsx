@@ -2,11 +2,7 @@
 
 import type { PickupPoint, ShopArticle } from '@/lib/api'
 import {
-  articleCategories,
-  articleCategoryLabels,
-  categoryFilterLabels,
   getArticleCategory,
-  type ArticleCategory,
   type CategoryFilter,
 } from '@/lib/article-categories'
 import {
@@ -29,7 +25,6 @@ type ShopClientProps = {
   pickupPoints: PickupPoint[]
 }
 
-const categories: CategoryFilter[] = ['ALL', ...articleCategories]
 const maxCartQuantity = 99
 
 function compareArticlesByPrice(first: ShopArticle, second: ShopArticle) {
@@ -58,7 +53,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
   const [category, setCategory] = useState<CategoryFilter>('ALL')
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [openCategories, setOpenCategories] = useState<
-    Partial<Record<ArticleCategory, boolean>>
+    Partial<Record<string, boolean>>
   >({})
 
 
@@ -80,6 +75,29 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
   const lines = useMemo(() => buildCartLines(cart, articles), [cart, articles])
   const total = lines.reduce((sum, line) => sum + line.totalCents, 0)
   const count = getCartCount(cart)
+  const categories = useMemo(() => {
+    const categoriesBySlug = new Map(
+      articles.map((article) => {
+        const articleCategory = getArticleCategory(article.category)
+
+        return [articleCategory.slug, articleCategory] as const
+      }),
+    )
+
+    return Array.from(categoriesBySlug.values()).sort((first, second) => {
+      const orderDifference = first.sortOrder - second.sortOrder
+
+      if (orderDifference !== 0) return orderDifference
+
+      return first.name.localeCompare(second.name, 'fr', {
+        sensitivity: 'base',
+      })
+    })
+  }, [articles])
+  const categoryFilters: CategoryFilter[] = [
+    'ALL',
+    ...categories.map((item) => item.slug),
+  ]
 
   const filteredArticles = articles
     .filter((article) => {
@@ -94,7 +112,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
       const matchesCategory =
         category === 'ALL'
           ? true
-          : getArticleCategory(article.category) === category
+          : getArticleCategory(article.category).slug === category
 
       const matchesAvailability = onlyAvailable ? article.stock > 0 : true
 
@@ -102,25 +120,25 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
     })
     .sort(compareArticlesByPrice)
 
-  const groupedArticles = articleCategories
+  const groupedArticles = categories
     .map((item) => ({
       category: item,
       articles: filteredArticles.filter(
-        (article) => getArticleCategory(article.category) === item,
+        (article) => getArticleCategory(article.category).slug === item.slug,
       ),
     }))
     .filter((group) => group.articles.length > 0)
 
-  function isCategoryOpen(categoryName: ArticleCategory, index: number) {
-    return openCategories[categoryName] ?? true
+  function isCategoryOpen(categorySlug: string) {
+    return openCategories[categorySlug] ?? true
   }
 
-  function toggleCategory(categoryName: ArticleCategory, index: number) {
-    const currentlyOpen = isCategoryOpen(categoryName, index)
+  function toggleCategory(categorySlug: string) {
+    const currentlyOpen = isCategoryOpen(categorySlug)
 
     setOpenCategories((currentCategories) => ({
       ...currentCategories,
-      [categoryName]: !currentlyOpen,
+      [categorySlug]: !currentlyOpen,
     }))
   }
 
@@ -264,11 +282,20 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
               placeholder="Rechercher un produit, un ingrédient, un allergène..."
               className="min-h-11 flex-1 rounded-full border border-[#e8e1e4] bg-white px-4 text-sm shadow-sm"
             />
+
+            <label className="flex min-h-11 items-center gap-2 rounded-full border border-[#e8e1e4] bg-white px-4 text-sm font-bold text-[#4a3d43] shadow-sm">
+              <input
+                type="checkbox"
+                checked={onlyAvailable}
+                onChange={(event) => setOnlyAvailable(event.target.checked)}
+              />
+              En stock
+            </label>
           </div>
         </div>
 
         <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-          {categories.map((item) => (
+          {categoryFilters.map((item) => (
             <button
               key={item}
               type="button"
@@ -279,7 +306,10 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
                   : 'border border-[#e8e1e4] bg-white text-[#4a3d43] hover:border-[#b5006e]'
               }`}
             >
-              {categoryFilterLabels[item]}
+              {item === 'ALL'
+                ? 'Toutes'
+                : categories.find((categoryItem) => categoryItem.slug === item)
+                    ?.name}
             </button>
           ))}
         </div>
@@ -290,23 +320,23 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
           <EmptyState message="Aucun produit ne correspond à cette recherche." />
         ) : (
           <div className="grid gap-5">
-            {groupedArticles.map((group, index) => {
-              const isOpen = isCategoryOpen(group.category, index)
+            {groupedArticles.map((group) => {
+              const isOpen = isCategoryOpen(group.category.slug)
 
               return (
                 <section
-                  key={group.category}
+                  key={group.category.slug}
                   className="overflow-hidden rounded-[1.5rem] border border-[#eee2e7] bg-white shadow-sm"
                 >
                   <button
                     type="button"
-                    onClick={() => toggleCategory(group.category, index)}
+                    onClick={() => toggleCategory(group.category.slug)}
                     className="flex w-full items-center justify-between gap-3 border-b border-[#eee2e7] bg-[#fffafb] px-4 py-3 text-left transition hover:bg-[#fceef6]"
                     aria-expanded={isOpen}
                   >
                     <div>
                       <h3 className="text-lg font-black text-[#181014]">
-                        {articleCategoryLabels[group.category]}
+                        {group.category.name}
                       </h3>
                       <p className="mt-0.5 text-xs font-semibold text-[#7a6d73]">
                         {group.articles.length} produit

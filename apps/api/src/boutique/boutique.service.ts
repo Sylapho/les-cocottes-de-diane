@@ -10,6 +10,19 @@ export class BoutiqueService {
       where: {
         online: true,
         archivedAt: null,
+        OR: [
+          {
+            categoryId: null,
+          },
+          {
+            category: {
+              isActive: true,
+            },
+          },
+        ],
+      },
+      include: {
+        category: true,
       },
       orderBy: {
         nom: 'asc',

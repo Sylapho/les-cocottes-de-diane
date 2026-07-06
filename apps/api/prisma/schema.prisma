@@ -16,7 +16,8 @@ datasource db {
 model Article {
   id              Int              @id @default(autoincrement())
   nom             String
-  category        ArticleCategory  @default(OTHER)
+  categoryId      Int?
+  category        ArticleCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   prixCents       Int
   tvaBps          Int              @default(550)
   stock           Int              @default(0)
@@ -38,17 +39,21 @@ model Article {
   @@index([online])
   @@index([online, archivedAt])
   @@index([archivedAt])
-  @@index([category])
+  @@index([categoryId])
 }
 
-enum ArticleCategory {
-  JARS
-  CUTS
-  PREPARATIONS
-  SKEWERS
-  EGGS
-  PACKS
-  OTHER
+model ArticleCategory {
+  id          Int       @id @default(autoincrement())
+  name        String
+  slug        String    @unique
+  description String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  articles    Article[]
+
+  @@index([isActive, sortOrder])
 }
 
 model MatierePremiere {

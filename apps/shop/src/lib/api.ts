@@ -7,6 +7,7 @@ const SERVER_API_URL = process.env.API_INTERNAL_URL ?? PUBLIC_API_URL
 export type ShopArticle = {
   id: number
   nom: string
+  categoryId?: number | null
   category?: ArticleCategory | null
   prixCents: number
   tvaBps: number

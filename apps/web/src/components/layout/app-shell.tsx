@@ -5,6 +5,7 @@ import {
   canAccessAdmin,
   canCreateSales,
   canManageCashRegister,
+  canManageArticles,
   canViewArticles,
   canViewCashRegister,
   canViewOrders,
@@ -86,6 +87,14 @@ const navItems: NavItem[] = [
     icon: 'articles',
     description: 'Catalogue boutique',
     canAccess: canViewArticles,
+  },
+  {
+    label: 'Catégories',
+    href: '/article-categories',
+    short: 'Cat.',
+    icon: 'articles',
+    description: 'Familles produits',
+    canAccess: canManageArticles,
   },
   {
     label: 'Stock',
