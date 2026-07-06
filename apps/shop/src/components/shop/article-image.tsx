@@ -29,9 +29,15 @@ export default function ArticleImage({ article, large = false }: ArticleImagePro
 
   return (
     <div
-      className={`flex ${heightClass} items-center justify-center rounded-t-[1.35rem] bg-[#fceef6] text-4xl font-black uppercase text-[#b5006e]`}
+      className={`relative ${heightClass} overflow-hidden rounded-t-[1.35rem] bg-[#fceef6]`}
     >
-      {article.nom.slice(0, 2)}
+      <Image
+        src="/logo.svg"
+        alt={article.nom}
+        fill
+        sizes={large ? '320px' : '160px'}
+        className="object-contain p-8"
+      />
     </div>
   )
 }

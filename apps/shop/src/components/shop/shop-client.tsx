@@ -559,8 +559,14 @@ function ProductThumbnail({ article }: { article: ShopArticle }) {
   }
 
   return (
-    <div className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-2xl bg-[#fceef6] text-lg font-black uppercase text-[#b5006e]">
-      {article.nom.slice(0, 2)}
+    <div className="relative h-[4.5rem] w-[4.5rem] overflow-hidden rounded-2xl bg-[#fceef6]">
+      <Image
+        src="/logo.svg"
+        alt={article.nom}
+        fill
+        sizes="72px"
+        className="object-contain p-2"
+      />
     </div>
   )
 }
