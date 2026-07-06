@@ -32,6 +32,24 @@ type ShopClientProps = {
 const categories: CategoryFilter[] = ['ALL', ...articleCategories]
 const maxCartQuantity = 99
 
+function compareArticlesByPrice(first: ShopArticle, second: ShopArticle) {
+  const priceDifference = first.prixCents - second.prixCents
+
+  if (priceDifference !== 0) {
+    return priceDifference
+  }
+
+  const nameDifference = first.nom.localeCompare(second.nom, 'fr', {
+    sensitivity: 'base',
+  })
+
+  if (nameDifference !== 0) {
+    return nameDifference
+  }
+
+  return first.id - second.id
+}
+
 export default function ShopClient({ articles, pickupPoints }: ShopClientProps) {
   const [cart, setCart] = useState<Cart>({})
   const [cartReady, setCartReady] = useState(false)
@@ -63,24 +81,26 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
   const total = lines.reduce((sum, line) => sum + line.totalCents, 0)
   const count = getCartCount(cart)
 
-  const filteredArticles = articles.filter((article) => {
-    const searchValue = search.trim().toLowerCase()
+  const filteredArticles = articles
+    .filter((article) => {
+      const searchValue = search.trim().toLowerCase()
 
-    const matchesSearch = searchValue
-      ? `${article.nom} ${article.description ?? ''} ${article.ingredients ?? ''} ${article.allergenes ?? ''}`
-          .toLowerCase()
-          .includes(searchValue)
-      : true
+      const matchesSearch = searchValue
+        ? `${article.nom} ${article.description ?? ''} ${article.ingredients ?? ''} ${article.allergenes ?? ''}`
+            .toLowerCase()
+            .includes(searchValue)
+        : true
 
-    const matchesCategory =
-      category === 'ALL'
-        ? true
-        : getArticleCategory(article.category) === category
+      const matchesCategory =
+        category === 'ALL'
+          ? true
+          : getArticleCategory(article.category) === category
 
-    const matchesAvailability = onlyAvailable ? article.stock > 0 : true
+      const matchesAvailability = onlyAvailable ? article.stock > 0 : true
 
-    return matchesSearch && matchesCategory && matchesAvailability
-  })
+      return matchesSearch && matchesCategory && matchesAvailability
+    })
+    .sort(compareArticlesByPrice)
 
   const groupedArticles = articleCategories
     .map((item) => ({

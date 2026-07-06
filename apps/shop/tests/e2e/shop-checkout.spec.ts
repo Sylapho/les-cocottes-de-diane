@@ -28,6 +28,9 @@ test('shop user can add a product and create a checkout session', async ({
     page.getByRole('heading', { name: 'Produits disponibles' }),
   ).toBeVisible()
   await expect(page.getByText('Terrine de volaille')).toBeVisible()
+  await expect(page.locator('article').first()).toContainText(
+    'Saucisse de poulet',
+  )
 
   await page
     .locator('article')
