@@ -25,7 +25,7 @@ export default async function CgvPage() {
       <LegalSection title="1. Objet">
         <p>
           Les présentes Conditions Générales de Vente définissent les droits et
-          obligations de <strong>[NOM DE LA SOCIÉTÉ]</strong> et de tout client
+          obligations de <strong>Les cocottes de Diane</strong> et de tout client
           consommateur effectuant une commande sur la boutique en ligne.
         </p>
         <p>
@@ -73,7 +73,7 @@ export default async function CgvPage() {
         </p>
         <p>
           Le prix applicable est celui affiché au moment de la validation de la
-          commande. <strong>[NOM DE LA SOCIÉTÉ]</strong> se réserve le droit de
+          commande. <strong>Les cocottes de Diane</strong> se réserve le droit de
           modifier ses prix à tout moment, sans effet sur les commandes déjà
           validées.
         </p>
@@ -105,7 +105,7 @@ export default async function CgvPage() {
         </p>
         <p>
           Les informations bancaires sont traitées par le prestataire de paiement
-          sécurisé et ne sont pas conservées par <strong>[NOM DE LA SOCIÉTÉ]</strong>.
+          sécurisé et ne sont pas conservées par <strong>Les cocottes de Diane</strong>.
         </p>
       </LegalSection>
 
@@ -136,7 +136,7 @@ export default async function CgvPage() {
       <LegalSection title="7. Non-retrait de commande">
         <p>
           En cas de non-retrait dans le délai prévu,{' '}
-          <strong>[NOM DE LA SOCIÉTÉ]</strong> pourra contacter le client afin de
+          <strong>Les cocottes de Diane</strong> pourra contacter le client afin de
           convenir d’une solution lorsque cela est possible.
         </p>
         <LegalNotice title="Produits périssables non retirés" variant="danger">
@@ -153,8 +153,8 @@ export default async function CgvPage() {
       <LegalSection title="8. Annulation de commande">
         <p>
           Le client peut demander l’annulation de sa commande en contactant{' '}
-          <strong>[NOM DE LA SOCIÉTÉ]</strong> à l’adresse{' '}
-          <strong>[EMAIL CONTACT]</strong>.
+          <strong>Les cocottes de Diane</strong> à l’adresse{' '}
+          <strong>quentin.baudoin27@gmail.com</strong>.
         </p>
         <p>
           L’annulation est possible tant que la commande n’a pas été préparée,
@@ -192,7 +192,7 @@ export default async function CgvPage() {
         <p>
           Pour les produits non périssables éligibles au droit de rétractation,
           le client peut exercer ce droit dans un délai de 14 jours en envoyant
-          une déclaration claire à <strong>[EMAIL CONTACT]</strong>.
+          une déclaration claire à <strong>quentin.baudoin27@gmail.com</strong>.
         </p>
       </LegalSection>
 
@@ -204,7 +204,7 @@ export default async function CgvPage() {
         <p>
           Toute demande relative à une non-conformité, un produit manquant, une
           erreur de commande ou un problème de qualité doit être adressée
-          rapidement à <strong>[EMAIL CONTACT]</strong>, accompagnée si possible
+          rapidement à <strong>quentin.baudoin27@gmail.com</strong>, accompagnée si possible
           du numéro de commande, de photographies et d’une description précise du
           problème.
         </p>
@@ -212,7 +212,7 @@ export default async function CgvPage() {
 
       <LegalSection title="11. Responsabilité liée aux produits alimentaires">
         <p>
-          <strong>[NOM DE LA SOCIÉTÉ]</strong> s’engage à préparer, conserver et
+          <strong>Les cocottes de Diane</strong> s’engage à préparer, conserver et
           remettre les produits dans le respect des règles d’hygiène et de
           sécurité alimentaire applicables.
         </p>
@@ -235,28 +235,21 @@ export default async function CgvPage() {
           au traitement de celle-ci, à la gestion du Click & Collect, à la
           relation client, à la facturation, au paiement, à la gestion des
           réclamations et au respect des obligations légales de{' '}
-          <strong>[NOM DE LA SOCIÉTÉ]</strong>.
+          <strong>Les cocottes de Diane</strong>.
         </p>
         <p>
           Le client dispose d’un droit d’accès, de rectification, d’effacement,
           d’opposition, de limitation du traitement et de portabilité de ses
           données, dans les conditions prévues par le RGPD. Pour exercer ses
-          droits, il peut écrire à <strong>[EMAIL CONTACT]</strong>.
+          droits, il peut écrire à <strong>quentin.baudoin27@gmail.com</strong>.
         </p>
       </LegalSection>
 
       <LegalSection title="13. Réclamations, médiation et litiges">
         <p>
           Pour toute réclamation, le client peut contacter{' '}
-          <strong>[NOM DE LA SOCIÉTÉ]</strong> à l’adresse{' '}
-          <strong>[EMAIL CONTACT]</strong>.
-        </p>
-        <p>
-          Médiateur de la consommation : <ToComplete>[NOM DU MÉDIATEUR]</ToComplete>
-          <br />
-          Adresse : <ToComplete>[ADRESSE DU MÉDIATEUR]</ToComplete>
-          <br />
-          Site internet : <ToComplete>[SITE DU MÉDIATEUR]</ToComplete>
+          <strong>Les cocottes de Diane</strong> à l’adresse{' '}
+          <strong>quentin.baudoin27@gmail.com</strong>.
         </p>
         <p>
           À défaut de solution amiable, le litige pourra être porté devant les
