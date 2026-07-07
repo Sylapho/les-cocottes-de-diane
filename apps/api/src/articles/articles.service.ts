@@ -246,9 +246,18 @@ export class ArticlesService {
       const article = await this.lockProductionArticle(tx, id)
 
       if (article.nomen.length === 0) {
-        throw new BadRequestException(
-          'Impossible de produire un article sans nomenclature',
+        const updatedArticle = await this.incrementProducedArticleStock(
+          tx,
+          article,
+          quantite,
+          expiresAt,
         )
+
+        return {
+          article: updatedArticle,
+          produced: quantite,
+          consumed: [],
+        }
       }
 
       const needs = this.aggregateProductionNeeds(article, quantite)
@@ -309,41 +318,11 @@ export class ArticlesService {
         })
       }
 
-      const updatedArticle = await tx.article.update({
-        where: { id },
-        data: {
-          stock: {
-            increment: quantite,
-          },
-        },
-        include: {
-          nomen: {
-            include: {
-              mp: true,
-            },
-          },
-        },
-      })
-
-      const articleMovement: Parameters<
-        MouvementsStockService['recordArticleMovement']
-      >[1] = {
-        articleId: id,
-        quantite,
-        stockAvant: article.stock,
-        stockApres: article.stock + quantite,
-        type: 'production',
-        motif: `Production de ${quantite} ${article.nom}`,
-        reference: `production:article:${id}`,
-      }
-
-      if (expiresAt) {
-        articleMovement.expiresAt = expiresAt
-      }
-
-      await this.mouvementsStockService.recordArticleMovement(
+      const updatedArticle = await this.incrementProducedArticleStock(
         tx,
-        articleMovement,
+        article,
+        quantite,
+        expiresAt,
       )
 
       return {
@@ -357,6 +336,49 @@ export class ArticlesService {
         })),
       }
     })
+  }
+
+  private async incrementProducedArticleStock(
+    tx: Prisma.TransactionClient,
+    article: ProductionArticle,
+    quantite: number,
+    expiresAt?: Date,
+  ) {
+    const updatedArticle = await tx.article.update({
+      where: { id: article.id },
+      data: {
+        stock: {
+          increment: quantite,
+        },
+      },
+      include: {
+        nomen: {
+          include: {
+            mp: true,
+          },
+        },
+      },
+    })
+
+    const articleMovement: Parameters<
+      MouvementsStockService['recordArticleMovement']
+    >[1] = {
+      articleId: article.id,
+      quantite,
+      stockAvant: article.stock,
+      stockApres: article.stock + quantite,
+      type: 'production',
+      motif: `Production de ${quantite} ${article.nom}`,
+      reference: `production:article:${article.id}`,
+    }
+
+    if (expiresAt) {
+      articleMovement.expiresAt = expiresAt
+    }
+
+    await this.mouvementsStockService.recordArticleMovement(tx, articleMovement)
+
+    return updatedArticle
   }
 
   private async lockProductionArticle(
@@ -533,6 +555,10 @@ export class ArticlesService {
     data: Pick<CreateArticleDto, 'category' | 'categoryId'>,
     defaultWhenMissing: boolean,
   ) {
+    if (data.categoryId === null) {
+      return null
+    }
+
     if (data.categoryId !== undefined) {
       return this.articleCategoriesService.ensureAssignableCategory(
         data.categoryId,

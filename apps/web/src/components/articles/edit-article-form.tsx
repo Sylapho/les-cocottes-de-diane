@@ -28,7 +28,7 @@ export default function EditArticleForm({
 
   const [nom, setNom] = useState(article.nom)
   const [categoryId, setCategoryId] = useState(
-    article.categoryId ?? categories[0]?.id ?? 0,
+    article.categoryId ?? 0,
   )
   const [prix, setPrix] = useState(String(centsToEuros(article.prixCents)))
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -123,7 +123,7 @@ export default function EditArticleForm({
         },
         body: JSON.stringify({
           nom,
-          categoryId: categoryId || undefined,
+          categoryId: categoryId || null,
           prixCents: eurosToCents(Number(prix)),
           description: description || undefined,
           online,
@@ -183,8 +183,8 @@ export default function EditArticleForm({
           value={categoryId}
           onChange={(e) => setCategoryId(Number(e.target.value))}
           className="rounded border px-3 py-2"
-          required
         >
+          <option value={0}>Aucune catégorie</option>
           {article.category && !article.category.isActive ? (
             <option value={article.category.id}>{article.category.name}</option>
           ) : null}
@@ -194,6 +194,9 @@ export default function EditArticleForm({
             </option>
           ))}
         </select>
+        <p className="text-sm text-gray-600">
+          La catégorie est optionnelle et pourra être ajoutée plus tard.
+        </p>
         {categories.length === 0 ? (
           <p className="text-sm text-red-600">
             Aucune catégorie active disponible.
@@ -267,7 +270,7 @@ export default function EditArticleForm({
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={loading || categories.length === 0}
+          disabled={loading}
           className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
         >
           {loading ? 'Enregistrement...' : 'Enregistrer'}
