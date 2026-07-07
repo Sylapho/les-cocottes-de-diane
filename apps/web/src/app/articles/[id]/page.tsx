@@ -45,6 +45,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     return total + Math.round(line.quantite * line.mp.coutUnitaireCents)
   }, 0)
   const margeCents = article.prixCents - coutTotalCents
+  const hasNomenclature = nomenclature.length > 0
 
   return (
     <main className="p-8">
@@ -93,11 +94,15 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             <>
               <p>
                 <span className="font-medium">Coût matières :</span>{' '}
-                {formatCurrencyFromCents(coutTotalCents)}
+                {hasNomenclature
+                  ? formatCurrencyFromCents(coutTotalCents)
+                  : 'Non calculé'}
               </p>
               <p>
                 <span className="font-medium">Marge brute estimée :</span>{' '}
-                {formatCurrencyFromCents(margeCents)}
+                {hasNomenclature
+                  ? formatCurrencyFromCents(margeCents)
+                  : 'Non calculée'}
               </p>
             </>
           ) : null}
@@ -154,7 +159,9 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             <div className="mt-4">
               <ProduceArticleForm
                 articleId={article.id}
-                maxQuantity={capacity.capacite}
+                maxQuantity={
+                  hasNomenclature ? capacity.capacite : undefined
+                }
               />
             </div>
           ) : null}
@@ -162,7 +169,9 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           <div className="mt-4 rounded bg-gray-50 p-4">
             <p>
               <span className="font-medium">Production possible :</span>{' '}
-              {capacity?.capacite ?? 0} unités
+              {hasNomenclature
+                ? `${capacity?.capacite ?? 0} unités`
+                : 'Non limitée par les matières premières'}
             </p>
 
             {capacity?.limitingIngredient ? (
@@ -178,6 +187,14 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             )}
           </div>
 
+          {userCanManageArticleProduction && !hasNomenclature ? (
+            <p className="mt-4 rounded bg-amber-50 p-4 text-sm text-amber-800">
+              Aucune nomenclature définie pour cet article. La création, la
+              modification, la vente et la production restent possibles. Aucune
+              matière première ne sera consommée pendant la production.
+            </p>
+          ) : null}
+
           <div className="grid gap-2">
             <p>
               <span className="font-medium">Nombre de matières :</span>{' '}
@@ -186,12 +203,16 @@ export default async function ArticleDetailPage({ params }: PageProps) {
 
             <p>
               <span className="font-medium">Coût matières estimé :</span>{' '}
-              {formatCurrencyFromCents(coutTotalCents)}
+              {hasNomenclature
+                ? formatCurrencyFromCents(coutTotalCents)
+                : 'Non calculé'}
             </p>
 
             <p>
               <span className="font-medium">Marge brute estimée :</span>{' '}
-              {formatCurrencyFromCents(margeCents)}
+              {hasNomenclature
+                ? formatCurrencyFromCents(margeCents)
+                : 'Non calculée'}
             </p>
           </div>
         </section>

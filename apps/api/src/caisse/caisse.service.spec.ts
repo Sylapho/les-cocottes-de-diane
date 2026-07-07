@@ -171,6 +171,33 @@ describe('CaisseService', () => {
     })
   })
 
+  it('getTodaySummary should handle sales without article nomenclature', async () => {
+    prismaMock.journeeCaisse.findUnique.mockResolvedValue(null)
+    prismaMock.vente.findMany.mockResolvedValue([
+      createVente({
+        mode: 'cb',
+        totalTtcCents: 1000,
+        totalHtCents: 900,
+        tvaCents: 100,
+        lignes: [createLigneVenteWithoutNomenclature({ quantite: 2 })],
+      }),
+    ])
+
+    await expect(service.getTodaySummary()).resolves.toMatchObject({
+      status: 'open',
+      totals: {
+        totalTtcCents: 1000,
+        totalHtCents: 900,
+        tvaCents: 100,
+        especesCents: 0,
+        cbCents: 1000,
+        chequesCents: 0,
+        margeCents: 900,
+        nbVentes: 1,
+      },
+    })
+  })
+
   it('closeToday should create a closed cash register day', async () => {
     const created = {
       id: 1,
@@ -279,6 +306,30 @@ function createLigneVente(data: {
           },
         },
       ],
+    },
+  }
+}
+
+function createLigneVenteWithoutNomenclature(data: { quantite: number }) {
+  return {
+    id: 1,
+    venteId: 1,
+    articleId: 1,
+    quantite: data.quantite,
+    prixUnitCents: 500,
+    tvaBps: 550,
+    article: {
+      id: 1,
+      nom: 'Baguette',
+      prixCents: 500,
+      tvaBps: 550,
+      stock: 10,
+      online: true,
+      emoji: '',
+      description: null,
+      createdAt: new Date('2026-05-23T08:00:00.000Z'),
+      updatedAt: new Date('2026-05-23T08:00:00.000Z'),
+      nomen: [],
     },
   }
 }

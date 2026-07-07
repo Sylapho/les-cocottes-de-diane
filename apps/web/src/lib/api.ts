@@ -41,7 +41,7 @@ export type Article = {
 
 export type ArticlePayload = {
   nom: string
-  categoryId?: number
+  categoryId?: number | null
   prixCents: number
   online?: boolean
   imageUrl?: string | null

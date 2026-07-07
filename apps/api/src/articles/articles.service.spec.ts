@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common'
+import { ConflictException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { ArticleCategoriesService } from '../article-categories/article-categories.service'
@@ -136,8 +136,8 @@ describe('ArticlesService', () => {
     })
   })
 
-  it('findOne should return one article', async () => {
-    const article = { id: 1, nom: 'Baguette', prixCents: 120 }
+  it('findOne should return one article without nomenclature', async () => {
+    const article = { id: 1, nom: 'Baguette', prixCents: 120, nomen: [] }
 
     prismaMock.article.findUniqueOrThrow.mockResolvedValue(article)
 
@@ -169,6 +169,7 @@ describe('ArticlesService', () => {
       stock: 0,
       online: true,
       imageUrl: null,
+      nomen: [],
     }
 
     prismaMock.article.create.mockResolvedValue(created)
@@ -177,7 +178,7 @@ describe('ArticlesService', () => {
     expect(prismaMock.article.create).toHaveBeenCalledWith({
       data: {
         nom: 'Pain au chocolat',
-        categoryId: 7,
+        categoryId: undefined,
         prixCents: 150,
         tvaBps: 550,
         stock: 0,
@@ -190,7 +191,7 @@ describe('ArticlesService', () => {
     })
     expect(
       articleCategoriesServiceMock.ensureAssignableCategory,
-    ).toHaveBeenCalledWith(undefined)
+    ).not.toHaveBeenCalled()
   })
 
   it('update should update an article', async () => {
@@ -253,6 +254,38 @@ describe('ArticlesService', () => {
         imageUrl: undefined,
       },
     })
+  })
+
+  it('update should clear an article category without requiring nomenclature', async () => {
+    const updated = {
+      id: 1,
+      nom: 'Baguette tradition',
+      categoryId: null,
+      nomen: [],
+    }
+
+    prismaMock.article.update.mockResolvedValue(updated)
+
+    await expect(service.update(1, { categoryId: null })).resolves.toEqual(
+      updated,
+    )
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        nom: undefined,
+        categoryId: null,
+        prixCents: undefined,
+        tvaBps: undefined,
+        online: undefined,
+        description: undefined,
+        ingredients: undefined,
+        allergenes: undefined,
+        imageUrl: undefined,
+      },
+    })
+    expect(
+      articleCategoriesServiceMock.ensureAssignableCategory,
+    ).not.toHaveBeenCalled()
   })
 
   it('updateImage should update an existing article image', async () => {
@@ -451,17 +484,58 @@ describe('ArticlesService', () => {
     })
   })
 
-  it('produce should reject an article without nomenclature', async () => {
-    prismaMock.article.findUniqueOrThrow.mockResolvedValue({
+  it('produce should increment article stock without raw material consumption when nomenclature is missing', async () => {
+    const article = {
       id: 1,
       nom: 'Baguette',
+      stock: 3,
       nomen: [],
+    }
+    const updatedArticle = {
+      ...article,
+      stock: 5,
+    }
+
+    prismaMock.article.findUniqueOrThrow.mockResolvedValue(article)
+    prismaMock.article.update.mockResolvedValue(updatedArticle)
+
+    await expect(service.produce(1, { quantite: 2 })).resolves.toEqual({
+      article: updatedArticle,
+      produced: 2,
+      consumed: [],
     })
 
-    await expect(service.produce(1, { quantite: 2 })).rejects.toBeInstanceOf(
-      BadRequestException,
-    )
     expect(prismaMock.$transaction).toHaveBeenCalled()
+    expect(prismaMock.matierePremiere.updateMany).not.toHaveBeenCalled()
+    expect(
+      mouvementsStockServiceMock.recordMatierePremiereMovement,
+    ).not.toHaveBeenCalled()
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        stock: {
+          increment: 2,
+        },
+      },
+      include: {
+        nomen: {
+          include: {
+            mp: true,
+          },
+        },
+      },
+    })
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(transactionClient, {
+      articleId: 1,
+      quantite: 2,
+      stockAvant: 3,
+      stockApres: 5,
+      type: 'production',
+      motif: 'Production de 2 Baguette',
+      reference: 'production:article:1',
+    })
   })
 
   it('produce should reject insufficient ingredients', async () => {
