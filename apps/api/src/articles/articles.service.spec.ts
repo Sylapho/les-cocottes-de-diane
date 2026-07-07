@@ -178,7 +178,7 @@ describe('ArticlesService', () => {
     expect(prismaMock.article.create).toHaveBeenCalledWith({
       data: {
         nom: 'Pain au chocolat',
-        categoryId: undefined,
+        categoryId: 7,
         prixCents: 150,
         tvaBps: 550,
         stock: 0,
@@ -191,7 +191,7 @@ describe('ArticlesService', () => {
     })
     expect(
       articleCategoriesServiceMock.ensureAssignableCategory,
-    ).not.toHaveBeenCalled()
+    ).toHaveBeenCalledWith(undefined)
   })
 
   it('update should update an article', async () => {

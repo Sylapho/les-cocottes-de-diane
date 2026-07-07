@@ -197,6 +197,11 @@ export default function EditArticleForm({
         <p className="text-sm text-gray-600">
           La catégorie est optionnelle et pourra être ajoutée plus tard.
         </p>
+        {categories.length === 0 ? (
+          <p className="text-sm text-red-600">
+            Aucune catégorie active disponible.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-1">

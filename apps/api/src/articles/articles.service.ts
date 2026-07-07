@@ -83,7 +83,7 @@ export class ArticlesService {
   }
 
   async create(data: CreateArticleDto) {
-    const categoryId = await this.resolveCategoryId(data)
+    const categoryId = await this.resolveCategoryId(data, true)
 
     return this.prisma.article.create({
       data: {
@@ -102,7 +102,7 @@ export class ArticlesService {
   }
 
   async update(id: number, data: UpdateArticleDto) {
-    const categoryId = await this.resolveCategoryId(data)
+    const categoryId = await this.resolveCategoryId(data, false)
 
     return this.prisma.article.update({
       where: { id },
@@ -553,6 +553,7 @@ export class ArticlesService {
 
   private async resolveCategoryId(
     data: Pick<CreateArticleDto, 'category' | 'categoryId'>,
+    defaultWhenMissing: boolean,
   ) {
     if (data.categoryId === null) {
       return null
@@ -570,7 +571,9 @@ export class ArticlesService {
       )
     }
 
-    return undefined
+    return defaultWhenMissing
+      ? this.articleCategoriesService.ensureAssignableCategory(undefined)
+      : undefined
   }
 
   private getLegacyCategorySlug(category: string) {
