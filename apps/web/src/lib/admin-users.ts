@@ -2,6 +2,7 @@ import 'server-only'
 
 import { auth } from '@/lib/auth'
 import { getCurrentAuthSession } from '@/lib/auth-session'
+import { canDeleteAdminUser } from '@/lib/admin-user-permissions'
 import { isRole, type Role } from '@/lib/roles'
 import { headers } from 'next/headers'
 import { Pool } from 'pg'
@@ -22,6 +23,16 @@ export type AdminUser = {
   email: string
   role: Role
   createdAt: Date
+}
+
+export class AdminUserDeletionError extends Error {
+  constructor(
+    readonly code: 'USER_NOT_FOUND' | 'SELF_DELETE_FORBIDDEN',
+    message: string,
+  ) {
+    super(message)
+    this.name = 'AdminUserDeletionError'
+  }
 }
 
 export async function requireGerantSession() {
@@ -54,6 +65,15 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
   }))
 }
 
+export async function getAdminUserById(userId: string) {
+  const result = await pool.query<{ id: string }>(
+    'SELECT id FROM "user" WHERE id = $1 LIMIT 1',
+    [userId],
+  )
+
+  return result.rows[0] ?? null
+}
+
 export async function updateUserRole(userId: string, role: Role) {
   await pool.query('UPDATE "user" SET role = $1, "updatedAt" = NOW() WHERE id = $2', [
     role,
@@ -81,4 +101,29 @@ export async function createEmployee(data: {
   await updateUserRole(user.user.id, data.role)
 
   return user
+}
+
+export async function deleteAdminUser(userId: string, currentUserId: string) {
+  if (!canDeleteAdminUser(userId, currentUserId)) {
+    throw new AdminUserDeletionError(
+      'SELF_DELETE_FORBIDDEN',
+      'Tu ne peux pas supprimer ton propre compte.',
+    )
+  }
+
+  const user = await getAdminUserById(userId)
+
+  if (!user) {
+    throw new AdminUserDeletionError(
+      'USER_NOT_FOUND',
+      "L'utilisateur demandé est introuvable.",
+    )
+  }
+
+  await auth.api.removeUser({
+    body: {
+      userId,
+    },
+    headers: await headers(),
+  })
 }

@@ -310,6 +310,23 @@ textarea::placeholder {
   font-weight: 800;
 }
 
+.lc-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lc-mobile-sign-out {
+  display: none;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--danger);
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .lc-page {
   margin: 0 auto;
   max-width: 1240px;
@@ -741,6 +758,14 @@ textarea::placeholder {
 
   .lc-topbar-action {
     display: none;
+  }
+
+  .lc-mobile-sign-out {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
   }
 
   .lc-page {

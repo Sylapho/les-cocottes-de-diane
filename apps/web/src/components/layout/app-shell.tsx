@@ -4,12 +4,9 @@ import { authClient } from '@/lib/auth-client'
 import {
   canAccessAdmin,
   canCreateSales,
-  canManageCashRegister,
   canManageArticles,
   canViewArticles,
-  canViewCashRegister,
   canViewOrders,
-  canViewStock,
   getUserRole,
   type UserWithRole,
 } from '@/lib/permissions'
@@ -388,11 +385,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <span>Connecte-toi pour accéder aux opérations internes</span>
             ) : null}
           </div>
-          {isLoaded && hasSession && canCreateSales(user) ? (
-            <Link href="/ventes/new" className="lc-topbar-action">
-              Nouvelle vente
-            </Link>
-          ) : null}
+          <div className="lc-topbar-actions">
+            {isLoaded && hasSession && canCreateSales(user) ? (
+              <Link href="/ventes/new" className="lc-topbar-action">
+                Nouvelle vente
+              </Link>
+            ) : null}
+            {isLoaded && hasSession ? (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="lc-mobile-sign-out"
+              >
+                Déconnexion
+              </button>
+            ) : null}
+          </div>
         </header>
 
         <div className="lc-content">{children}</div>
