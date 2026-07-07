@@ -5,6 +5,7 @@ import { PickupPointsModule } from '../pickup-points/pickup-points.module'
 import { CommandePreparationService } from './commande-preparation.service'
 import { CommandeProductionNeedsService } from './commande-production-needs.service'
 import { CommandePublicSummaryService } from './commande-public-summary.service'
+import { CommandeRefundsService } from './commande-refunds.service'
 import { CommandeStatusHistoryService } from './commande-status-history.service'
 import { CommandeStockReservationService } from './commande-stock-reservation.service'
 import { CommandesController } from './commandes.controller'
@@ -20,6 +21,7 @@ import { StripeCheckoutGateway } from './stripe-checkout.gateway'
     CommandePreparationService,
     CommandeProductionNeedsService,
     CommandePublicSummaryService,
+    CommandeRefundsService,
     CommandeStatusHistoryService,
     CommandeStockReservationService,
   ],

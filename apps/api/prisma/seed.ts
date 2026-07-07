@@ -29,6 +29,51 @@ type SeedArticle = {
   }>
 }
 
+const articleCategories = [
+  {
+    name: 'Bocaux',
+    slug: 'bocaux',
+    description: 'Terrines, rillettes, mousses et préparations en pot.',
+    sortOrder: 10,
+  },
+  {
+    name: 'Découpes',
+    slug: 'decoupes',
+    description: 'Découpes fraîches de volaille.',
+    sortOrder: 20,
+  },
+  {
+    name: 'Préparations',
+    slug: 'preparations',
+    description: 'Préparations bouchères et produits panés.',
+    sortOrder: 30,
+  },
+  {
+    name: 'Brochettes',
+    slug: 'brochettes',
+    description: 'Brochettes et pièces marinées.',
+    sortOrder: 40,
+  },
+  {
+    name: 'Oeufs',
+    slug: 'oeufs',
+    description: 'Oeufs et plateaux.',
+    sortOrder: 50,
+  },
+  {
+    name: 'Packs',
+    slug: 'packs',
+    description: 'Assortiments et packs familiaux.',
+    sortOrder: 60,
+  },
+  {
+    name: 'Autres',
+    slug: 'autres',
+    description: 'Articles sans catégorie dédiée.',
+    sortOrder: 999,
+  },
+] as const
+
 const matieresPremieres = [
   {
     key: 'whole_chicken',
@@ -282,8 +327,9 @@ async function main() {
 
   await resetDatabase(prisma)
   await seedPickupPoints(prisma)
+  const categories = await seedArticleCategories(prisma)
   const matieres = await seedMatieresPremieres(prisma)
-  const articles = await seedArticles(prisma, matieres)
+  const articles = await seedArticles(prisma, matieres, categories)
   await seedStockLots(prisma, matieres, articles)
 
   await prisma.$disconnect()
@@ -303,6 +349,7 @@ async function resetDatabase(prisma: PrismaClient) {
   await prisma.nomenclature.deleteMany()
   await prisma.matierePremiere.deleteMany()
   await prisma.article.deleteMany()
+  await prisma.articleCategory.deleteMany()
   await prisma.pickupPoint.deleteMany()
 }
 
@@ -344,17 +391,39 @@ async function seedMatieresPremieres(prisma: PrismaClient) {
   return seeded
 }
 
+async function seedArticleCategories(prisma: PrismaClient) {
+  const seeded = new Map<string, { id: number }>()
+
+  for (const category of articleCategories) {
+    const created = await prisma.articleCategory.create({
+      data: category,
+    })
+
+    seeded.set(category.slug, { id: created.id })
+  }
+
+  return seeded
+}
+
 async function seedArticles(
   prisma: PrismaClient,
   matieres: Map<string, { id: number }>,
+  categories: Map<string, { id: number }>,
 ) {
   const seeded = new Map<string, { id: number; stock: number }>()
 
   for (const article of buildArticles()) {
+    const categorySlug = getShopArticleCategorySlug(article.nom)
+    const category = categories.get(categorySlug) ?? categories.get('autres')
+
+    if (!category) {
+      throw new Error('Catégorie par défaut introuvable')
+    }
+
     const created = await prisma.article.create({
       data: {
         nom: article.nom,
-        category: getShopArticleCategory(article.nom),
+        categoryId: category.id,
         prixCents: eurosToCents(article.prix),
         tvaBps: 550,
         stock: article.stock,
@@ -591,15 +660,15 @@ async function seedStockLots(
   })
 }
 
-function getShopArticleCategory(nom: string) {
+function getShopArticleCategorySlug(nom: string) {
   const lowerName = nom.toLowerCase()
 
   if (lowerName.includes('pack')) {
-    return 'PACKS'
+    return 'packs'
   }
 
   if (lowerName.includes('oeufs')) {
-    return 'EGGS'
+    return 'oeufs'
   }
 
   if (
@@ -609,11 +678,11 @@ function getShopArticleCategory(nom: string) {
     lowerName.includes('gésiers') ||
     lowerName.includes('gesiers')
   ) {
-    return 'JARS'
+    return 'bocaux'
   }
 
   if (lowerName.includes('brochette')) {
-    return 'SKEWERS'
+    return 'brochettes'
   }
 
   if (
@@ -625,10 +694,10 @@ function getShopArticleCategory(nom: string) {
     lowerName.includes('chicken') ||
     lowerName.includes('milanaise')
   ) {
-    return 'PREPARATIONS'
+    return 'preparations'
   }
 
-  return 'CUTS'
+  return 'decoupes'
 }
 
 function getShopArticleIngredients(nom: string) {

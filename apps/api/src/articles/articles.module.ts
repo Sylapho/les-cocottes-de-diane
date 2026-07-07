@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common'
+import { ArticleCategoriesModule } from '../article-categories/article-categories.module'
+import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module'
 import { ArticlesController } from './articles.controller'
 import { ArticlesService } from './articles.service'
-import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module'
 
 @Module({
-  imports: [MouvementsStockModule],
+  imports: [ArticleCategoriesModule, MouvementsStockModule],
   controllers: [ArticlesController],
   providers: [ArticlesService],
 })

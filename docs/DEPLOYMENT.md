@@ -56,6 +56,12 @@ RESEND_API_KEY=<clé Resend réelle>
 RESEND_FROM_EMAIL=<adresse validée>
 ```
 
+Le endpoint Stripe doit pointer vers `/api/commandes/stripe/webhook` et recevoir
+au minimum `checkout.session.completed`, `checkout.session.expired`,
+`refund.created`, `refund.updated` et `refund.failed`. Les événements legacy
+`charge.refunded` et `charge.refund.updated` restent acceptés pour les comptes
+ou versions d'API Stripe qui les émettent encore.
+
 ### Web
 
 ```env

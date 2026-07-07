@@ -2,13 +2,8 @@ import 'server-only'
 
 import { getApiErrorMessage } from '@/lib/api-error'
 import type { ArticleCategory } from '@/lib/article-categories'
+import { serverApiFetch } from '@/lib/server-api'
 import { headers as nextHeaders } from 'next/headers'
-
-const API_URL = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL
-
-if (!API_URL) {
-  throw new Error('API_INTERNAL_URL ou NEXT_PUBLIC_API_URL est manquante')
-}
 
 async function apiFetch(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers)
@@ -19,7 +14,7 @@ async function apiFetch(path: string, init: RequestInit = {}) {
     headers.set('Cookie', cookie)
   }
 
-  return fetch(`${API_URL}${path}`, {
+  return serverApiFetch(path, {
     ...init,
     headers,
     credentials: 'include',
@@ -29,6 +24,7 @@ async function apiFetch(path: string, init: RequestInit = {}) {
 export type Article = {
   id: number
   nom: string
+  categoryId?: number | null
   category?: ArticleCategory | null
   prixCents: number
   tvaBps: number
@@ -45,7 +41,7 @@ export type Article = {
 
 export type ArticlePayload = {
   nom: string
-  category?: ArticleCategory
+  categoryId?: number
   prixCents: number
   online?: boolean
   imageUrl?: string | null
@@ -112,6 +108,64 @@ export async function deleteArticle(id: number): Promise<Article> {
   })
 
   return parseResponse<Article>(response)
+}
+
+export type ArticleCategoryPayload = {
+  name: string
+  slug?: string
+  description?: string | null
+  sortOrder?: number
+  isActive?: boolean
+}
+
+export async function getArticleCategories(
+  options: { activeOnly?: boolean } = {},
+): Promise<ArticleCategory[]> {
+  const query = options.activeOnly ? '?active=true' : ''
+  const response = await apiFetch(`/article-categories${query}`, {
+    cache: 'no-store',
+  })
+
+  return parseResponse<ArticleCategory[]>(response)
+}
+
+export async function createArticleCategory(
+  data: ArticleCategoryPayload,
+): Promise<ArticleCategory> {
+  const response = await apiFetch('/article-categories', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  })
+
+  return parseResponse<ArticleCategory>(response)
+}
+
+export async function updateArticleCategory(
+  id: number,
+  data: Partial<ArticleCategoryPayload>,
+): Promise<ArticleCategory> {
+  const response = await apiFetch(`/article-categories/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  })
+
+  return parseResponse<ArticleCategory>(response)
+}
+
+export async function deleteArticleCategory(
+  id: number,
+): Promise<ArticleCategory> {
+  const response = await apiFetch(`/article-categories/${id}`, {
+    method: 'DELETE',
+  })
+
+  return parseResponse<ArticleCategory>(response)
 }
 
 export type MatierePremiere = {
@@ -414,6 +468,7 @@ export type Commande = {
   dateRetrait?: string | null
   statut: CommandeStatut
   stripeId?: string | null
+  stripePaymentIntentId?: string | null
   createdAt: string
   lignes: LigneCommande[]
   historique?: CommandeStatutHistorique[]
@@ -433,6 +488,86 @@ export async function getCommande(id: number): Promise<Commande> {
   })
 
   return parseResponse<Commande>(response)
+}
+
+export type RefundStatus =
+  | 'pending'
+  | 'requires_action'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled'
+
+export type RefundAggregateStatus =
+  | 'none'
+  | 'partial'
+  | 'full'
+  | 'failed'
+  | 'pending'
+
+export type CommandeRefundReason =
+  | 'requested_by_customer'
+  | 'duplicate'
+  | 'fraudulent'
+  | 'other'
+
+export type CommandeRefund = {
+  id: number
+  commandeId: number
+  stripeRefundId?: string | null
+  stripePaymentIntentId: string
+  amountCents: number
+  currency: string
+  reason: string
+  internalNote?: string | null
+  status: RefundStatus
+  requestedByUserId?: string | null
+  stripeRawStatus?: string | null
+  failureReason?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CommandeRefundSummary = {
+  commandeId: number
+  totalAmountCents: number
+  refundedAmountCents: number
+  pendingAmountCents: number
+  refundableAmountCents: number
+  refundStatus: RefundAggregateStatus
+  isRefundable: boolean
+  refunds: CommandeRefund[]
+}
+
+export type CommandeRefundPayload = {
+  amountCents?: number
+  reason: CommandeRefundReason
+  internalNote?: string
+  requestId?: string
+}
+
+export async function getCommandeRefunds(
+  commandeId: number,
+): Promise<CommandeRefundSummary> {
+  const response = await apiFetch(`/commandes/${commandeId}/refunds`, {
+    cache: 'no-store',
+  })
+
+  return parseResponse<CommandeRefundSummary>(response)
+}
+
+export async function createCommandeRefund(
+  commandeId: number,
+  data: CommandeRefundPayload,
+): Promise<CommandeRefundSummary> {
+  const response = await apiFetch(`/commandes/${commandeId}/refunds`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  })
+
+  return parseResponse<CommandeRefundSummary>(response)
 }
 
 export type StripeReconciliationStatus =

@@ -1,7 +1,6 @@
-import { ArticleCategory } from '../../../prisma/generated/prisma/client'
 import {
   IsBoolean,
-  IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -13,8 +12,13 @@ export class CreateArticleDto {
   nom!: string
 
   @IsOptional()
-  @IsEnum(ArticleCategory)
-  category?: ArticleCategory
+  @IsInt()
+  @Min(1)
+  categoryId?: number
+
+  @IsOptional()
+  @IsString()
+  category?: string
 
   @IsNumber()
   @Min(0)
