@@ -48,22 +48,22 @@ const navItems: NavItem[] = [
     description: 'Vue générale',
     canAccess: () => true,
   },
-  {
-    label: 'Caisse',
-    href: '/caisse',
-    short: 'Caisse',
-    icon: 'cash-register',
-    description: 'Journée en cours',
-    canAccess: canViewCashRegister,
-  },
-  {
-    label: 'Ventes',
-    href: '/ventes/new',
-    short: 'Vente',
-    icon: 'sale',
-    description: 'Encaissement rapide',
-    canAccess: canCreateSales,
-  },
+  // {
+  //   label: 'Caisse',
+  //   href: '/caisse',
+  //   short: 'Caisse',
+  //   icon: 'cash-register',
+  //   description: 'Journée en cours',
+  //   canAccess: canViewCashRegister,
+  // },
+  // {
+  //   label: 'Ventes',
+  //   href: '/ventes/new',
+  //   short: 'Vente',
+  //   icon: 'sale',
+  //   description: 'Encaissement rapide',
+  //   canAccess: canCreateSales,
+  // },
   {
     label: 'Commandes',
     href: '/commandes',
@@ -72,14 +72,14 @@ const navItems: NavItem[] = [
     description: 'Click & Collect',
     canAccess: canViewOrders,
   },
-  {
-    label: 'Préparation',
-    href: '/preparation',
-    short: 'Prep',
-    icon: 'preparation',
-    description: 'Retraits à servir',
-    canAccess: canViewOrders,
-  },
+  // {
+  //   label: 'Préparation',
+  //   href: '/preparation',
+  //   short: 'Prep',
+  //   icon: 'preparation',
+  //   description: 'Retraits à servir',
+  //   canAccess: canViewOrders,
+  // },
   {
     label: 'Articles',
     href: '/articles',
@@ -96,22 +96,22 @@ const navItems: NavItem[] = [
     description: 'Familles produits',
     canAccess: canManageArticles,
   },
-  {
-    label: 'Stock',
-    href: '/stock',
-    short: 'Stock',
-    icon: 'stock',
-    description: 'Lots, DLC et alertes',
-    canAccess: canViewStock,
-  },
-  {
-    label: 'Historique',
-    href: '/caisse/journees',
-    short: 'Hist.',
-    icon: 'history',
-    description: 'Clôtures de caisse',
-    canAccess: canManageCashRegister,
-  },
+  // {
+  //   label: 'Stock',
+  //   href: '/stock',
+  //   short: 'Stock',
+  //   icon: 'stock',
+  //   description: 'Lots, DLC et alertes',
+  //   canAccess: canViewStock,
+  // },
+  // {
+  //   label: 'Historique',
+  //   href: '/caisse/journees',
+  //   short: 'Hist.',
+  //   icon: 'history',
+  //   description: 'Clôtures de caisse',
+  //   canAccess: canManageCashRegister,
+  // },
 ]
 
 const adminNavItems: NavItem[] = [
@@ -131,14 +131,14 @@ const adminNavItems: NavItem[] = [
     description: 'Points de retrait',
     canAccess: canAccessAdmin,
   },
-  {
-    label: 'Stripe',
-    href: '/admin/stripe-reconciliations',
-    short: 'Pay',
-    icon: 'stripe',
-    description: 'Paiements à vérifier',
-    canAccess: canAccessAdmin,
-  },
+  // {
+  //   label: 'Stripe',
+  //   href: '/admin/stripe-reconciliations',
+  //   short: 'Pay',
+  //   icon: 'stripe',
+  //   description: 'Paiements à vérifier',
+  //   canAccess: canAccessAdmin,
+  // },
 ]
 
 function NavIcon({

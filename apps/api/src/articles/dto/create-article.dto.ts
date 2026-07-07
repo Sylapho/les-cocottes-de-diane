@@ -14,7 +14,7 @@ export class CreateArticleDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  categoryId?: number
+  categoryId?: number | null
 
   @IsOptional()
   @IsString()

@@ -21,7 +21,7 @@ export default function NewArticleForm({ categories }: NewArticleFormProps) {
   const sessionFetch = useSessionFetch()
 
   const [nom, setNom] = useState('')
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? 0)
+  const [categoryId, setCategoryId] = useState(0)
   const [prix, setPrix] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState('')
@@ -114,7 +114,7 @@ export default function NewArticleForm({ categories }: NewArticleFormProps) {
         },
         body: JSON.stringify({
           nom,
-          categoryId: categoryId || undefined,
+          categoryId: categoryId || null,
           prixCents: eurosToCents(Number(prix)),
           online: true,
           description: description || undefined,
@@ -176,19 +176,17 @@ export default function NewArticleForm({ categories }: NewArticleFormProps) {
           value={categoryId}
           onChange={(e) => setCategoryId(Number(e.target.value))}
           className="rounded border px-3 py-2"
-          required
         >
+          <option value={0}>Aucune catégorie</option>
           {categories.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>
           ))}
         </select>
-        {categories.length === 0 ? (
-          <p className="text-sm text-red-600">
-            Aucune catégorie active disponible.
-          </p>
-        ) : null}
+        <p className="text-sm text-gray-600">
+          La catégorie est optionnelle et pourra être ajoutée plus tard.
+        </p>
       </div>
 
       <div className="grid gap-1">
@@ -230,7 +228,7 @@ export default function NewArticleForm({ categories }: NewArticleFormProps) {
 
       <button
         type="submit"
-        disabled={loading || categories.length === 0}
+        disabled={loading}
         className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
       >
         {loading ? 'Création...' : 'Créer'}
