@@ -86,7 +86,7 @@ export default function ConfidentialitePage() {
         <p>
           Pour exercer ses droits, le client peut contacter{' '}
           <strong>Les cocottes de Diane</strong> à l’adresse suivante :{' '}
-          <strong>contact@lescocottesdediane.fr</strong>.
+          <strong>quentin.baudoin27@gmail.com</strong>.
         </p>
         <p>
           Le client peut également introduire une réclamation auprès de la CNIL.
