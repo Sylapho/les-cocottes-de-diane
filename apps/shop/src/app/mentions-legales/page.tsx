@@ -38,7 +38,7 @@ export default function MentionsLegalesPage() {
           <strong>contact@lescocottesdediane.fr</strong>.
         </p>
         <p>
-          Téléphone : <ToComplete>à compléter si applicable</ToComplete>
+          Téléphone : <ToComplete>+33 7 70 15 83 02</ToComplete>
         </p>
       </LegalSection>
 
@@ -52,12 +52,12 @@ export default function MentionsLegalesPage() {
 
       <LegalSection title="Hébergement">
         <p>
-          Le site est hébergé par <strong>[NOM DE L’HÉBERGEUR]</strong>, situé à{' '}
-          <strong>[ADRESSE DE L’HÉBERGEUR]</strong>.
+          Le site est hébergé par <strong>OVH</strong>, situé à{' '}
+          <strong>2 RUE KELLERMANN 59100 ROUBAIX</strong>.
         </p>
         <p>
           Contact hébergeur :{' '}
-          <ToComplete>[EMAIL DE L’HÉBERGEUR]</ToComplete>
+          <ToComplete><a href="https://www.ovhcloud.com/fr/contact/" target="_blank" rel="noopener noreferrer">https://www.ovhcloud.com/fr/contact/</a></ToComplete>
         </p>
       </LegalSection>
 

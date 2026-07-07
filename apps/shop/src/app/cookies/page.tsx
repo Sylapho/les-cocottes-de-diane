@@ -57,7 +57,7 @@ export default function CookiesPage() {
         <p>
           Pour toute question relative aux cookies ou à vos données personnelles,
           vous pouvez contacter <strong>Les cocottes de Diane</strong> à l’adresse
-          suivante : <strong>contact@lescocottesdediane.fr</strong>.
+          suivante : <strong>quentin.baudoin27@gmail.com</strong>.
         </p>
       </LegalSection>
     </LegalPage>
