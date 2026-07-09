@@ -15,6 +15,7 @@ import {
 } from '@/lib/cart'
 import { getImageUrl } from '@/lib/image-url'
 import { formatPickupPoint } from '@/lib/pickup-points'
+import { getArticlePath } from '@/lib/seo'
 import ProductInfoPopover from './product-info-popover'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -522,12 +523,20 @@ function ProductRow({
 
   return (
     <article className="grid grid-cols-[4.5rem_1fr] gap-3 p-3 sm:grid-cols-[4.5rem_1fr_auto] sm:items-center sm:p-4">
-      <ProductThumbnail article={article} />
+      <Link
+        href={getArticlePath(article)}
+        aria-label={`Voir ${article.nom}`}
+        className="block"
+      >
+        <ProductThumbnail article={article} />
+      </Link>
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <h4 className="text-base font-black text-[#181014]">
-            {article.nom}
+            <Link href={getArticlePath(article)} className="hover:text-[#b5006e]">
+              {article.nom}
+            </Link>
           </h4>
 
           {article.allergenes ? (

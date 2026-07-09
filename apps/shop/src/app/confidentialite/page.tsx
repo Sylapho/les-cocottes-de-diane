@@ -4,7 +4,12 @@ import LegalPage, {
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Politique de confidentialité - Les cocottes de Diane',
+  title: 'Politique de confidentialité',
+  description:
+    'Politique de confidentialité de la boutique Click & Collect Les cocottes de Diane.',
+  alternates: {
+    canonical: '/confidentialite',
+  },
 }
 
 export default function ConfidentialitePage() {
