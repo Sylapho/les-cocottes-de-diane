@@ -1,6 +1,7 @@
 import { formatCurrencyFromCents } from '@/lib/money'
 import Link from 'next/link'
 import { getCheckoutSummary, type CheckoutSummary } from '@/lib/api'
+import type { Metadata } from 'next'
 
 type SuccessPageProps = {
   searchParams?: Promise<{
@@ -18,6 +19,14 @@ type SuccessPageState =
     }
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Confirmation de commande',
+  robots: {
+    index: false,
+    follow: false,
+  },
+}
 
 export default async function SuccessPage({ searchParams }: SuccessPageProps) {
   const params = searchParams ? await searchParams : {}

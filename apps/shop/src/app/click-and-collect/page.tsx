@@ -5,7 +5,12 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Click & Collect - Les cocottes de Diane',
+  title: 'Click & Collect',
+  description:
+    'Fonctionnement du Click & Collect pour commander les produits de Les cocottes de Diane en ligne.',
+  alternates: {
+    canonical: '/click-and-collect',
+  },
 }
 
 export default async function ClickAndCollectPage() {

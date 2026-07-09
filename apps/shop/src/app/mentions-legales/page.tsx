@@ -5,7 +5,12 @@ import LegalPage, {
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Mentions légales - Les cocottes de Diane',
+  title: 'Mentions légales',
+  description:
+    'Mentions légales et informations d’identification de la boutique Les cocottes de Diane.',
+  alternates: {
+    canonical: '/mentions-legales',
+  },
 }
 
 export default function MentionsLegalesPage() {

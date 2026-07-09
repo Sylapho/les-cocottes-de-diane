@@ -1,6 +1,14 @@
 import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import ShopFooter from '@/components/shop/shop-footer'
+import {
+  defaultSeoDescription,
+  defaultSeoTitle,
+  getAbsoluteShopUrl,
+  getShopBaseUrl,
+  isProductionShopIndexable,
+  siteName,
+} from '@/lib/seo'
 import './globals.css'
 
 const inter = Inter({
@@ -16,8 +24,40 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Les cocottes de Diane',
-  description: 'Commande en ligne',
+  metadataBase: getShopBaseUrl(),
+  title: {
+    default: defaultSeoTitle,
+    template: `%s | ${siteName}`,
+  },
+  description: defaultSeoDescription,
+  alternates: {
+    canonical: '/',
+  },
+  robots: isProductionShopIndexable()
+    ? {
+        index: true,
+        follow: true,
+      }
+    : {
+        index: false,
+        follow: false,
+      },
+  openGraph: {
+    type: 'website',
+    url: getAbsoluteShopUrl('/'),
+    siteName,
+    title: defaultSeoTitle,
+    description: defaultSeoDescription,
+    locale: 'fr_FR',
+    images: [
+      {
+        url: getAbsoluteShopUrl('/logo.svg'),
+        width: 512,
+        height: 512,
+        alt: siteName,
+      },
+    ],
+  },
   icons: {
     icon: '/logo.svg',
     shortcut: '/logo.svg',
