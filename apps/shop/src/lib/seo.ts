@@ -47,8 +47,8 @@ export const publicStaticRoutes = [
 
 export function getShopBaseUrl() {
   const configuredUrl =
-    process.env.NEXT_PUBLIC_SHOP_URL ??
     process.env.SHOP_PUBLIC_URL ??
+    process.env.NEXT_PUBLIC_SHOP_URL ??
     defaultShopUrl
 
   try {
@@ -63,7 +63,10 @@ export function getAbsoluteShopUrl(path = '/') {
 }
 
 export function isProductionShopIndexable() {
-  return getShopBaseUrl().origin === productionShopUrl
+  return (
+    process.env.NODE_ENV === 'production' &&
+    getShopBaseUrl().origin === productionShopUrl
+  )
 }
 
 export function slugify(value: string) {
