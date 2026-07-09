@@ -4,6 +4,8 @@ import {
   isProductionShopIndexable,
 } from '@/lib/seo'
 
+export const dynamic = 'force-dynamic'
+
 export default function robots(): MetadataRoute.Robots {
   if (!isProductionShopIndexable()) {
     return {
@@ -11,7 +13,6 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         disallow: '/',
       },
-      sitemap: getAbsoluteShopUrl('/sitemap.xml'),
     }
   }
 
