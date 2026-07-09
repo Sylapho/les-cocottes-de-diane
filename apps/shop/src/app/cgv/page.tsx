@@ -1,10 +1,15 @@
-import LegalPage, { LegalNotice, LegalSection, ToComplete } from '@/components/shop/legal-page'
+import LegalPage, { LegalNotice, LegalSection } from '@/components/shop/legal-page'
 import { getPickupPoints } from '@/lib/api'
 import { formatPickupPoint } from '@/lib/pickup-points'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'CGV - Les cocottes de Diane',
+  title: 'CGV',
+  description:
+    'Conditions générales de vente applicables aux commandes Click & Collect de Les cocottes de Diane.',
+  alternates: {
+    canonical: '/cgv',
+  },
 }
 
 export default async function CgvPage() {

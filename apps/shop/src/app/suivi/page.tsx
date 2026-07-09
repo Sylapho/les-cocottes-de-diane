@@ -1,6 +1,7 @@
 import { getCommandeTracking, type CommandeTrackingSummary } from '@/lib/api'
 import { formatCurrencyFromCents } from '@/lib/money'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 type SuiviPageProps = {
   searchParams?: Promise<{
@@ -18,6 +19,14 @@ type SuiviPageState =
     }
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Suivi de commande',
+  robots: {
+    index: false,
+    follow: false,
+  },
+}
 
 export default async function SuiviPage({ searchParams }: SuiviPageProps) {
   const params = searchParams ? await searchParams : {}

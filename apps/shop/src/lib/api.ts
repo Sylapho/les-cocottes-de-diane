@@ -18,6 +18,8 @@ export type ShopArticle = {
   ingredients?: string | null
   allergenes?: string | null
   archivedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
 }
 
 export type CreateCommandePayload = {
