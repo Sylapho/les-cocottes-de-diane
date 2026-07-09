@@ -43,6 +43,13 @@ Il contient les pages publiques statiques, la home et les fiches articles
 publiques construites à partir de l'API boutique. Les dates `lastModified` des
 articles utilisent `updatedAt` ou `createdAt` quand l'API les fournit.
 
+Les icônes publiques de la boutique sont servies depuis `public/favicon.ico`,
+`public/icon.png` et `public/apple-icon.png`, puis déclarées dans la metadata
+globale. Après un déploiement de production, vérifier que les URLs
+`/favicon.ico`, `/icon.png` et `/apple-icon.png` répondent en `200` sur
+`https://lescocottesdediane.fr`, et que le HTML contient des balises
+`link rel="icon"` sans URL locale.
+
 Pour tester localement :
 
 - lancer la boutique avec les variables d'environnement locales ;
