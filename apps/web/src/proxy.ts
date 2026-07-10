@@ -4,8 +4,11 @@ import { NextRequest, NextResponse } from 'next/server'
 const publicRoutes = [
   '/403',
   '/api/auth',
+  '/api/health',
   '/boutique',
+  '/health',
   '/sign-in',
+  '/uploads',
 ]
 
 function isPublicRoute(pathname: string) {
