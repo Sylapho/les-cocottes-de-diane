@@ -1,4 +1,6 @@
 import { HttpStatus } from '@nestjs/common'
+import { randomUUID } from 'node:crypto'
+import { isIP } from 'node:net'
 import type { NextFunction, Request, Response } from 'express'
 
 export type RateLimitEntry = {
@@ -25,6 +27,7 @@ type CheckoutRateLimitConfig = {
 
 const DEFAULT_WINDOW_MS = 60_000
 const DEFAULT_MAX_REQUESTS = 10
+const CHECKOUT_KEY_PREFIX = 'checkout'
 
 export class InMemoryCheckoutRateLimitStore implements CheckoutRateLimitStore {
   private readonly entries = new Map<string, RateLimitEntry>()
@@ -77,6 +80,12 @@ export function createCheckoutRateLimitMiddleware(
     }
 
     if (current.count >= maxRequests) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((current.resetAt - currentTime) / 1_000),
+      )
+
+      response.setHeader('Retry-After', String(retryAfterSeconds))
       response.status(HttpStatus.TOO_MANY_REQUESTS).json({
         statusCode: HttpStatus.TOO_MANY_REQUESTS,
         message: 'Trop de tentatives de paiement, veuillez reessayer bientot',
@@ -94,7 +103,35 @@ export function createCheckoutRateLimitMiddleware(
 }
 
 function getRequestKey(request: Request) {
-  return request.ip || request.socket.remoteAddress || 'unknown'
+  const clientIp = normalizeIpAddress(
+    request.ip || request.socket.remoteAddress || '',
+  )
+
+  if (!clientIp) {
+    return `${CHECKOUT_KEY_PREFIX}:unresolved:${randomUUID()}`
+  }
+
+  return `${CHECKOUT_KEY_PREFIX}:${clientIp}`
+}
+
+function normalizeIpAddress(address: string) {
+  const ipv4MappedPrefix = '::ffff:'
+  const normalized = address.toLowerCase().startsWith(ipv4MappedPrefix)
+    ? address.slice(ipv4MappedPrefix.length)
+    : address
+  const ipVersion = isIP(normalized)
+
+  if (ipVersion === 4) {
+    return normalized
+  }
+
+  if (ipVersion === 6) {
+    const hostname = new URL(`http://[${normalized}]/`).hostname
+
+    return hostname.slice(1, -1).toLowerCase()
+  }
+
+  return undefined
 }
 
 function parsePositiveInteger(value: string | undefined, fallback: number) {
