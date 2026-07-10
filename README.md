@@ -449,21 +449,21 @@ RESEND_FROM_EMAIL="Les cocottes de Diane <commande@example.com>"
 
 La CI GitHub Actions se déclenche sur :
 
-- les pull requests vers `main` ;
-- les pushes sur `main`.
+- les pull requests vers `main` et `develop` ;
+- les pushes sur `main` et `develop`.
 
 Elle utilise Node.js 22 et pnpm 10.33.0.
 
 Workflows actifs :
 
-- `CI` : lint, typecheck, tests unitaires API/Web, builds API/Web/Shop, E2E API PostgreSQL 16, E2E Shop Playwright, smoke full-stack, audit pnpm, build Docker et publication GHCR sur `main`.
+- `CI` : lint, typecheck, tests unitaires API/Web, builds API/Web/Shop, E2E API PostgreSQL 16, E2E Shop Playwright, smoke full-stack, audit pnpm, build Docker, publication GHCR et déploiements par manifeste immuable.
 - `Dependency Review` : analyse des changements de dépendances sur pull request.
 - `CodeQL` : analyse JavaScript/TypeScript sur pull request, push `main` et planification hebdomadaire.
 - `Dependabot` : mises à jour hebdomadaires pnpm/npm, GitHub Actions et Docker.
 
 Les rapports de couverture API et Playwright sont publiés comme artefacts CI. Le détail des jobs, des dépendances et des commandes locales équivalentes est documenté dans `docs/CI.md`.
 
-La CI construit des images de production pour API, Web et Shop. Aucune cible de déploiement n'est automatisée tant qu'un hébergeur réel n'est pas choisi ; le contrat attendu est documenté dans `docs/DEPLOYMENT.md`.
+Après publication des images API, Web et Shop, la CI génère un manifeste unique contenant leurs digests GHCR. Un push sur `develop` déploie ce manifeste en staging. Un push sur `main` le valide d'abord en staging, puis le propose sans reconstruction au job production protégé par l'environment GitHub `production`. Les health checks, l'historique de releases et le rollback applicatif automatique sont documentés dans [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Roadmap courte
 

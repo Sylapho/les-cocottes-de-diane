@@ -1,6 +1,6 @@
 # CI Les cocottes de Diane
 
-La CI est définie dans `.github/workflows/ci.yml` et se déclenche sur les pull requests vers `main` et les pushes sur `main`.
+La CI est définie dans `.github/workflows/ci.yml` et se déclenche sur les pull requests et pushes visant `main` ou `develop`.
 
 Les workflows de sécurité complémentaires sont :
 
@@ -24,7 +24,11 @@ Les workflows de sécurité complémentaires sont :
 | `shop-fullstack-smoke` | Aucune | Lance PostgreSQL 16, l'API réelle et la boutique, puis vérifie un affichage catalogue via API et base réelle. |
 | `dependency-audit` | Aucune | Exécute `pnpm audit --prod --audit-level high`. |
 | `docker-build` | Toutes les validations précédentes | Valide `docker compose config` et construit les images API, Web et Shop. |
-| `publish-images` | `docker-build` | Publie les images sur GHCR uniquement lors d'un push sur `main`. |
+| `deployment-validation` | Aucun | Valide la syntaxe Bash, ShellCheck et les règles du manifeste de release. |
+| `publish-images` | `docker-build` | Publie les images sur GHCR lors d'un push sur `main` ou `develop` et capture chaque digest. |
+| `generate-release` | `publish-images` | Crée et publie l'unique manifeste immuable des trois images. |
+| `deploy-staging` | `generate-release` | Transfère le Compose staging versionné, déploie le manifeste par digest et vérifie les trois applications. |
+| `deploy-production` | `deploy-staging`, `generate-release` | Sur `main`, transfère le Compose production versionné et promeut exactement le manifeste validé en staging. |
 
 Les jobs indépendants sont parallélisés par GitHub Actions. PostgreSQL n'est lancé que pour `api-e2e` et `shop-fullstack-smoke`.
 

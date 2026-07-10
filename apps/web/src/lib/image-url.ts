@@ -3,6 +3,10 @@ const PUBLIC_API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_PUBLIC_API_URL
 
 function getPublicApiOrigin() {
+  if (PUBLIC_API_URL.startsWith('/')) {
+    return ''
+  }
+
   try {
     return new URL(PUBLIC_API_URL).origin
   } catch {

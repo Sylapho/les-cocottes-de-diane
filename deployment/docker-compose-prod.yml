@@ -1,0 +1,100 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    env_file:
+      - ${APP_ENV_FILE:?APP_ENV_FILE is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - prod_internal
+
+  migrate:
+    image: ${API_IMAGE:?API_IMAGE is required}
+    pull_policy: always
+    env_file:
+      - ${APP_ENV_FILE:?APP_ENV_FILE is required}
+    entrypoint: ["./node_modules/.bin/prisma"]
+    command: ["migrate", "deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - prod_internal
+
+  api:
+    image: ${API_IMAGE:?API_IMAGE is required}
+    pull_policy: always
+    env_file:
+      - ${APP_ENV_FILE:?APP_ENV_FILE is required}
+    environment:
+      PORT: 4000
+    ports:
+      - "127.0.0.1:4200:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      prod_internal:
+      lcdd_proxy:
+        aliases:
+          - prod-api
+
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
+    pull_policy: always
+    env_file:
+      - ${APP_ENV_FILE:?APP_ENV_FILE is required}
+    environment:
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      API_INTERNAL_URL: http://api:4000/api
+      NEXT_PUBLIC_API_URL: /api
+    ports:
+      - "127.0.0.1:3200:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      prod_internal:
+      lcdd_proxy:
+        aliases:
+          - prod-web
+
+  shop:
+    image: ${SHOP_IMAGE:?SHOP_IMAGE is required}
+    pull_policy: always
+    env_file:
+      - ${APP_ENV_FILE:?APP_ENV_FILE is required}
+    environment:
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+      API_INTERNAL_URL: http://api:4000/api
+      NEXT_PUBLIC_API_URL: /api
+    ports:
+      - "127.0.0.1:3201:3001"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      prod_internal:
+      lcdd_proxy:
+        aliases:
+          - prod-shop
+
+volumes:
+  postgres_data:
+
+networks:
+  prod_internal:
+  lcdd_proxy:
+    external: true
