@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import {
+  CheckoutRateLimitStore,
   createCheckoutRateLimitMiddleware,
   getCheckoutRateLimitOptionsFromEnv,
 } from './checkout-rate-limit.middleware'
@@ -15,11 +16,13 @@ function createRequest(ip = '127.0.0.1') {
 
 function createResponse() {
   return {
+    setHeader: jest.fn(),
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
   } as unknown as Response & {
     status: jest.Mock
     json: jest.Mock
+    setHeader: jest.Mock
   }
 }
 
@@ -40,6 +43,7 @@ describe('createCheckoutRateLimitMiddleware', () => {
 
     expect(next).toHaveBeenCalledTimes(2)
     expect(response.status).toHaveBeenCalledWith(429)
+    expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '60')
     expect(response.json).toHaveBeenCalledWith({
       statusCode: 429,
       message: 'Trop de tentatives de paiement, veuillez reessayer bientot',
@@ -67,6 +71,48 @@ describe('createCheckoutRateLimitMiddleware', () => {
 
     expect(next).toHaveBeenCalledTimes(2)
     expect(response.status).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['::ffff:203.0.113.10', '203.0.113.10'],
+    ['2001:0db8:0000:0000:0000:0000:0000:0001', '2001:db8::1'],
+  ])('should normalize equivalent IP addresses', (firstIp, secondIp) => {
+    const middleware = createCheckoutRateLimitMiddleware({
+      windowMs: 60_000,
+      maxRequests: 1,
+      now: () => 1_000,
+    })
+    const next = jest.fn() as NextFunction
+    const response = createResponse()
+
+    middleware(createRequest(firstIp), response, next)
+    middleware(createRequest(secondIp), response, next)
+
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(response.status).toHaveBeenCalledWith(429)
+  })
+
+  it('should namespace checkout keys and avoid a shared missing-IP key', () => {
+    const keys: string[] = []
+    const store: CheckoutRateLimitStore = {
+      get: jest.fn(() => undefined),
+      set: jest.fn((key) => keys.push(key)),
+    }
+    const middleware = createCheckoutRateLimitMiddleware({ store })
+    const next = jest.fn() as NextFunction
+    const response = createResponse()
+    const requestWithoutIp = {
+      socket: {},
+    } as Request
+
+    middleware(createRequest('127.0.0.1'), response, next)
+    middleware(requestWithoutIp, response, next)
+    middleware(requestWithoutIp, response, next)
+
+    expect(keys[0]).toBe('checkout:127.0.0.1')
+    expect(keys[1]).toMatch(/^checkout:unresolved:/)
+    expect(keys[2]).toMatch(/^checkout:unresolved:/)
+    expect(keys[1]).not.toBe(keys[2])
   })
 })
 

@@ -136,6 +136,7 @@ BETTER_AUTH_URL=http://localhost:4000
 FRONTEND_URL=http://localhost:3000
 SHOP_PUBLIC_URL=http://localhost:3001
 API_CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+TRUSTED_PROXIES=
 CHECKOUT_RATE_LIMIT_WINDOW_MS=60000
 CHECKOUT_RATE_LIMIT_MAX=10
 
@@ -422,10 +423,16 @@ Les secrets Better Auth et les secrets OAuth ne doivent pas être exposés côt�
 
 `POST /api/commandes/checkout` est limite par IP avec :
 
+- `TRUSTED_PROXIES`
 - `CHECKOUT_RATE_LIMIT_WINDOW_MS`
 - `CHECKOUT_RATE_LIMIT_MAX`
 
-Le stockage actuel est en memoire et reste adapte au local ou a une instance API unique. Pour une production distribuee, la limite doit etre appliquee par une infrastructure partagee ou par un store distribue decide avec l'hebergement. La strategie est documentee dans `docs/CHECKOUT_RATE_LIMITING.md`.
+`TRUSTED_PROXIES` reste vide en acces direct et contient uniquement les IP/CIDR
+des proxies approuves en production. Express calcule alors l'adresse client sans
+faire confiance librement a `X-Forwarded-For`. Les reponses `429` incluent
+`Retry-After`.
+
+Le stockage actuel est en memoire et reste adapte au local ou a une instance API unique. Pour une production distribuee, la limite doit etre appliquee par une infrastructure partagee ou par un store distribue decide avec l'hebergement. La strategie proxy Caddy/Docker et les limites multi-instance sont documentees dans `docs/CHECKOUT_RATE_LIMITING.md`.
 
 ## Nettoyage des commandes abandonnées
 
