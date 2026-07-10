@@ -172,9 +172,10 @@ if ! "${CANDIDATE_COMPOSE[@]}" config --quiet; then
   exit 1
 fi
 
+candidate_services="$("${CANDIDATE_COMPOSE[@]}" config --services)"
 for required_service in \
   "$API_SERVICE" "$WEB_SERVICE" "$SHOP_SERVICE" "$MIGRATION_SERVICE"; do
-  if ! "${CANDIDATE_COMPOSE[@]}" config --services | grep -Fxq "$required_service"; then
+  if ! grep -Fxq "$required_service" <<< "$candidate_services"; then
     release_error "Candidate Docker Compose is missing service: ${required_service}"
     exit 1
   fi
