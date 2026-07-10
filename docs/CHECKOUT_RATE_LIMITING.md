@@ -1,71 +1,108 @@
 # Rate limit checkout
 
-## Objectif
+## Portee
 
-Le checkout est l'endpoint public le plus sensible de la boutique, car il cree
-une commande en attente et prepare une session Stripe Checkout.
-
-Les cocottes de Diane applique donc un rate limit sur :
-
-```txt
-POST /api/commandes/checkout
-```
-
-## Configuration
-
-Les variables suivantes restent configurables cote API :
+`POST /api/commandes/checkout` possede un middleware de limitation dedie. Les
+autres routes ne consomment pas son quota et son store n'est pas reutilise par
+un eventuel rate limiter global.
 
 | Variable | Defaut | Description |
 | --- | --- | --- |
 | `CHECKOUT_RATE_LIMIT_WINDOW_MS` | `60000` | Fenetre de comptage en millisecondes. |
-| `CHECKOUT_RATE_LIMIT_MAX` | `10` | Nombre maximal de tentatives par IP dans la fenetre. |
+| `CHECKOUT_RATE_LIMIT_MAX` | `10` | Nombre maximal de tentatives par adresse IP dans la fenetre. |
+| `TRUSTED_PROXIES` | vide | Liste separee par des virgules d'adresses IP ou CIDR de proxies approuves. |
 
-En local, ces valeurs peuvent rester dans `apps/api/.env` ou dans le `.env`
-racine utilise par Docker Compose.
+Les entrees `TRUSTED_PROXIES` acceptent IPv4, IPv6 et les CIDR correspondants.
+Une entree invalide empeche volontairement le demarrage de l'API. Une valeur
+vide configure Express avec `trust proxy = false`. Les alias Express comme
+`loopback`, les nombres de sauts et `true` sont refuses : le nombre de sauts
+peut varier entre le domaine API direct et le chemin Boutique -> Shop -> API.
 
-## Comportement local
+## Resolution securisee de l'adresse client
 
-L'implementation actuelle utilise un store en memoire, par processus Node.js.
-Elle est suffisante pour le developpement local et pour une instance API unique.
+Le middleware utilise `request.ip`, calcule par Express :
 
-Quand la limite est atteinte, l'API repond :
+- si le pair reseau direct n'est pas approuve, Express ignore la chaine
+  `X-Forwarded-For` pour calculer l'adresse client ;
+- si ce pair est approuve, Express parcourt la chaine depuis le pair le plus
+  proche et s'arrete au premier saut non approuve ;
+- le middleware ne lit jamais directement `X-Forwarded-For` ou `X-Real-IP` ;
+- les adresses IPv4 encapsulees sous la forme `::ffff:a.b.c.d` sont normalisees
+  en IPv4 afin de ne pas creer deux quotas pour le meme client ;
+- si aucune adresse valide n'est exceptionnellement disponible, une cle
+  aleatoire propre a la requete est utilisee. La limitation echoue alors de
+  maniere ouverte pour cette requete, sans regrouper tous les clients sous un
+  compteur commun.
 
-```json
-{
-  "statusCode": 429,
-  "message": "Trop de tentatives de paiement, veuillez reessayer bientot",
-  "error": "Too Many Requests"
-}
+Les cles du store ont la forme `checkout:<client-ip>`. Cet espace de noms et
+l'instance de store dediee isolent le checkout des autres limitations.
+
+## Caddy et Docker sur le VPS
+
+Le proxy reel est Caddy sur le reseau Docker externe `lcdd_proxy`. Il existe
+deux chemins vers NestJS :
+
+1. Caddy -> API pour `api.*` et les routes `/api/*` du back-office ;
+2. Caddy -> Shop -> API pour les appels `/api/*` faits sur le domaine boutique.
+
+La valeur de production doit donc approuver le pair Caddy **et** le conteneur
+Shop de l'environnement. L'option la plus stricte est une liste de leurs IP
+statiques sur `lcdd_proxy`. Si ces IP ne sont pas statiques, le CIDR exact de
+`lcdd_proxy` peut etre utilise uniquement si l'acces a ce reseau est administre
+et limite aux conteneurs de confiance.
+
+Determiner les valeurs reelles sur le VPS, sans recopier un sous-reseau
+d'exemple :
+
+```bash
+docker network inspect lcdd_proxy
 ```
 
-Le shop intercepte le statut HTTP `429` et affiche un message utilisateur propre
-au lieu d'exposer le detail technique.
+Puis configurer le fichier d'environnement propre a chaque deploiement, par
+exemple conceptuellement :
 
-## Limite du stockage memoire
+```env
+TRUSTED_PROXIES=<caddy-ip>/32,<prod-shop-ip>/32
+```
 
-Le store memoire n'est pas fiable en production distribuee :
+Pour staging, remplacer l'IP Shop par celle de `staging-shop`. Si les adresses
+sont dynamiques, reserver des IP stables dans la configuration Docker du proxy
+et du Shop, ou configurer le CIDR inspecte du reseau apres en avoir controle
+tous les membres. Ne jamais utiliser `true`, `0.0.0.0/0` ou `::/0`.
 
-- chaque instance API a son propre compteur ;
-- un redemarrage de processus remet les compteurs a zero ;
-- une charge repartie entre plusieurs instances peut contourner la limite ;
-- l'IP client peut dependre de la configuration proxy/ingress.
+Le fichier [`../deployment/Caddyfile.example`](../deployment/Caddyfile.example)
+montre les directives a reporter dans le Caddyfile du VPS. Il remplace
+explicitement `X-Forwarded-For` avec le pair direct vu par Caddy et transmet
+`X-Real-IP`, `X-Forwarded-Proto` et `Host`. Le proxy Next.js du Shop retransmet
+ensuite cette chaine controlee a l'API. Le port API publie par Compose reste lie
+a `127.0.0.1`, il ne doit pas etre expose publiquement.
 
-Cette limite est acceptable en local, mais pas comme unique protection pour une
-production multi-instance.
+En local, y compris avec le Compose de developpement qui ne contient aucun
+reverse proxy, conserver :
 
-## Strategie production attendue
+```env
+TRUSTED_PROXIES=
+```
 
-Sans decision d'hebergement, Les cocottes de Diane ne doit pas ajouter Redis ou un service
-externe uniquement pour ce ticket.
+## Reponse 429
 
-La strategie recommandee est :
+Quand le quota est atteint, l'API conserve son corps d'erreur habituel, retourne
+`429 Too Many Requests` et ajoute `Retry-After`. La valeur est le nombre de
+secondes, arrondi au-dessus et strictement positif, jusqu'a la date `resetAt`
+du compteur courant ; ce n'est pas une constante independante de la fenetre.
 
-1. garder le middleware local pour le developpement et les environnements simples ;
-2. appliquer en production un rate limit partage au niveau ingress, reverse proxy,
-   WAF, API gateway ou plateforme d'hebergement ;
-3. si l'infra retenue fournit deja un stockage partage, remplacer
-   `InMemoryCheckoutRateLimitStore` par un store distribue implementant
-   `CheckoutRateLimitStore`.
+## Limite du stockage en memoire
 
-Decision restante avant production : choisir l'endroit ou la limite partagee est
-appliquee selon l'hebergement final de l'API.
+Le store est local au processus Node.js :
+
+- chaque instance API possede ses propres compteurs ;
+- la limite effective peut etre multipliee par le nombre d'instances ;
+- un redemarrage remet les compteurs de cette instance a zero ;
+- un load balancer peut distribuer les requetes entre plusieurs quotas ;
+- la limitation n'est pas globale au cluster ni strictement distribuee.
+
+Ce comportement convient a l'instance API unique actuelle. Avant un reel
+deploiement multi-instance, remplacer `CheckoutRateLimitStore` par un stockage
+partage tel que Redis (avec des operations atomiques et une expiration), ou
+appliquer une limite partagee au niveau ingress/API gateway. Aucun Redis n'est
+ajoute par ce ticket.

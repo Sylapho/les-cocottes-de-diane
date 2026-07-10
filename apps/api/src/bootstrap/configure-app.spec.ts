@@ -3,6 +3,7 @@ import { configureApp } from './configure-app'
 describe('configureApp', () => {
   it('registers checkout rate limiting, validation and API prefix', () => {
     const app = {
+      set: jest.fn(),
       use: jest.fn(),
       useGlobalPipes: jest.fn(),
       setGlobalPrefix: jest.fn(),
@@ -10,6 +11,7 @@ describe('configureApp', () => {
 
     configureApp(app as never)
 
+    expect(app.set).toHaveBeenCalledWith('trust proxy', false)
     expect(app.use).toHaveBeenCalledWith(
       '/api/commandes/checkout',
       expect.any(Function),
