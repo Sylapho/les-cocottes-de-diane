@@ -28,13 +28,31 @@ done
 manifest_path=''
 compose_source_path=''
 arguments=("$@")
+declare -A option_values=()
 for ((index = 0; index < ${#arguments[@]}; index += 1)); do
-  if [[ "${arguments[index]}" == '--manifest' ]]; then
-    manifest_path="${arguments[index + 1]:-}"
-  elif [[ "${arguments[index]}" == '--compose-source' ]]; then
-    compose_source_path="${arguments[index + 1]:-}"
+  if [[
+    "${arguments[index]}" == --* &&
+    -n "${arguments[index + 1]:-}" &&
+    "${arguments[index + 1]}" != --*
+  ]]; then
+    option_values["${arguments[index]}"]="${arguments[index + 1]}"
   fi
 done
+
+for required_option in \
+  --environment --manifest --compose-source --compose-file --env-file \
+  --project-name --deployment-root --api-health-url --web-health-url \
+  --shop-health-url --expected-api-repository --expected-web-repository \
+  --expected-shop-repository; do
+  if [[ -z "${option_values[$required_option]:-}" ]]; then
+    printf 'ERROR: Missing required deployment option before SSH: %s\n' \
+      "$required_option" >&2
+    exit 2
+  fi
+done
+
+manifest_path="${option_values[--manifest]}"
+compose_source_path="${option_values[--compose-source]}"
 
 if [[ -z "$manifest_path" || ! -f "$manifest_path" ]]; then
   printf 'ERROR: --manifest must reference an existing local file\n' >&2
