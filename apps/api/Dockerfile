@@ -39,6 +39,7 @@ FROM base AS runtime
 
 ENV NODE_ENV=production
 ENV PORT=4000
+ENV UPLOADS_DIR=/app/uploads
 
 WORKDIR /app
 
@@ -53,6 +54,8 @@ COPY --from=build --chown=node:node /workspace/apps/api/package.json ./apps/api/
 COPY --from=build --chown=node:node /workspace/apps/api/prisma/schema.prisma ./apps/api/prisma/schema.prisma
 COPY --from=build --chown=node:node /workspace/apps/api/prisma/migrations ./apps/api/prisma/migrations
 COPY --from=build --chown=node:node /workspace/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+
+RUN install -d -o node -g node -m 0750 "$UPLOADS_DIR"
 
 WORKDIR /app/apps/api
 

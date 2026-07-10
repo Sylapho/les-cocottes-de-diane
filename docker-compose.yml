@@ -45,6 +45,7 @@ services:
     working_dir: /workspace
     command: sh -c "pnpm db:deploy && pnpm dev:api"
     environment:
+      UPLOADS_DIR: ${UPLOADS_DIR:-/workspace/uploads}
       NODE_ENV: development
       PORT: 4000
       DATABASE_URL: ${DATABASE_URL:-postgresql://localco:localco_dev@postgres:5432/localco_db}

@@ -17,6 +17,7 @@ Required options:
   --env-file PATH
   --project-name NAME
   --deployment-root PATH
+  --uploads-directory PATH
   --api-health-url URL
   --web-health-url URL
   --shop-health-url URL
@@ -43,6 +44,7 @@ COMPOSE_FILE=''
 ENV_FILE=''
 PROJECT_NAME=''
 DEPLOYMENT_ROOT=''
+UPLOADS_DIRECTORY=''
 API_HEALTH_URL=''
 WEB_HEALTH_URL=''
 SHOP_HEALTH_URL=''
@@ -66,6 +68,7 @@ while (($# > 0)); do
     --env-file) ENV_FILE="${2:-}"; shift 2 ;;
     --project-name) PROJECT_NAME="${2:-}"; shift 2 ;;
     --deployment-root) DEPLOYMENT_ROOT="${2:-}"; shift 2 ;;
+    --uploads-directory) UPLOADS_DIRECTORY="${2:-}"; shift 2 ;;
     --api-health-url) API_HEALTH_URL="${2:-}"; shift 2 ;;
     --web-health-url) WEB_HEALTH_URL="${2:-}"; shift 2 ;;
     --shop-health-url) SHOP_HEALTH_URL="${2:-}"; shift 2 ;;
@@ -83,7 +86,7 @@ while (($# > 0)); do
 done
 
 for required_value in \
-  ENVIRONMENT MANIFEST_PATH COMPOSE_SOURCE COMPOSE_FILE ENV_FILE PROJECT_NAME DEPLOYMENT_ROOT \
+  ENVIRONMENT MANIFEST_PATH COMPOSE_SOURCE COMPOSE_FILE ENV_FILE PROJECT_NAME DEPLOYMENT_ROOT UPLOADS_DIRECTORY \
   API_HEALTH_URL WEB_HEALTH_URL SHOP_HEALTH_URL EXPECTED_API_REPOSITORY \
   EXPECTED_WEB_REPOSITORY EXPECTED_SHOP_REPOSITORY; do
   if [[ -z "${!required_value}" ]]; then
@@ -93,9 +96,22 @@ for required_value in \
   fi
 done
 
-for required_command in docker jq curl grep; do
+for required_command in docker jq curl grep stat; do
   release_require_command "$required_command"
 done
+
+if [[ ! -d "$UPLOADS_DIRECTORY" ]]; then
+  release_error "Uploads directory does not exist: ${UPLOADS_DIRECTORY}"
+  release_error "Create it before deploying: sudo install -d -o 1000 -g 1000 -m 0750 '${UPLOADS_DIRECTORY}'"
+  exit 1
+fi
+
+uploads_owner="$(stat -c '%u:%g' "$UPLOADS_DIRECTORY")"
+uploads_mode="$(stat -c '%a' "$UPLOADS_DIRECTORY")"
+if [[ "$uploads_owner" != '1000:1000' || "$uploads_mode" != '750' ]]; then
+  release_error "Uploads directory must be owned by 1000:1000 with mode 0750; found ${uploads_owner} mode ${uploads_mode}"
+  exit 1
+fi
 
 if [[ ! -f "$COMPOSE_SOURCE" ]]; then
   release_error "Candidate Docker Compose file does not exist: ${COMPOSE_SOURCE}"
@@ -231,9 +247,26 @@ wait_for_health() {
 
 verify_release_health() {
   verify_running_images &&
+    verify_uploads_mount &&
     wait_for_health 'API readiness' "$API_HEALTH_URL" &&
     wait_for_health 'Back-office' "$WEB_HEALTH_URL" &&
     wait_for_health 'Shop' "$SHOP_HEALTH_URL"
+}
+
+verify_uploads_mount() {
+  local container_id
+  container_id="$("${COMPOSE[@]}" ps --quiet "$API_SERVICE")"
+
+  if [[ -z "$container_id" ]] || ! docker inspect "$container_id" | jq --exit-status \
+    --arg source "$UPLOADS_DIRECTORY" '
+      .[0].Mounts
+      | any(.Type == "bind" and .Source == $source and .Destination == "/app/uploads" and .RW == true)
+    ' >/dev/null; then
+    release_error "API does not have the expected writable uploads bind mount: ${UPLOADS_DIRECTORY} -> /app/uploads"
+    return 1
+  fi
+
+  printf 'API uploads bind mount is writable and points to %s\n' "$UPLOADS_DIRECTORY"
 }
 
 verify_service_image() {

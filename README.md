@@ -126,6 +126,7 @@ Variables utilisées côté API :
 ```env
 NODE_ENV=development
 PORT=4000
+UPLOADS_DIR=uploads
 
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 
@@ -144,6 +145,10 @@ STRIPE_WEBHOOK_SECRET=
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
 ```
+
+En production, les images envoyées sont conservées hors du conteneur API. La
+préparation du VPS, la migration initiale et les procédures de sauvegarde et de
+restauration sont détaillées dans [`docs/UPLOADS.md`](docs/UPLOADS.md).
 
 ### Web
 
