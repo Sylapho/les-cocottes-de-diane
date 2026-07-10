@@ -22,6 +22,7 @@ function getCorsOrigins() {
 }
 
 async function bootstrap() {
+  process.umask(0o027)
   ensureArticleImageUploadDir()
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

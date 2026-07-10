@@ -36,13 +36,16 @@ jobs:
           persist-credentials: false
 
       - name: Validate Bash syntax
-        run: bash -n scripts/deployment/*.sh
+        run: bash -n scripts/deployment/*.sh scripts/uploads/*.sh
 
       - name: Run ShellCheck
-        run: shellcheck -x -P scripts/deployment scripts/deployment/*.sh
+        run: shellcheck -x -P scripts/deployment:scripts/uploads scripts/deployment/*.sh scripts/uploads/*.sh
 
       - name: Test release manifest rules
         run: bash scripts/deployment/test-release-scripts.sh
+
+      - name: Test uploads backup and restore
+        run: bash scripts/uploads/test-upload-backup-restore.sh
 
       - name: Validate deployment Docker Compose files
         shell: bash
@@ -737,6 +740,7 @@ jobs:
             --env-file "$ENV_FILE" \
             --project-name "$COMPOSE_PROJECT_NAME" \
             --deployment-root "$DEPLOYMENT_ROOT" \
+            --uploads-directory /opt/les-cocottes-de-diane/staging/shared/uploads \
             --api-health-url "$API_HEALTH_URL" \
             --web-health-url "$WEB_HEALTH_URL" \
             --shop-health-url "$SHOP_HEALTH_URL" \
@@ -804,6 +808,7 @@ jobs:
             --env-file "$ENV_FILE" \
             --project-name "$COMPOSE_PROJECT_NAME" \
             --deployment-root "$DEPLOYMENT_ROOT" \
+            --uploads-directory /opt/les-cocottes-de-diane/prod/shared/uploads \
             --api-health-url "$API_HEALTH_URL" \
             --web-health-url "$WEB_HEALTH_URL" \
             --shop-health-url "$SHOP_HEALTH_URL" \

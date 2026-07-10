@@ -7,6 +7,10 @@ références GHCR immuables de l'API, du back-office et de la boutique.
 Le staging et la production consomment le même manifeste. La production ne
 reconstruit aucune image et ne recalcule aucun digest.
 
+La persistance, la migration initiale, la sauvegarde et la restauration des
+images envoyées sont documentées dans [`UPLOADS.md`](UPLOADS.md). Le répertoire
+doit être préparé avant le premier déploiement de cette version.
+
 ## Déclenchement
 
 - Une pull request vers `main` ou `develop` exécute les validations, sans
@@ -111,6 +115,14 @@ Le service de migration doit exécuter la commande existante
 applicatifs restent dans `.env.staging` ou `.env.prod` sur le VPS ; ils ne sont
 ni copiés dans le manifeste ni stockés comme artifact. La variable interne
 `APP_ENV_FILE` transmet à Compose le chemin absolu du fichier concerné.
+
+Chaque fichier d'environnement VPS doit aussi définir `TRUSTED_PROXIES` avec
+les IP/CIDR contrôlés du chemin entrant. Le Caddy actuel atteint directement
+l'API pour les domaines API/back-office, mais le domaine boutique suit le
+chemin Caddy -> Shop -> API : Caddy et le conteneur Shop concerné doivent donc
+être approuvés. Inspecter `lcdd_proxy` et suivre la procédure détaillée dans
+[`CHECKOUT_RATE_LIMITING.md`](CHECKOUT_RATE_LIMITING.md) avant de redémarrer
+l'API. Une valeur invalide bloque volontairement son démarrage.
 
 Le VPS doit fournir :
 
@@ -223,7 +235,21 @@ Le chemin `/health` est volontaire : le Caddyfile actuel route `/api/*` du
 back-office directement vers l'API NestJS. Utiliser `/api/health` sur ce domaine
 vérifierait donc le mauvais conteneur. `/health` passe bien par `prod-web` ou
 `staging-web`. Les domaines boutique passent de la même manière par `prod-shop`
-ou `staging-shop`; aucune modification Caddy n'est requise.
+ou `staging-shop`.
+
+Le Caddyfile du VPS doit reconstruire les en-têtes transmis à chaque upstream,
+notamment `X-Forwarded-For`, au lieu de conserver une valeur fournie par le
+client. Reporter le snippet de
+[`../deployment/Caddyfile.example`](../deployment/Caddyfile.example) sur toutes
+les directives `reverse_proxy`, puis valider et recharger Caddy :
+
+```bash
+docker exec <caddy-container> caddy validate --config /etc/caddy/Caddyfile
+docker exec <caddy-container> caddy reload --config /etc/caddy/Caddyfile
+```
+
+Le hash `basic_auth` de staging et les autres secrets restent exclusivement
+dans le Caddyfile réel du VPS et ne doivent pas être copiés dans l'exemple.
 
 ## Historique sur le VPS
 
@@ -295,6 +321,7 @@ sudo -u <deploy-user> \
   --env-file <absolute-env-path> \
   --project-name <compose-project> \
   --deployment-root "$DEPLOYMENT_ROOT" \
+  --uploads-directory /opt/les-cocottes-de-diane/prod/shared/uploads \
   --api-health-url <api-readiness-url> \
   --web-health-url <web-health-url> \
   --shop-health-url <shop-health-url> \

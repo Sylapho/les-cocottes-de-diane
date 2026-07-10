@@ -45,6 +45,7 @@ services:
     working_dir: /workspace
     command: sh -c "pnpm db:deploy && pnpm dev:api"
     environment:
+      UPLOADS_DIR: ${UPLOADS_DIR:-/workspace/uploads}
       NODE_ENV: development
       PORT: 4000
       DATABASE_URL: ${DATABASE_URL:-postgresql://localco:localco_dev@postgres:5432/localco_db}
@@ -53,6 +54,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       SHOP_PUBLIC_URL: ${SHOP_PUBLIC_URL:-http://localhost:3001}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       CHECKOUT_RATE_LIMIT_WINDOW_MS: ${CHECKOUT_RATE_LIMIT_WINDOW_MS:-60000}
       CHECKOUT_RATE_LIMIT_MAX: ${CHECKOUT_RATE_LIMIT_MAX:-10}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}

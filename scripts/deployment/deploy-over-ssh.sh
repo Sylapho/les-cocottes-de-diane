@@ -41,7 +41,7 @@ done
 
 for required_option in \
   --environment --manifest --compose-source --compose-file --env-file \
-  --project-name --deployment-root --api-health-url --web-health-url \
+  --project-name --deployment-root --uploads-directory --api-health-url --web-health-url \
   --shop-health-url --expected-api-repository --expected-web-repository \
   --expected-shop-repository; do
   if [[ -z "${option_values[$required_option]:-}" ]]; then
