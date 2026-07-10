@@ -174,8 +174,9 @@ Valeurs correspondant à l'infrastructure actuelle :
 
 `COMPOSE_PROJECT_NAME` doit impérativement rester identique au nom déjà utilisé
 pour l'environnement, car il participe au nom du volume `postgres_data`. Le
-script compare la valeur configurée aux labels des conteneurs existants dans le
-répertoire Compose et refuse le déploiement en cas de différence.
+script compare la valeur configurée aux labels des conteneurs actifs dans le
+répertoire Compose et refuse le déploiement en cas de différence. Les anciens
+conteneurs arrêtés d'un projet historique ne bloquent pas le déploiement.
 
 ## Déroulement d'un déploiement
 

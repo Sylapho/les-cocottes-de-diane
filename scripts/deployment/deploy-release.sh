@@ -130,7 +130,7 @@ APP_ENV_FILE="$ENV_FILE"
 export APP_ENV_FILE
 
 existing_project_names="$(
-  docker ps --all \
+  docker ps \
     --filter "label=com.docker.compose.project.working_dir=$(dirname "$COMPOSE_FILE")" \
     --format '{{.Label "com.docker.compose.project"}}'
 )"
