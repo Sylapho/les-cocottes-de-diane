@@ -7,6 +7,10 @@ références GHCR immuables de l'API, du back-office et de la boutique.
 Le staging et la production consomment le même manifeste. La production ne
 reconstruit aucune image et ne recalcule aucun digest.
 
+La persistance, la migration initiale, la sauvegarde et la restauration des
+images envoyées sont documentées dans [`UPLOADS.md`](UPLOADS.md). Le répertoire
+doit être préparé avant le premier déploiement de cette version.
+
 ## Déclenchement
 
 - Une pull request vers `main` ou `develop` exécute les validations, sans
@@ -295,6 +299,7 @@ sudo -u <deploy-user> \
   --env-file <absolute-env-path> \
   --project-name <compose-project> \
   --deployment-root "$DEPLOYMENT_ROOT" \
+  --uploads-directory /opt/les-cocottes-de-diane/prod/shared/uploads \
   --api-health-url <api-readiness-url> \
   --web-health-url <web-health-url> \
   --shop-health-url <shop-health-url> \

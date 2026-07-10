@@ -1,14 +1,15 @@
 import { BadRequestException } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import { mkdirSync } from 'fs'
-import { join } from 'path'
+import {
+  ARTICLE_UPLOADS_DIRECTORY,
+  UPLOADS_PUBLIC_PREFIX,
+  UPLOADS_ROOT,
+} from '../uploads/uploads-path'
 
 export const ARTICLE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024
-export const ARTICLE_IMAGE_UPLOAD_ROOT = join(process.cwd(), 'uploads')
-export const ARTICLE_IMAGE_UPLOAD_DIR = join(
-  ARTICLE_IMAGE_UPLOAD_ROOT,
-  'articles',
-)
+export const ARTICLE_IMAGE_UPLOAD_ROOT = UPLOADS_ROOT
+export const ARTICLE_IMAGE_UPLOAD_DIR = ARTICLE_UPLOADS_DIRECTORY
 
 const allowedMimeTypes = new Map([
   ['image/jpeg', 'jpg'],
@@ -16,8 +17,10 @@ const allowedMimeTypes = new Map([
   ['image/webp', 'webp'],
 ])
 
-export function ensureArticleImageUploadDir() {
-  mkdirSync(ARTICLE_IMAGE_UPLOAD_DIR, { recursive: true })
+export function ensureArticleImageUploadDir(
+  directory = ARTICLE_IMAGE_UPLOAD_DIR,
+) {
+  mkdirSync(directory, { recursive: true, mode: 0o750 })
 }
 
 export function articleImageFileFilter(
@@ -51,5 +54,5 @@ export function buildArticleImageFilename(articleId: string, mimetype: string) {
 }
 
 export function buildArticleImagePath(filename: string) {
-  return `/uploads/articles/${filename}`
+  return `${UPLOADS_PUBLIC_PREFIX}articles/${filename}`
 }
