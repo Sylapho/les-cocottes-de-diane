@@ -1,202 +1,334 @@
 # Déploiement Les cocottes de Diane
 
-Aucune cible de déploiement réelle n'est configurée dans le dépôt à ce stade. Il n'existe pas de configuration Vercel, Railway, Render, Fly.io, Kubernetes, Terraform, serveur SSH ou cloud provider vérifiable.
+Les déploiements sont automatisés par `.github/workflows/ci.yml` vers un VPS
+avec Docker Compose. Une release est un manifeste JSON contenant les trois
+références GHCR immuables de l'API, du back-office et de la boutique.
 
-La CI prépare donc la livraison jusqu'à la construction et, sur `main`, la publication optionnelle des images de production dans GitHub Container Registry.
+Le staging et la production consomment le même manifeste. La production ne
+reconstruit aucune image et ne recalcule aucun digest.
 
-Avant de déployer, vérifier que la démonstration locale fonctionne avec le scénario de [`docs/DEMO.md`](DEMO.md). Après déploiement, contrôler les health checks, la boutique, le back-office et un scénario de commande complet avec des clés Stripe de test.
+## Déclenchement
 
-## Images produites
+- Une pull request vers `main` ou `develop` exécute les validations, sans
+  publication ni déploiement.
+- Un push sur `develop` publie les trois images, crée un manifeste et déploie
+  ce manifeste en staging.
+- Un push sur `main` publie les trois images, crée un manifeste, le déploie et
+  le vérifie en staging, puis propose exactement ce même manifeste au job
+  `deploy-production`.
+- Le job de production utilise l'environment GitHub `production`. Sa
+  protection par approbateurs est configurée dans GitHub, pas dans le YAML.
 
-Sur un push réussi vers `main`, le workflow publie :
+Les groupes de concurrence `deploy-staging` et `deploy-production` empêchent
+deux déploiements simultanés sur un même environnement. Un déploiement en cours
+n'est pas annulé par l'arrivée d'un nouveau push.
 
-```txt
-ghcr.io/<owner>/localco-api:<sha>
-ghcr.io/<owner>/localco-web:<sha>
-ghcr.io/<owner>/localco-shop:<sha>
+## Construction neutre vis-à-vis de l'environnement
+
+Les images Next.js sont construites avec `NEXT_PUBLIC_API_URL=/api`. Les appels
+navigateur utilisent donc le même domaine que l'application. Les routes proxy
+Next.js transmettent ensuite les requêtes à `API_INTERNAL_URL`, fourni au
+runtime par chaque Docker Compose. Les uploads utilisent également un proxy en
+même origine.
+
+Cette configuration évite d'intégrer un domaine staging ou production dans le
+bundle JavaScript et permet de promouvoir les mêmes digests entre les deux
+environnements.
+
+## Images et manifeste
+
+Les repositories GHCR sont :
+
+```text
+ghcr.io/<owner>/les-cocottes-api
+ghcr.io/<owner>/les-cocottes-web
+ghcr.io/<owner>/les-cocottes-shop
 ```
 
-Le tag `main` peut aussi être publié, mais il ne doit jamais être utilisé seul pour un déploiement reproductible. Un déploiement de production doit référencer les images par digest.
+Les tags `staging`, `prod` et `<git-sha>` restent publiés uniquement pour la
+consultation du registre. Aucun déploiement ne les utilise. Le digest retourné
+par `docker/build-push-action` est enregistré par chaque entrée de la matrice,
+puis le job `generate-release` produit ce manifeste :
 
-## Ports
+```json
+{
+  "schemaVersion": 1,
+  "gitSha": "0123456789abcdef0123456789abcdef01234567",
+  "workflowRunId": "123456789",
+  "createdAt": "2026-07-10T12:00:00Z",
+  "images": {
+    "api": "ghcr.io/<owner>/les-cocottes-api@sha256:<64 caractères hexadécimaux>",
+    "web": "ghcr.io/<owner>/les-cocottes-web@sha256:<64 caractères hexadécimaux>",
+    "shop": "ghcr.io/<owner>/les-cocottes-shop@sha256:<64 caractères hexadécimaux>"
+  }
+}
+```
 
-| Image | Port | Commande |
+Le manifeste est refusé si :
+
+- sa structure, son SHA Git ou son identifiant de workflow est invalide ;
+- une des trois images est absente ;
+- une référence n'utilise pas `@sha256:` avec un digest complet ;
+- une image ne provient pas du repository GHCR attendu.
+
+L'artifact GitHub Actions se nomme `release-manifest-<git-sha>` et est conservé
+30 jours. Il ne contient aucun secret.
+
+## Docker Compose versionnés
+
+Les fichiers réellement déployés sont versionnés dans :
+
+- `deployment/docker-compose-staging.yml` ;
+- `deployment/docker-compose-prod.yml`.
+
+Le workflow transfère le fichier correspondant et l'installe atomiquement à
+l'emplacement défini par `COMPOSE_FILE`. Chaque service applicatif utilise la
+référence complète injectée par `deploy-release.sh` :
+
+```yaml
+services:
+  api:
+    image: ${API_IMAGE:?API_IMAGE is required}
+
+  migrate:
+    image: ${API_IMAGE:?API_IMAGE is required}
+    command: pnpm db:deploy
+
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
+
+  shop:
+    image: ${SHOP_IMAGE:?SHOP_IMAGE is required}
+```
+
+Les services réels sont `api`, `web`, `shop` et `migrate`. Ils ne construisent
+plus aucune référence depuis `IMAGE_TAG`, `staging`, `prod` ou `latest`. Le
+script vérifie la syntaxe Compose et la présence de ces quatre services avant
+de remplacer le fichier du VPS.
+
+Le service de migration doit exécuter la commande existante
+`pnpm db:deploy`, soit `prisma migrate deploy`, avec `${API_IMAGE}`. Les secrets
+applicatifs restent dans `.env.staging` ou `.env.prod` sur le VPS ; ils ne sont
+ni copiés dans le manifeste ni stockés comme artifact. La variable interne
+`APP_ENV_FILE` transmet à Compose le chemin absolu du fichier concerné.
+
+Le VPS doit fournir :
+
+- Docker Engine et Docker Compose v2 ;
+- `bash`, `curl` et `jq` ;
+- un accès en lecture aux trois packages GHCR pour l'utilisateur Docker ;
+- un utilisateur SSH autorisé à exécuter Docker et à écrire dans
+  `DEPLOYMENT_ROOT`.
+
+## Variables et secrets GitHub
+
+Créer les mêmes noms dans les environments GitHub `staging` et `production`,
+avec des valeurs propres à chacun.
+
+Secrets :
+
+| Nom | Description |
+| --- | --- |
+| `SSH_HOST` | Hôte du VPS |
+| `SSH_PORT` | Port SSH |
+| `SSH_USER` | Utilisateur de déploiement |
+| `SSH_PRIVATE_KEY` | Clé privée de déploiement |
+
+Variables :
+
+| Nom | Description |
+| --- | --- |
+| `ENVIRONMENT_URL` | URL affichée par l'environment GitHub |
+| `COMPOSE_FILE` | Chemin absolu où installer le Docker Compose sur le VPS |
+| `ENV_FILE` | Chemin absolu du fichier `.env` sur le VPS |
+| `COMPOSE_PROJECT_NAME` | Projet Compose, par exemple `cocottes-staging` |
+| `DEPLOYMENT_ROOT` | Répertoire des scripts, releases et états |
+| `API_HEALTH_URL` | URL publique complète de `/api/health/ready` |
+| `WEB_HEALTH_URL` | URL publique complète de `/health` du back-office |
+| `SHOP_HEALTH_URL` | URL publique complète de `/health` de la boutique |
+| `API_SERVICE` | Nom du service API, défaut `api` |
+| `WEB_SERVICE` | Nom du service back-office, défaut `web` |
+| `SHOP_SERVICE` | Nom du service boutique, défaut `shop` |
+| `MIGRATION_SERVICE` | Nom du service de migration, défaut `migrate` |
+
+Les anciens secrets `STAGING_SSH_*` doivent être recopiés sous les noms
+génériques ci-dessus dans l'environment `staging`. Les secrets de production
+doivent exister uniquement dans l'environment `production`.
+
+Valeurs correspondant à l'infrastructure actuelle :
+
+| Variable | Staging | Production |
 | --- | --- | --- |
-| `localco-api` | `4000` | `node dist/src/main.js` |
-| `localco-web` | `3000` | `node server.js` |
-| `localco-shop` | `3001` | `node server.js` |
+| `ENVIRONMENT_URL` | `https://dev.lescocottesdediane.fr` | `https://lescocottesdediane.fr` |
+| `COMPOSE_FILE` | `/opt/les-cocottes-de-diane/staging/docker-compose-staging.yml` | `/opt/les-cocottes-de-diane/prod/docker-compose-prod.yml` |
+| `ENV_FILE` | `/opt/les-cocottes-de-diane/staging/.env.staging` | `/opt/les-cocottes-de-diane/prod/.env.prod` |
+| `COMPOSE_PROJECT_NAME` | `cocottes-staging` | `cocottes-prod` |
+| `DEPLOYMENT_ROOT` | `/opt/les-cocottes-de-diane/staging/deployment` | `/opt/les-cocottes-de-diane/prod/deployment` |
+| `API_HEALTH_URL` | `https://dev.api.lescocottesdediane.fr/api/health/ready` | `https://api.lescocottesdediane.fr/api/health/ready` |
+| `WEB_HEALTH_URL` | `https://dev.app.lescocottesdediane.fr/health` | `https://app.lescocottesdediane.fr/health` |
+| `SHOP_HEALTH_URL` | `https://dev.lescocottesdediane.fr/health` | `https://lescocottesdediane.fr/health` |
+| `API_SERVICE` | `api` | `api` |
+| `WEB_SERVICE` | `web` | `web` |
+| `SHOP_SERVICE` | `shop` | `shop` |
+| `MIGRATION_SERVICE` | `migrate` | `migrate` |
 
-## Variables d'environnement
+`COMPOSE_PROJECT_NAME` doit impérativement rester identique au nom déjà utilisé
+pour l'environnement, car il participe au nom du volume `postgres_data`. Le
+script compare la valeur configurée aux labels des conteneurs actifs dans le
+répertoire Compose et refuse le déploiement en cas de différence. Les anciens
+conteneurs arrêtés d'un projet historique ne bloquent pas le déploiement.
 
-### API
+## Déroulement d'un déploiement
 
-```env
-NODE_ENV=production
-PORT=4000
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-BETTER_AUTH_SECRET=<secret long et aléatoire>
-BETTER_AUTH_URL=https://api.example.com
-FRONTEND_URL=https://admin.example.com
-SHOP_PUBLIC_URL=https://shop.example.com
-API_CORS_ORIGINS=https://admin.example.com,https://shop.example.com
-CHECKOUT_RATE_LIMIT_WINDOW_MS=60000
-CHECKOUT_RATE_LIMIT_MAX=10
-ABANDONED_ORDER_DELAY_MINUTES=60
-STRIPE_SECRET_KEY=<secret Stripe réel>
-STRIPE_WEBHOOK_SECRET=<secret webhook Stripe réel>
-STRIPE_WEBHOOK_PROCESSING_TIMEOUT_MS=300000
-STRIPE_RECONCILIATION_WORKER_ENABLED=true
-STRIPE_RECONCILIATION_WORKER_INTERVAL_MS=60000
-STRIPE_RECONCILIATION_BATCH_SIZE=10
-STRIPE_RECONCILIATION_MAX_ATTEMPTS=5
-STRIPE_RECONCILIATION_BACKOFF_BASE_MS=60000
-STRIPE_RECONCILIATION_BACKOFF_MAX_MS=3600000
-STRIPE_RECONCILIATION_LEASE_MS=300000
-RESEND_API_KEY=<clé Resend réelle>
-RESEND_FROM_EMAIL=<adresse validée>
+1. Les trois images sont construites et publiées.
+2. Leurs digests sont regroupés dans un unique `release.json` validé.
+3. Le job télécharge cet artifact et transfère le manifeste, les scripts et le
+   Docker Compose versionné vers un répertoire temporaire du VPS.
+4. Le script valide les outils, les chemins, le manifeste, les repositories,
+   les digests et la configuration Compose candidate. Le Compose validé est
+   ensuite installé atomiquement à son chemin définitif.
+5. Le manifeste candidat est copié dans
+   `DEPLOYMENT_ROOT/releases/<git-sha>/release.json`.
+6. Les quatre services `api`, `web`, `shop` et `migrate` téléchargent les
+   références exactes avec `docker compose pull`.
+7. `docker compose run --rm migrate` applique les migrations avec l'image API
+   de la release. Un échec arrête immédiatement le déploiement avant tout
+   remplacement de conteneur.
+8. `docker compose up -d --remove-orphans api web shop` démarre la release et
+   PostgreSQL via les dépendances Compose, sans relancer le service `migrate`.
+9. Le script vérifie d'abord que les conteneurs actifs utilisent exactement
+   les trois références par digest du manifeste, puis contrôle successivement
+   l'API, le back-office et la boutique. Par défaut, chaque contrôle dispose de
+   30 tentatives espacées de 5 secondes, avec des timeouts HTTP bornés.
+10. Après les trois succès uniquement, `state/current.json` devient le nouveau
+    manifeste et l'ancien `current.json` est copié atomiquement vers
+    `state/previous.json`.
+
+Le job production répète les étapes 3 à 10 avec le même artifact après le
+succès du staging et l'approbation GitHub éventuelle. Il ne reconstruit rien.
+
+## Endpoints vérifiés
+
+- API : `GET /api/health/ready`. La réponse doit être HTTP 2xx ; l'endpoint
+  vérifie PostgreSQL et la configuration Stripe/Resend existante.
+- Back-office : `GET /health`, endpoint public déterministe qui retourne
+  `{"status":"ok","service":"localco-web"}`.
+- Boutique : `GET /health`, endpoint public déterministe qui retourne
+  `{"status":"ok","service":"localco-shop"}`.
+
+Les URLs complètes proviennent exclusivement des variables de l'environment
+GitHub.
+
+Le chemin `/health` est volontaire : le Caddyfile actuel route `/api/*` du
+back-office directement vers l'API NestJS. Utiliser `/api/health` sur ce domaine
+vérifierait donc le mauvais conteneur. `/health` passe bien par `prod-web` ou
+`staging-web`. Les domaines boutique passent de la même manière par `prod-shop`
+ou `staging-shop`; aucune modification Caddy n'est requise.
+
+## Historique sur le VPS
+
+Chaque environnement possède son propre `DEPLOYMENT_ROOT` :
+
+```text
+DEPLOYMENT_ROOT/
+├── bin/
+│   ├── deploy-release.sh
+│   └── release-lib.sh
+├── releases/
+│   └── <git-sha>/
+│       └── release.json
+└── state/
+    ├── current.json
+    └── previous.json
 ```
 
-Le endpoint Stripe doit pointer vers `/api/commandes/stripe/webhook` et recevoir
-au minimum `checkout.session.completed`, `checkout.session.expired`,
-`refund.created`, `refund.updated` et `refund.failed`. Les événements legacy
-`charge.refunded` et `charge.refund.updated` restent acceptés pour les comptes
-ou versions d'API Stripe qui les émettent encore.
-
-### Web
-
-```env
-NODE_ENV=production
-PORT=3000
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-BETTER_AUTH_SECRET=<secret long et aléatoire>
-BETTER_AUTH_URL=https://api.example.com
-NEXT_PUBLIC_API_URL=https://api.example.com/api
-API_INTERNAL_URL=http://localco-api:4000/api
-NEXT_PUBLIC_AUTH_URL=https://api.example.com
-GITHUB_CLIENT_ID=<optionnel>
-GITHUB_CLIENT_SECRET=<optionnel>
-GOOGLE_CLIENT_ID=<optionnel>
-GOOGLE_CLIENT_SECRET=<optionnel>
-```
-
-### Shop
-
-```env
-NODE_ENV=production
-PORT=3001
-NEXT_PUBLIC_API_URL=https://api.example.com/api
-API_INTERNAL_URL=http://localco-api:4000/api
-```
-
-## Base de données et migrations
-
-PostgreSQL 16 est la version cible pour la CI et Docker Compose.
-
-Avant de migrer un volume PostgreSQL 15 existant vers PostgreSQL 16, faites une sauvegarde vérifiée. Ne supprimez pas les volumes pour réaliser cette migration.
-
-Les migrations Prisma doivent être appliquées par une tâche de release unique :
+Les écritures de `current.json` et `previous.json` utilisent un fichier
+temporaire suivi d'un `mv`. Pour connaître la release active :
 
 ```bash
-pnpm db:deploy
+jq '{gitSha, workflowRunId, images}' "$DEPLOYMENT_ROOT/state/current.json"
 ```
 
-Ne lancez pas automatiquement les migrations dans chaque réplique applicative, afin d'éviter des migrations concurrentes.
+## Rollback automatique
 
-## Health checks attendus
+Si `docker compose up` ou un health check échoue après remplacement :
 
-### API
+1. le workflow affiche les SHA candidat et courant ;
+2. il collecte `docker compose ps --all`, les inspections des conteneurs et
+   les 200 dernières lignes de logs API/Web/Shop ;
+3. il recharge `state/current.json`, qui n'a pas encore été modifié ;
+4. il redéploie les trois anciennes images par digest, sans migration ;
+5. il revérifie les trois endpoints ;
+6. il conserve l'ancien manifeste comme `current.json` ;
+7. il termine toujours en échec, même si le rollback a réussi.
 
-L'API expose deux endpoints de santé complémentaires :
+Les messages distinguent « déploiement échoué, rollback réussi » et
+« déploiement échoué, rollback également échoué ». Au premier déploiement,
+l'absence de `current.json` produit un échec explicite sans tentative de
+rollback impossible.
 
-- `GET /api/health` : vérifie uniquement que l'API répond. Ce check reste léger et ne dépend pas de PostgreSQL, Stripe ou Resend.
-- `GET /api/health/ready` : vérifie que l'instance est prête à recevoir du trafic. Ce check valide la disponibilité PostgreSQL via Prisma et indique si Stripe et Resend sont configurés.
+## Limite PostgreSQL
 
-Vérification locale :
+Le rollback est exclusivement applicatif. Aucune migration descendante ni
+restauration PostgreSQL automatique n'est exécutée. Toutes les migrations de
+staging et production doivent suivre une stratégie *expand and contract* et
+rester compatibles avec la release applicative précédente pendant la fenêtre
+de rollback.
+
+Une suppression ou transformation destructive doit être séparée en plusieurs
+releases : ajout compatible, migration des données et du code, puis retrait
+ultérieur après expiration de la fenêtre de retour arrière.
+
+## Restauration manuelle d'une release connue
+
+Sur le VPS, choisir un manifeste déjà validé, puis exécuter le script installé
+en mode restauration applicative. Ce mode saute volontairement les migrations :
 
 ```bash
-curl http://localhost:4000/api/health
-curl http://localhost:4000/api/health/ready
+sudo -u <deploy-user> \
+  "$DEPLOYMENT_ROOT/bin/deploy-release.sh" \
+  --application-restore \
+  --environment <staging|production> \
+  --manifest "$DEPLOYMENT_ROOT/releases/<git-sha>/release.json" \
+  --compose-source <absolute-compose-path> \
+  --compose-file <absolute-compose-path> \
+  --env-file <absolute-env-path> \
+  --project-name <compose-project> \
+  --deployment-root "$DEPLOYMENT_ROOT" \
+  --api-health-url <api-readiness-url> \
+  --web-health-url <web-health-url> \
+  --shop-health-url <shop-health-url> \
+  --expected-api-repository ghcr.io/<owner>/les-cocottes-api \
+  --expected-web-repository ghcr.io/<owner>/les-cocottes-web \
+  --expected-shop-repository ghcr.io/<owner>/les-cocottes-shop
 ```
 
-Vérification après déploiement :
+Après succès, le manifeste restauré devient `current.json` et la release qui
+était active devient `previous.json`. Après échec, le script tente de restaurer
+la release qui était encore courante et rend un code non nul.
+
+## Protection manuelle de la production dans GitHub
+
+Dans **Settings → Environments → production** :
+
+1. ajouter les approbateurs obligatoires (*required reviewers*) ;
+2. désactiver l'auto-approbation si l'organisation propose cette option ;
+3. limiter les branches de déploiement à `main` ;
+4. créer les quatre secrets SSH spécifiques à la production ;
+5. créer les variables production du tableau ci-dessus ;
+6. définir `ENVIRONMENT_URL` avec l'URL publique de production.
+
+GitHub bloque alors le job avant l'accès aux secrets de production. Cette
+protection ne peut pas être imposée entièrement depuis le workflow versionné.
+
+## Validations locales
 
 ```bash
-curl https://api.example.com/api/health
-curl https://api.example.com/api/health/ready
+bash -n scripts/deployment/*.sh
+shellcheck -x -P scripts/deployment scripts/deployment/*.sh
+bash scripts/deployment/test-release-scripts.sh
 ```
 
-`/api/health/ready` renvoie `200` quand l'instance est prête et `503` quand elle ne doit pas encore être considérée comme disponible. La réponse expose uniquement des statuts et booléens de configuration ; les secrets et valeurs des variables d'environnement ne sont jamais affichés.
-
-Exemple de réponse prête :
-
-```json
-{
-  "status": "ready",
-  "service": "localco-api",
-  "timestamp": "2026-06-19T00:00:00.000Z",
-  "checks": {
-    "database": {
-      "status": "up"
-    },
-    "stripe": {
-      "configured": true
-    },
-    "resend": {
-      "configured": true
-    }
-  }
-}
-```
-
-Exemple de réponse non prête :
-
-```json
-{
-  "status": "not_ready",
-  "service": "localco-api",
-  "timestamp": "2026-06-19T00:00:00.000Z",
-  "checks": {
-    "database": {
-      "status": "down"
-    },
-    "stripe": {
-      "configured": true
-    },
-    "resend": {
-      "configured": false
-    }
-  }
-}
-```
-
-### Autres services
-
-- Web : `GET /` doit répondre `200` une fois l'API et la base disponibles.
-- Shop : `GET /` doit répondre `200` une fois l'API disponible.
-- PostgreSQL : health check natif `pg_isready`.
-
-## Rollback
-
-1. Identifier le digest de l'image actuellement saine.
-2. Redéployer API, Web et Shop avec les digests précédents.
-3. Ne pas exécuter de rollback destructif de base sans procédure de restauration validée.
-4. Si une migration incompatible a été appliquée, restaurer depuis une sauvegarde plutôt que modifier une migration déjà appliquée.
-
-## Domaines à décider
-
-- Domaine public de l'API.
-- Domaine de l'interface interne Web.
-- Domaine public de la boutique Shop.
-- Origines CORS exactes.
-- URL publique Better Auth.
-- URL de retour Stripe Checkout.
-
-## Informations manquantes pour terminer le CD
-
-- Hébergeur ou orchestrateur cible.
-- Stratégie réseau entre API, Web, Shop et PostgreSQL.
-- Gestionnaire de secrets.
-- Stratégie d'exécution des migrations.
-- Stratégie de sauvegarde/restauration PostgreSQL.
-- Environments GitHub et approbations de production.
-- Politique de rollback par digest.
+Le test couvre un manifeste valide, un manifeste incomplet, une référence par
+tag mutable, l'absence de rollback, la sélection de la release courante pour
+un rollback automatique et la sélection de `previous.json`.
