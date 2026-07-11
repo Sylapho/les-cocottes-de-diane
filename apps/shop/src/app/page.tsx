@@ -8,6 +8,7 @@ import {
   siteName,
 } from '@/lib/seo'
 import type { Metadata } from 'next'
+import { getConfiguredSocialUrls } from '@/lib/social-links'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,7 @@ export default async function Home() {
     getShopArticles(),
     getPickupPoints(),
   ])
+  const socialUrls = getConfiguredSocialUrls()
 
   const localBusinessJsonLd = {
     '@context': 'https://schema.org',
@@ -48,6 +50,7 @@ export default async function Home() {
       addressCountry: 'FR',
     },
     areaServed: 'Eure, France',
+    ...(socialUrls.length > 0 ? { sameAs: socialUrls } : {}),
     makesOffer: {
       '@type': 'Offer',
       itemOffered: {
