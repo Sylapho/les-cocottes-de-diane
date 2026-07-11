@@ -525,6 +525,8 @@ jobs:
     name: Publish images to GHCR
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     needs:
       - docker-build
     if: >-
@@ -608,6 +610,8 @@ jobs:
             DATABASE_URL=postgresql://localco:localco_dev@localhost:5432/localco_build
             BETTER_AUTH_SECRET=localco-ci-better-auth-secret-placeholder
             BETTER_AUTH_URL=${{ steps.target.outputs.auth_url }}
+            NEXT_PUBLIC_FACEBOOK_URL=${{ matrix.key == 'shop' && vars.NEXT_PUBLIC_FACEBOOK_URL || '' }}
+            NEXT_PUBLIC_INSTAGRAM_URL=${{ matrix.key == 'shop' && vars.NEXT_PUBLIC_INSTAGRAM_URL || '' }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
           cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
 
