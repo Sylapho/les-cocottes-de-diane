@@ -77,10 +77,7 @@ type StripeCheckoutReconciliationOperation =
   | 'review_unmatched_checkout_session'
 
 type StripeCheckoutReconciliationStatus =
-  | 'pending'
-  | 'manual_review'
-  | 'resolved'
-  | 'failed'
+  'pending' | 'manual_review' | 'resolved' | 'failed'
 
 type CheckoutSessionCommandeCandidate = {
   id: number

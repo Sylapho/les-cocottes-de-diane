@@ -9,11 +9,7 @@ import { CommandeRefundsService } from './commande-refunds.service'
 import { StripeCheckoutGateway } from './stripe-checkout.gateway'
 
 type RefundStatus =
-  | 'pending'
-  | 'requires_action'
-  | 'succeeded'
-  | 'failed'
-  | 'canceled'
+  'pending' | 'requires_action' | 'succeeded' | 'failed' | 'canceled'
 
 type RefundMock = {
   id: number
