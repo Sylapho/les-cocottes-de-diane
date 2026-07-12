@@ -11,11 +11,7 @@ import { StripeReconciliationMetrics } from './stripe-reconciliation.metrics'
 
 type ReconciliationStatus = 'pending' | 'manual_review' | 'resolved' | 'failed'
 type AttemptResult =
-  | 'resolved'
-  | 'retry_scheduled'
-  | 'failed'
-  | 'manual_review'
-  | 'skipped'
+  'resolved' | 'retry_scheduled' | 'failed' | 'manual_review' | 'skipped'
 
 type ClaimedReconciliation = {
   id: number
