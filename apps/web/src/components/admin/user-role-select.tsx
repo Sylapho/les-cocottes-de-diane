@@ -1,23 +1,25 @@
 'use client'
 
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
-import { roleLabels, roles, type Role } from '@/lib/roles'
+import { roleLabels, type Role } from '@/lib/roles'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 type UserRoleSelectProps = {
   userId: string
-  role: Role
+  role: Role | null
   disabled?: boolean
+  availableRoles: readonly Role[]
 }
 
 export default function UserRoleSelect({
   userId,
   role,
   disabled = false,
+  availableRoles,
 }: UserRoleSelectProps) {
   const router = useRouter()
-  const [value, setValue] = useState<Role>(role)
+  const [value, setValue] = useState<Role | ''>(role ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -41,7 +43,7 @@ export default function UserRoleSelect({
 
       router.refresh()
     } catch (err) {
-      setValue(role)
+      setValue(role ?? '')
       setError(getUnknownErrorMessage(err))
     } finally {
       setLoading(false)
@@ -56,7 +58,12 @@ export default function UserRoleSelect({
         disabled={disabled || loading}
         className="rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
       >
-        {roles.map((item) => (
+        {role === null ? (
+          <option value="" disabled>
+            Rôle inconnu
+          </option>
+        ) : null}
+        {availableRoles.map((item) => (
           <option key={item} value={item}>
             {roleLabels[item]}
           </option>

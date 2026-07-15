@@ -11,6 +11,7 @@ import {
 import { requireUiPermission } from '@/lib/auth-session'
 import {
   canCreateSales,
+  canAccessBackOffice,
   canViewArticles,
   canViewCashRegister,
   canViewOrders,
@@ -73,10 +74,7 @@ function formatQuantity(value: number) {
   }).format(value)
 }
 
-function getLowStockItems(
-  articles: Article[],
-  matieres: MatierePremiere[],
-) {
+function getLowStockItems(articles: Article[], matieres: MatierePremiere[]) {
   const lowArticles = articles
     .filter((article) => article.stock <= 5)
     .map((article) => ({
@@ -101,7 +99,7 @@ function getLowStockItems(
 }
 
 export default async function Home() {
-  const session = await requireUiPermission(() => true)
+  const session = await requireUiPermission(canAccessBackOffice)
   const userCanCreateSales = canCreateSales(session.user)
   const userCanViewArticles = canViewArticles(session.user)
   const userCanViewCashRegister = canViewCashRegister(session.user)
@@ -288,7 +286,10 @@ export default async function Home() {
                         : (lot.mp?.nom ?? `Matière #${lot.mpId}`)}
                     </strong>
                     <span className="text-[var(--muted)]">
-                      DLC {lot.expiresAt ? formatDate(lot.expiresAt) : 'non renseignée'}
+                      DLC{' '}
+                      {lot.expiresAt
+                        ? formatDate(lot.expiresAt)
+                        : 'non renseignée'}
                     </span>
                   </span>
                   <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-bold text-orange-800">

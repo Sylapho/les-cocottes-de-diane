@@ -107,7 +107,7 @@ describe('BetterAuthGuard', () => {
     expect(request.userRole).toBe('gerant')
   })
 
-  it('should default role to vendeur when the session has no role', async () => {
+  it('should not grant a role when the session has no role', async () => {
     const guard = createGuard()
     const request: TestRequest = {
       headers: {
@@ -122,7 +122,26 @@ describe('BetterAuthGuard', () => {
     })
 
     await expect(guard.canActivate(createContext(request))).resolves.toBe(true)
-    expect(request.userRole).toBe('vendeur')
+    expect(request.userRole).toBeUndefined()
+  })
+
+  it('should not grant a role when the session role is unknown', async () => {
+    const guard = createGuard()
+    const request: TestRequest = {
+      headers: {
+        cookie: 'better-auth.session_token=session-token',
+      },
+    }
+
+    getSession.mockResolvedValue({
+      user: {
+        id: 'user_123',
+        role: 'administrator',
+      },
+    })
+
+    await expect(guard.canActivate(createContext(request))).resolves.toBe(true)
+    expect(request.userRole).toBeUndefined()
   })
 
   it('should reject invalid sessions', async () => {

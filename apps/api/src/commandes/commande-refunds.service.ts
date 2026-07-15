@@ -16,11 +16,7 @@ import {
 import { StripeCheckoutGateway } from './stripe-checkout.gateway'
 
 type RefundStatus =
-  | 'pending'
-  | 'requires_action'
-  | 'succeeded'
-  | 'failed'
-  | 'canceled'
+  'pending' | 'requires_action' | 'succeeded' | 'failed' | 'canceled'
 
 type RefundWebhookEvent = {
   id: string

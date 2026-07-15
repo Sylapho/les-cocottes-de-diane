@@ -12,6 +12,13 @@ Elle contient aussi les pages de retour après paiement, d'annulation, de suivi 
 
 Copier le fichier d'exemple de configuration de l'application shop vers le fichier local attendu par Next.js, puis renseigner l'URL de l'API locale.
 
+Les liens officiels affichés dans le footer et dans les données structurées SEO se configurent avec :
+
+- `NEXT_PUBLIC_FACEBOOK_URL`, par exemple `https://www.facebook.com/nom-de-la-page` ;
+- `NEXT_PUBLIC_INSTAGRAM_URL`, par exemple `https://www.instagram.com/nom-du-compte`.
+
+Ces variables sont publiques côté Next.js : elles ne doivent contenir aucun secret. Un lien est masqué lorsque sa variable est vide. Comme les variables `NEXT_PUBLIC_*` sont intégrées au bundle lors du build, il faut reconstruire et redéployer la boutique après chaque modification.
+
 ## Commandes
 
 Depuis la racine du monorepo, utiliser les scripts shop déjà exposés pour lancer, vérifier, tester et builder l'application.

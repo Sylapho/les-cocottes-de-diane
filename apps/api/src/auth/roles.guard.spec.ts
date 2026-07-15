@@ -40,6 +40,15 @@ describe('RolesGuard', () => {
     expect(guard.canActivate(context)).toBe(true)
   })
 
+  it('should allow an administrator for every role-protected route', () => {
+    const handler = () => undefined
+    Reflect.defineMetadata(ROLES_KEY, [ROLES.STOCK], handler)
+
+    const context = createContext({ userRole: ROLES.ADMIN }, handler)
+
+    expect(guard.canActivate(context)).toBe(true)
+  })
+
   it('should reject a user with a forbidden role', () => {
     const handler = () => undefined
     Reflect.defineMetadata(ROLES_KEY, [ROLES.GERANT], handler)
@@ -54,6 +63,15 @@ describe('RolesGuard', () => {
     Reflect.defineMetadata(ROLES_KEY, [ROLES.GERANT], handler)
 
     const context = createContext({}, handler)
+
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException)
+  })
+
+  it('should reject an unknown role when roles are required', () => {
+    const handler = () => undefined
+    Reflect.defineMetadata(ROLES_KEY, [ROLES.GERANT], handler)
+
+    const context = createContext({ userRole: 'administrator' }, handler)
 
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException)
   })

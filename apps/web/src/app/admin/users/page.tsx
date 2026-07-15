@@ -9,13 +9,16 @@ import {
 } from '@/components/ui/dashboard'
 import { listAdminUsers } from '@/lib/admin-users'
 import { requireUiPermission } from '@/lib/auth-session'
-import { canAccessAdmin } from '@/lib/permissions'
+import { canCreateUsers, canManageUsers } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roles'
 
 export default async function AdminUsersPage() {
-  const session = await requireUiPermission(canAccessAdmin)
+  const session = await requireUiPermission(canManageUsers)
   const users = await listAdminUsers()
-  const activeRoles = new Set(users.map((user) => user.role))
+  const userCanCreateUsers = canCreateUsers(session.user)
+  const activeRoles = new Set(
+    users.flatMap((user) => (user.role === null ? [] : [user.role])),
+  )
 
   return (
     <Page>
@@ -26,7 +29,11 @@ export default async function AdminUsersPage() {
       />
 
       <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Comptes" value={users.length} detail="Utilisateurs internes" />
+        <StatCard
+          label="Comptes"
+          value={users.length}
+          detail="Utilisateurs internes"
+        />
         <StatCard
           label="Rôles actifs"
           value={activeRoles.size}
@@ -41,8 +48,14 @@ export default async function AdminUsersPage() {
         />
       </section>
 
-      <section className="mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <CreateEmployeeForm />
+      <section
+        className={
+          userCanCreateUsers
+            ? 'mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]'
+            : 'mt-6'
+        }
+      >
+        {userCanCreateUsers ? <CreateEmployeeForm /> : null}
 
         <SectionCard
           title="Rôles disponibles"
@@ -55,7 +68,9 @@ export default async function AdminUsersPage() {
                 className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3"
               >
                 <p className="font-bold">{label}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Code rôle : {role}</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Code rôle : {role}
+                </p>
               </div>
             ))}
           </div>
@@ -79,6 +94,7 @@ export default async function AdminUsersPage() {
               createdAt: user.createdAt.toISOString(),
             }))}
             currentUserId={session.user.id}
+            currentUserRole={session.user.role}
           />
         )}
       </SectionCard>

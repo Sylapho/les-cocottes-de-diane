@@ -20,7 +20,7 @@ concurrency:
 env:
   CI: true
   NODE_VERSION: 22
-  PNPM_VERSION: 10.33.0
+  PNPM_VERSION: 11.4.0
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
@@ -482,7 +482,7 @@ jobs:
         run: docker compose config
 
       - name: Build API image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: apps/api/Dockerfile
@@ -492,7 +492,7 @@ jobs:
           cache-to: type=gha,mode=min,scope=les-cocottes-api
 
       - name: Build Web image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: apps/web/Dockerfile
@@ -509,7 +509,7 @@ jobs:
           cache-to: type=gha,mode=min,scope=les-cocottes-web
 
       - name: Build Shop image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: apps/shop/Dockerfile
@@ -525,6 +525,8 @@ jobs:
     name: Publish images to GHCR
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     needs:
       - docker-build
     if: >-
@@ -593,7 +595,7 @@ jobs:
 
       - name: Build and push image
         id: build
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -608,6 +610,8 @@ jobs:
             DATABASE_URL=postgresql://localco:localco_dev@localhost:5432/localco_build
             BETTER_AUTH_SECRET=localco-ci-better-auth-secret-placeholder
             BETTER_AUTH_URL=${{ steps.target.outputs.auth_url }}
+            NEXT_PUBLIC_FACEBOOK_URL=${{ matrix.key == 'shop' && vars.NEXT_PUBLIC_FACEBOOK_URL || '' }}
+            NEXT_PUBLIC_INSTAGRAM_URL=${{ matrix.key == 'shop' && vars.NEXT_PUBLIC_INSTAGRAM_URL || '' }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
           cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
 

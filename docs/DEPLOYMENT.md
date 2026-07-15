@@ -162,6 +162,10 @@ Variables :
 | `WEB_SERVICE` | Nom du service back-office, défaut `web` |
 | `SHOP_SERVICE` | Nom du service boutique, défaut `shop` |
 | `MIGRATION_SERVICE` | Nom du service de migration, défaut `migrate` |
+| `NEXT_PUBLIC_FACEBOOK_URL` | URL publique complète de la page Facebook officielle, intégrée au build de la boutique |
+| `NEXT_PUBLIC_INSTAGRAM_URL` | URL publique complète du compte Instagram officiel, intégrée au build de la boutique |
+
+Les variables `NEXT_PUBLIC_FACEBOOK_URL` et `NEXT_PUBLIC_INSTAGRAM_URL` doivent être définies dans chaque environment GitHub qui publie une image (`staging` et `production`). Les valeurs présentes uniquement dans le fichier `.env.staging` ou `.env.prod` du VPS arrivent trop tard : Next.js intègre les variables publiques au bundle pendant la construction de l'image. Après une modification, reconstruire et redéployer l'image de la boutique.
 
 Les anciens secrets `STAGING_SSH_*` doivent être recopiés sous les noms
 génériques ci-dessus dans l'environment `staging`. Les secrets de production

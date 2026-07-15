@@ -3,8 +3,10 @@
 import { authClient } from '@/lib/auth-client'
 import {
   canAccessAdmin,
+  canAccessBackOffice,
   canCreateSales,
   canManageArticles,
+  canManageUsers,
   canViewArticles,
   canViewOrders,
   getUserRole,
@@ -43,7 +45,7 @@ const navItems: NavItem[] = [
     short: 'Home',
     icon: 'home',
     description: 'Vue générale',
-    canAccess: () => true,
+    canAccess: canAccessBackOffice,
   },
   // {
   //   label: 'Caisse',
@@ -118,7 +120,7 @@ const adminNavItems: NavItem[] = [
     short: 'Admin',
     icon: 'users',
     description: 'Rôles et accès',
-    canAccess: canAccessAdmin,
+    canAccess: canManageUsers,
   },
   {
     label: 'Retraits',
@@ -325,7 +327,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="lc-shell">
       <aside className="lc-sidebar">
-        <Link href="/" className="lc-brand" aria-label="Les cocottes de Diane accueil">
+        <Link
+          href="/"
+          className="lc-brand"
+          aria-label="Les cocottes de Diane accueil"
+        >
           <span className="lc-brand-kicker">Back-office</span>
           <strong>Les cocottes de Diane</strong>
           <small>Commandes, stock, caisse et production</small>
@@ -361,7 +367,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </button>
               <span>
                 <strong>{user?.name ?? 'Compte équipe'}</strong>
-                <small>Rôle : {role}</small>
+                <small>Rôle : {role ?? 'inconnu'}</small>
               </span>
             </div>
           ) : null}

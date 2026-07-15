@@ -5,12 +5,7 @@ import { CreateAjustementStockDto } from './dto/create-ajustement-stock.dto'
 import { ReceptionMatiereDto } from './dto/reception-matiere.dto'
 
 export type MouvementStockType =
-  | 'vente'
-  | 'production'
-  | 'reception'
-  | 'ajustement'
-  | 'perte'
-  | 'commande'
+  'vente' | 'production' | 'reception' | 'ajustement' | 'perte' | 'commande'
 
 export type MouvementStockCible = 'article' | 'matiere_premiere'
 

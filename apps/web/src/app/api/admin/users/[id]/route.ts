@@ -1,7 +1,7 @@
 import {
   AdminUserDeletionError,
   deleteAdminUser,
-  requireGerantSession,
+  requireAdminUserManagementSession,
 } from '@/lib/admin-users'
 import { NextResponse } from 'next/server'
 
@@ -9,7 +9,7 @@ export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireGerantSession()
+  const session = await requireAdminUserManagementSession()
 
   if (!session) {
     return NextResponse.json({ message: 'Accès interdit' }, { status: 403 })

@@ -3,7 +3,7 @@
 import UserRoleSelect from '@/components/admin/user-role-select'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
 import { canDeleteAdminUser } from '@/lib/admin-user-permissions'
-import type { Role } from '@/lib/roles'
+import { roles, type Role } from '@/lib/roles'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -11,13 +11,14 @@ export type AdminUsersTableUser = {
   id: string
   name: string
   email: string
-  role: Role
+  role: Role | null
   createdAt: string
 }
 
 type AdminUsersTableProps = {
   users: AdminUsersTableUser[]
   currentUserId: string
+  currentUserRole: Role | null
 }
 
 function formatDate(date: string) {
@@ -30,11 +31,13 @@ function formatDate(date: string) {
 export default function AdminUsersTable({
   users: initialUsers,
   currentUserId,
+  currentUserRole,
 }: AdminUsersTableProps) {
   const router = useRouter()
   const [deletedUserIds, setDeletedUserIds] = useState<string[]>([])
-  const [deleteTarget, setDeleteTarget] =
-    useState<AdminUsersTableUser | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AdminUsersTableUser | null>(
+    null,
+  )
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -75,7 +78,9 @@ export default function AdminUsersTable({
 
   return (
     <>
-      {message ? <p className="mb-4 text-sm text-green-700">{message}</p> : null}
+      {message ? (
+        <p className="mb-4 text-sm text-green-700">{message}</p>
+      ) : null}
 
       <div className="overflow-x-auto">
         <table className="lc-data-table min-w-[860px]">
@@ -110,12 +115,20 @@ export default function AdminUsersTable({
                       </span>
                     </div>
                   </td>
-                  <td className="break-all text-[var(--muted)]">{user.email}</td>
+                  <td className="break-all text-[var(--muted)]">
+                    {user.email}
+                  </td>
                   <td>
                     <UserRoleSelect
                       userId={user.id}
                       role={user.role}
                       disabled={isCurrentUser}
+                      availableRoles={roles.filter(
+                        (role) =>
+                          currentUserRole === 'admin' ||
+                          role !== 'admin' ||
+                          user.role === 'admin',
+                      )}
                     />
                   </td>
                   <td className="text-[var(--muted)]">
@@ -134,7 +147,9 @@ export default function AdminUsersTable({
                           : 'Supprimer'}
                       </button>
                     ) : (
-                      <span className="text-xs text-[var(--muted)]">Protégé</span>
+                      <span className="text-xs text-[var(--muted)]">
+                        Protégé
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -165,10 +180,14 @@ export default function AdminUsersTable({
             </p>
             <div className="mt-4 rounded-xl bg-[var(--surface-soft)] p-3 text-sm">
               <p className="font-bold">{deleteTarget.name}</p>
-              <p className="break-all text-[var(--muted)]">{deleteTarget.email}</p>
+              <p className="break-all text-[var(--muted)]">
+                {deleteTarget.email}
+              </p>
             </div>
 
-            {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+            {error ? (
+              <p className="mt-4 text-sm text-red-600">{error}</p>
+            ) : null}
 
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
