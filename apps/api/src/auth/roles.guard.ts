@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { ROLES_KEY } from './roles.decorator'
-import { Role } from './roles'
+import { isRole, ROLES, Role } from './roles'
 
 type RequestWithRole = {
   userRole?: string
@@ -30,7 +30,10 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<RequestWithRole>()
     const userRole = request.userRole
 
-    if (!userRole || !requiredRoles.includes(userRole as Role)) {
+    if (
+      !isRole(userRole) ||
+      (userRole !== ROLES.ADMIN && !requiredRoles.includes(userRole))
+    ) {
       throw new ForbiddenException('Role insuffisant')
     }
 

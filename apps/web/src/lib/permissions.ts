@@ -1,15 +1,30 @@
 import { isRole, type Role } from '@/lib/roles'
 
-export type UserWithRole = {
-  role?: unknown
-} | null | undefined
+export type UserWithRole =
+  | {
+      role?: unknown
+    }
+  | null
+  | undefined
 
-export function getUserRole(user: UserWithRole): Role {
-  return isRole(user?.role) ? user.role : 'vendeur'
+export function getUserRole(user: UserWithRole): Role | null {
+  return isRole(user?.role) ? user.role : null
+}
+
+export function canAccessBackOffice(user: UserWithRole) {
+  return getUserRole(user) !== null
 }
 
 export function canAccessAdmin(user: UserWithRole) {
-  return getUserRole(user) === 'gerant'
+  return hasRole(user, ['gerant'])
+}
+
+export function canManageUsers(user: UserWithRole) {
+  return getUserRole(user) === 'admin'
+}
+
+export function canCreateUsers(user: UserWithRole) {
+  return canManageUsers(user)
 }
 
 export function canViewOrders(user: UserWithRole) {
@@ -21,7 +36,7 @@ export function canManageOrders(user: UserWithRole) {
 }
 
 export function canRefundOrders(user: UserWithRole) {
-  return getUserRole(user) === 'gerant'
+  return hasRole(user, ['gerant'])
 }
 
 export function canViewArticles(user: UserWithRole) {
@@ -29,7 +44,7 @@ export function canViewArticles(user: UserWithRole) {
 }
 
 export function canManageArticles(user: UserWithRole) {
-  return getUserRole(user) === 'gerant'
+  return hasRole(user, ['gerant'])
 }
 
 export function canManageArticleProduction(user: UserWithRole) {
@@ -57,5 +72,7 @@ export function canCreateSales(user: UserWithRole) {
 }
 
 function hasRole(user: UserWithRole, allowedRoles: Role[]) {
-  return allowedRoles.includes(getUserRole(user))
+  const role = getUserRole(user)
+
+  return role === 'admin' || (role !== null && allowedRoles.includes(role))
 }

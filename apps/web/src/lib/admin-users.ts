@@ -3,6 +3,7 @@ import 'server-only'
 import { auth } from '@/lib/auth'
 import { getCurrentAuthSession } from '@/lib/auth-session'
 import { canDeleteAdminUser } from '@/lib/admin-user-permissions'
+import { canManageUsers } from '@/lib/permissions'
 import { isRole, type Role } from '@/lib/roles'
 import { headers } from 'next/headers'
 import { Pool } from 'pg'
@@ -21,7 +22,7 @@ export type AdminUser = {
   id: string
   name: string
   email: string
-  role: Role
+  role: Role | null
   createdAt: Date
 }
 
@@ -35,10 +36,10 @@ export class AdminUserDeletionError extends Error {
   }
 }
 
-export async function requireGerantSession() {
+export async function requireAdminUserManagementSession() {
   const session = await getCurrentAuthSession()
 
-  if (!session || session.user.role !== 'gerant') {
+  if (!session || !canManageUsers(session.user)) {
     return null
   }
 
@@ -60,7 +61,7 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
     id: user.id,
     name: user.name ?? 'Sans nom',
     email: user.email,
-    role: isRole(user.role) ? user.role : 'vendeur',
+    role: isRole(user.role) ? user.role : null,
     createdAt: user.createdAt,
   }))
 }
@@ -75,10 +76,10 @@ export async function getAdminUserById(userId: string) {
 }
 
 export async function updateUserRole(userId: string, role: Role) {
-  await pool.query('UPDATE "user" SET role = $1, "updatedAt" = NOW() WHERE id = $2', [
-    role,
-    userId,
-  ])
+  await pool.query(
+    'UPDATE "user" SET role = $1, "updatedAt" = NOW() WHERE id = $2',
+    [role, userId],
+  )
 }
 
 export async function createEmployee(data: {
@@ -94,11 +95,10 @@ export async function createEmployee(data: {
       name: data.name,
       email: data.email,
       password: data.password,
+      role: data.role,
     },
     headers: requestHeaders,
   })
-
-  await updateUserRole(user.user.id, data.role)
 
   return user
 }
