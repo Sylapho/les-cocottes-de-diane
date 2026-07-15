@@ -9,7 +9,7 @@ Montrer un parcours Click & Collect complet : catalogue client, panier, checkout
 ## Prérequis
 
 - Node.js 22.
-- pnpm 10.33.0.
+- pnpm 11.4.0.
 - Docker Desktop ou Docker Engine pour PostgreSQL.
 - Des clés Stripe de test si la démo doit aller jusqu'à la redirection Checkout.
 - Aucun secret réel ne doit être commit dans le dépôt.
@@ -88,7 +88,7 @@ pnpm build
 6. Lancer le paiement Stripe avec une clé `STRIPE_SECRET_KEY` de test. Sans clé Stripe, expliquer que la commande ne peut pas être finalisée mais que le flux jusqu'à la préparation du paiement est visible.
 7. Après paiement test et webhook local, ouvrir la commande depuis la page de succès ou le suivi client.
 8. Ouvrir le back-office sur `http://localhost:3000`.
-9. Se connecter avec un compte Better Auth existant. Le seed actuel ne crée pas de compte de démonstration et les inscriptions sont désactivées.
+9. Se connecter avec un compte Better Auth existant. Le seed standard ne crée pas de compte de démonstration et les inscriptions sont désactivées ; `pnpm screenshots` crée pour sa part un compte éphémère dans sa base isolée.
 10. Ouvrir `Commandes` pour montrer les commandes en ligne, les statuts et les besoins de préparation.
 11. Ouvrir `Préparation` pour montrer les commandes regroupées par date et point de retrait.
 12. Ouvrir `Stock` pour montrer les articles, matières premières, lots, mouvements et actions de réception/production/perte.
@@ -106,22 +106,21 @@ pnpm build
 
 ## À préparer manuellement
 
-- Un compte Better Auth de démonstration, car le seed ne crée pas d'utilisateur.
+- Un compte Better Auth de démonstration pour une démo interactive lancée avec `pnpm dev` ; la génération automatisée des captures gère son propre compte isolé.
 - Une session Stripe CLI si la démo doit valider les webhooks localement. Voir [`docs/STRIPE_CLI_CHECKOUT.md`](STRIPE_CLI_CHECKOUT.md).
-- Des captures d'écran à jour si la démo est envoyée sous forme de portfolio statique.
+- Une régénération avec `pnpm screenshots` après toute évolution visuelle importante.
 
 ## Captures recommandées
 
-Les captures ne sont pas présentes dans le dépôt pour l'instant. Emplacements recommandés :
+Neuf captures prêtes pour le README et le portfolio sont versionnées dans [`docs/screenshots`](screenshots/README.md). Elles couvrent le catalogue, le panier, le checkout, le suivi public, le responsive mobile, le tableau de bord, les commandes, la préparation et le stock.
 
-- `docs/assets/demo/shop.png`
-- `docs/assets/demo/checkout.png`
-- `docs/assets/demo/back-office.png`
-- `docs/assets/demo/orders.png`
-- `docs/assets/demo/stock.png`
-- `docs/assets/demo/caisse.png`
+Pour les régénérer à partir d'une base locale isolée et de données fictives :
 
-Mettre à jour ces captures lorsqu'une page change fortement.
+```bash
+pnpm screenshots
+```
+
+La commande prépare `localco_screenshots`, crée un compte Better Auth éphémère, construit les applications en production et remplace les fichiers existants. Stripe et Resend ne sont pas appelés. La procédure détaillée, les routes, résolutions, formats et dates sont documentés dans [`docs/screenshots/README.md`](screenshots/README.md).
 
 ## Liens utiles
 
