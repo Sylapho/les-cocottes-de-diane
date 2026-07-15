@@ -1,12 +1,23 @@
-import { createEmployee, requireGerantSession } from '@/lib/admin-users'
+import { getUserCreationAuthorization } from '@/lib/admin-user-permissions'
+import { createEmployee } from '@/lib/admin-users'
+import { getCurrentAuthSession } from '@/lib/auth-session'
 import { isRole } from '@/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  const session = await requireGerantSession()
+  const session = await getCurrentAuthSession()
+  const authorization = getUserCreationAuthorization(session?.user)
 
-  if (!session) {
-    return NextResponse.json({ message: 'Accès interdit' }, { status: 403 })
+  if (!authorization.allowed) {
+    return NextResponse.json(
+      {
+        message:
+          authorization.status === 401
+            ? 'Authentification requise'
+            : 'Accès interdit',
+      },
+      { status: authorization.status },
+    )
   }
 
   const body = (await request.json()) as {
@@ -41,11 +52,10 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(user, { status: 201 })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       {
-        message:
-          err instanceof Error ? err.message : "Impossible de créer l'employé",
+        message: "Impossible de créer l'employé",
       },
       { status: 400 },
     )

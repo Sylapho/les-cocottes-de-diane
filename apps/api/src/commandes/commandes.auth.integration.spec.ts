@@ -309,36 +309,39 @@ describe('Commandes admin auth integration', () => {
     expect(commandesServiceMock.updateStatut).not.toHaveBeenCalled()
   })
 
-  it('POST /api/commandes/cleanup-abandoned should allow gerant only', async () => {
-    mockBetterAuthGetSession.mockResolvedValueOnce({
-      user: {
-        id: 'user-gerant',
-        role: ROLES.GERANT,
-      },
-    })
+  it.each([ROLES.GERANT, ROLES.ADMIN])(
+    'POST /api/commandes/cleanup-abandoned should allow role %s',
+    async (role) => {
+      mockBetterAuthGetSession.mockResolvedValueOnce({
+        user: {
+          id: `user-${role}`,
+          role,
+        },
+      })
 
-    commandesServiceMock.cleanupAbandonedCommandes.mockResolvedValueOnce({
-      scanned: 3,
-      cancelled: 2,
-      skipped: 1,
-      failed: 0,
-    })
+      commandesServiceMock.cleanupAbandonedCommandes.mockResolvedValueOnce({
+        scanned: 3,
+        cancelled: 2,
+        skipped: 1,
+        failed: 0,
+      })
 
-    const response = await request(app.getHttpServer())
-      .post('/api/commandes/cleanup-abandoned')
-      .set('Cookie', 'better-auth.session_token=valid')
-      .expect(201)
+      const response = await request(app.getHttpServer())
+        .post('/api/commandes/cleanup-abandoned')
+        .set('Cookie', 'better-auth.session_token=valid')
+        .expect(201)
 
-    expect(response.body).toEqual({
-      scanned: 3,
-      cancelled: 2,
-      skipped: 1,
-      failed: 0,
-    })
-    expect(
-      commandesServiceMock.cleanupAbandonedCommandes,
-    ).toHaveBeenCalledTimes(1)
-  })
+      expect(response.body).toEqual({
+        scanned: 3,
+        cancelled: 2,
+        skipped: 1,
+        failed: 0,
+      })
+      expect(
+        commandesServiceMock.cleanupAbandonedCommandes,
+      ).toHaveBeenCalledTimes(1)
+    },
+  )
 
   it.each([ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE, ROLES.STOCK])(
     'POST /api/commandes/cleanup-abandoned should reject role %s',
@@ -361,20 +364,18 @@ describe('Commandes admin auth integration', () => {
     },
   )
 
-  it('protected routes should default missing user role to vendeur', async () => {
+  it('protected routes should reject a missing user role', async () => {
     mockBetterAuthGetSession.mockResolvedValueOnce({
       user: {
         id: 'user-without-role',
       },
     })
 
-    commandesServiceMock.findAll.mockResolvedValueOnce([])
-
     await request(app.getHttpServer())
       .get('/api/commandes')
       .set('Cookie', 'better-auth.session_token=valid')
-      .expect(200)
+      .expect(403)
 
-    expect(commandesServiceMock.findAll).toHaveBeenCalledTimes(1)
+    expect(commandesServiceMock.findAll).not.toHaveBeenCalled()
   })
 })

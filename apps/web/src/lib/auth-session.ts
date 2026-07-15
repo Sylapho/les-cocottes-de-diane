@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
 export type CurrentAuthSession = {
   user: {
     id: string
-    role: Role
+    role: Role | null
   }
 }
 

@@ -1,4 +1,5 @@
 export const roles = [
+  'admin',
   'gerant',
   'vendeur',
   'production',
@@ -9,6 +10,7 @@ export const roles = [
 export type Role = (typeof roles)[number]
 
 export const roleLabels: Record<Role, string> = {
+  admin: 'Administrateur',
   gerant: 'Gerant',
   vendeur: 'Vendeur',
   production: 'Production',

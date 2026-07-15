@@ -1,12 +1,16 @@
+import { canAssignUserRole } from '@/lib/admin-user-permissions'
+import {
+  requireAdminUserManagementSession,
+  updateUserRole,
+} from '@/lib/admin-users'
 import { isRole } from '@/lib/roles'
-import { requireGerantSession, updateUserRole } from '@/lib/admin-users'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireGerantSession()
+  const session = await requireAdminUserManagementSession()
 
   if (!session) {
     return NextResponse.json({ message: 'Accès interdit' }, { status: 403 })
@@ -25,6 +29,10 @@ export async function PATCH(
 
   if (!isRole(body.role)) {
     return NextResponse.json({ message: 'Role invalide' }, { status: 400 })
+  }
+
+  if (!canAssignUserRole(session.user, body.role)) {
+    return NextResponse.json({ message: 'Accès interdit' }, { status: 403 })
   }
 
   await updateUserRole(id, body.role)

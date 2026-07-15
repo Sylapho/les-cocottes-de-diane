@@ -12,23 +12,28 @@ n'est presente.
 
 ## Roles existants
 
-| Role | Usage attendu |
-| --- | --- |
-| `gerant` | Administration complete, utilisateurs, catalogue, production, caisse, stock. |
-| `vendeur` | Ventes, commandes client, consultation du catalogue utile a la vente. |
-| `production` | Preparation, production, nomenclatures, commandes a preparer. |
-| `stock` | Matieres premieres, mouvements, lots, ajustements et receptions. |
-| `comptable` | Consultation ventes, caisse, commandes et mouvements utiles au suivi. |
+| Role         | Usage attendu                                                                                         |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| `admin`      | Tous les droits du back-office et de l'API, y compris la creation de comptes.                         |
+| `gerant`     | Catalogue, production, caisse et stock, sans aucun acces a la gestion des utilisateurs.                |
+| `vendeur`    | Ventes, commandes client, consultation du catalogue utile a la vente.                                 |
+| `production` | Preparation, production, nomenclatures, commandes a preparer.                                         |
+| `stock`      | Matieres premieres, mouvements, lots, ajustements et receptions.                                      |
+| `comptable`  | Consultation ventes, caisse, commandes et mouvements utiles au suivi.                                 |
 
 Le role par defaut Better Auth est `vendeur`.
+
+Le role `admin` est un super-role explicite dans `RolesGuard` : il satisfait
+toute route protegee par `@Roles(...)`. Un role absent ou inconnu ne recoit
+aucun role de repli et est refuse par les permissions fines.
 
 ## Separation User / AuthUser
 
 Le schema Prisma contient deux notions differentes :
 
-| Modele | Table | Usage |
-| --- | --- | --- |
-| `User` | `"User"` | Utilisateur metier historique lie aux ventes (`Vente.userId`). |
+| Modele     | Table    | Usage                                                              |
+| ---------- | -------- | ------------------------------------------------------------------ |
+| `User`     | `"User"` | Utilisateur metier historique lie aux ventes (`Vente.userId`).     |
 | `AuthUser` | `"user"` | Utilisateur Better Auth pour les sessions, mots de passe et roles. |
 
 Ces deux modeles ne doivent pas etre melanges. Les autorisations et les sessions
@@ -37,53 +42,56 @@ metier des ventes tant qu'il n'est pas migre explicitement.
 
 ## Routes publiques API
 
-| Route | Statut | Note |
-| --- | --- | --- |
-| `GET /api` | Publique | Health/info simple de l'API. |
-| `GET /api/boutique/articles` | Publique | Catalogue public de la boutique. |
-| `GET /api/commandes/pickup-points` | Publique | Points de retrait affiches au checkout. |
-| `POST /api/commandes/checkout` | Publique avec rate limit | Cree une commande en attente et une session Stripe. |
-| `POST /api/commandes/stripe/webhook` | Publique signee | Endpoint appele par Stripe, signature verifiee dans le service. |
-| `GET /api/commandes/checkout-session/:sessionId` | Publique | Recapitulatif client apres retour Stripe. |
-| `POST /api/commandes` | Protegee | Creation manuelle interne hors paiement Stripe, reservee aux roles `gerant` et `vendeur`. |
+| Route                                            | Statut                   | Note                                                                                      |
+| ------------------------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------- |
+| `GET /api`                                       | Publique                 | Health/info simple de l'API.                                                              |
+| `GET /api/boutique/articles`                     | Publique                 | Catalogue public de la boutique.                                                          |
+| `GET /api/commandes/pickup-points`               | Publique                 | Points de retrait affiches au checkout.                                                   |
+| `POST /api/commandes/checkout`                   | Publique avec rate limit | Cree une commande en attente et une session Stripe.                                       |
+| `POST /api/commandes/stripe/webhook`             | Publique signee          | Endpoint appele par Stripe, signature verifiee dans le service.                           |
+| `GET /api/commandes/checkout-session/:sessionId` | Publique                 | Recapitulatif client apres retour Stripe.                                                 |
+| `POST /api/commandes`                            | Protegee                 | Creation manuelle interne hors paiement Stripe, reservee aux roles `gerant` et `vendeur`. |
 
 ## Matrice des routes protegees API
 
-| Domaine | Routes | Roles autorises |
-| --- | --- | --- |
-| Articles | `GET /api/articles`, `GET /api/articles/:id` | `gerant`, `vendeur`, `production`, `stock` |
-| Articles | `GET /api/articles/:id/capacity` | `gerant`, `production`, `stock` |
-| Articles | `POST /api/articles/:id/produce` | `gerant`, `production` |
-| Articles | `POST /api/articles`, `PATCH /api/articles/:id`, `DELETE /api/articles/:id` | `gerant` |
-| Matieres premieres | `GET /api/matieres-premieres`, `GET /api/matieres-premieres/:id` | `gerant`, `production`, `stock` |
-| Matieres premieres | `POST /api/matieres-premieres`, `PATCH /api/matieres-premieres/:id`, `DELETE /api/matieres-premieres/:id` | `gerant`, `stock` |
-| Nomenclatures | `GET /api/articles/:articleId/nomenclature` | `gerant`, `production`, `stock` |
-| Nomenclatures | `POST/PATCH/DELETE /api/articles/:articleId/nomenclature...` | `gerant`, `production` |
-| Commandes | `GET /api/commandes`, `GET /api/commandes/:id` | `gerant`, `vendeur`, `production`, `comptable` |
-| Commandes | `POST /api/commandes` | `gerant`, `vendeur` |
-| Commandes | `PATCH /api/commandes/:id/statut` | `gerant`, `vendeur`, `production` |
-| Commandes | `POST /api/commandes/cleanup-abandoned` | `gerant` |
-| Ventes | `GET /api/ventes`, `GET /api/ventes/:id` | `gerant`, `vendeur`, `comptable` |
-| Ventes | `POST /api/ventes` | `gerant`, `vendeur` |
-| Caisse | `GET /api/caisse/today` | `gerant`, `vendeur`, `comptable` |
-| Caisse | `GET /api/caisse/journees`, `POST /api/caisse/cloturer` | `gerant`, `comptable` |
-| Stock | `GET /api/mouvements-stock`, `GET /api/mouvements-stock/lots` | `gerant`, `stock`, `production`, `comptable` |
-| Stock | `POST /api/mouvements-stock/ajustement`, `POST /api/mouvements-stock/matieres-premieres/:id/reception`, `POST /api/mouvements-stock/lots/:id/perte` | `gerant`, `stock` |
+`admin` a acces a toutes les routes de cette matrice. Les roles listes dans la
+colonne suivante decrivent les acces des autres roles.
+
+| Domaine            | Routes                                                                                                                                              | Roles autorises                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Articles           | `GET /api/articles`, `GET /api/articles/:id`                                                                                                        | `gerant`, `vendeur`, `production`, `stock`     |
+| Articles           | `GET /api/articles/:id/capacity`                                                                                                                    | `gerant`, `production`, `stock`                |
+| Articles           | `POST /api/articles/:id/produce`                                                                                                                    | `gerant`, `production`                         |
+| Articles           | `POST /api/articles`, `PATCH /api/articles/:id`, `DELETE /api/articles/:id`                                                                         | `gerant`                                       |
+| Matieres premieres | `GET /api/matieres-premieres`, `GET /api/matieres-premieres/:id`                                                                                    | `gerant`, `production`, `stock`                |
+| Matieres premieres | `POST /api/matieres-premieres`, `PATCH /api/matieres-premieres/:id`, `DELETE /api/matieres-premieres/:id`                                           | `gerant`, `stock`                              |
+| Nomenclatures      | `GET /api/articles/:articleId/nomenclature`                                                                                                         | `gerant`, `production`, `stock`                |
+| Nomenclatures      | `POST/PATCH/DELETE /api/articles/:articleId/nomenclature...`                                                                                        | `gerant`, `production`                         |
+| Commandes          | `GET /api/commandes`, `GET /api/commandes/:id`                                                                                                      | `gerant`, `vendeur`, `production`, `comptable` |
+| Commandes          | `POST /api/commandes`                                                                                                                               | `gerant`, `vendeur`                            |
+| Commandes          | `PATCH /api/commandes/:id/statut`                                                                                                                   | `gerant`, `vendeur`, `production`              |
+| Commandes          | `POST /api/commandes/cleanup-abandoned`                                                                                                             | `gerant`                                       |
+| Ventes             | `GET /api/ventes`, `GET /api/ventes/:id`                                                                                                            | `gerant`, `vendeur`, `comptable`               |
+| Ventes             | `POST /api/ventes`                                                                                                                                  | `gerant`, `vendeur`                            |
+| Caisse             | `GET /api/caisse/today`                                                                                                                             | `gerant`, `vendeur`, `comptable`               |
+| Caisse             | `GET /api/caisse/journees`, `POST /api/caisse/cloturer`                                                                                             | `gerant`, `comptable`                          |
+| Stock              | `GET /api/mouvements-stock`, `GET /api/mouvements-stock/lots`                                                                                       | `gerant`, `stock`, `production`, `comptable`   |
+| Stock              | `POST /api/mouvements-stock/ajustement`, `POST /api/mouvements-stock/matieres-premieres/:id/reception`, `POST /api/mouvements-stock/lots/:id/perte` | `gerant`, `stock`                              |
 
 ## Pages web sensibles
 
 Le proxy `apps/web/src/proxy.ts` rend le back-office interdit sans session, sauf
 routes publiques (`/`, `/api/auth`, `/boutique`, `/sign-in`).
 
-| Page | Protection actuelle |
-| --- | --- |
-| `/admin/users` | Session requise + verification serveur `gerant`. |
-| `/articles`, `/articles/*` | Session requise par proxy, permissions API selon route appelee. |
-| `/commandes`, `/commandes/*` | Session requise par proxy, permissions API commandes. |
-| `/caisse`, `/caisse/journees` | Session requise par proxy, permissions API caisse. |
-| `/ventes`, `/ventes/new` | Session requise par proxy, permissions API ventes. |
-| `/stock`, `/mouvements-stock` | Session requise par proxy, permissions API stock. |
-| `/matieres-premieres`, `/matieres-premieres/*` | Session requise par proxy, permissions API matieres premieres. |
+| Page                                           | Protection actuelle                                                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `/admin/users`                                 | Session requise + verification serveur `admin`; le role `gerant` est redirige vers la page 403.                         |
+| `/articles`, `/articles/*`                     | Session requise par proxy, permissions API selon route appelee.                                                          |
+| `/commandes`, `/commandes/*`                   | Session requise par proxy, permissions API commandes.                                                                    |
+| `/caisse`, `/caisse/journees`                  | Session requise par proxy, permissions API caisse.                                                                       |
+| `/ventes`, `/ventes/new`                       | Session requise par proxy, permissions API ventes.                                                                       |
+| `/stock`, `/mouvements-stock`                  | Session requise par proxy, permissions API stock.                                                                        |
+| `/matieres-premieres`, `/matieres-premieres/*` | Session requise par proxy, permissions API matieres premieres.                                                           |
 
 ## Routes shop publiques
 
@@ -99,6 +107,33 @@ par les endpoints publics controles de l'API (`boutique`, `pickup-points`,
 - Le proxy web protege la presence d'une session, mais les restrictions fines
   par role sont surtout appliquees cote API. Continuer a considerer l'API comme
   source d'autorite.
-- Le menu web masque seulement `/admin/users` aux non-gerants ; ce masquage ne
-  remplace pas les checks serveur.
+- Le menu web masque les actions non autorisees apres resolution de la session ;
+  ce masquage ne remplace pas les checks serveur.
 - Verifier manuellement chaque role avec un compte dedie avant production.
+
+## Creation ou promotion du premier administrateur
+
+La commande interne idempotente `pnpm --filter @localco/web bootstrap:user`
+cree le compte indique ou promeut le compte existant portant le meme email. Elle
+n'expose aucune route publique de promotion et ne contient aucun mot de passe en
+dur.
+
+Configurer temporairement les variables suivantes dans l'environnement local
+d'execution, puis supprimer la variable de mot de passe du shell apres usage :
+
+```bash
+BOOTSTRAP_USER_EMAIL=admin@example.com
+BOOTSTRAP_USER_PASSWORD=<temporary-strong-password>
+BOOTSTRAP_USER_NAME=Administrator
+BOOTSTRAP_USER_ROLE=admin
+```
+
+`BOOTSTRAP_USER_ROLE` vaut `admin` par defaut. Pour un compte deja existant, la
+commande conserve son mot de passe et met uniquement son role a jour.
+
+## Migration des donnees
+
+Les roles Better Auth sont stockes dans une colonne PostgreSQL `TEXT` (`String`
+dans Prisma), et non dans un enum Prisma/PostgreSQL. La valeur `admin` ne requiert
+donc aucune migration : les roles existants et la valeur par defaut `vendeur`
+restent inchanges.

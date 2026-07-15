@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Pool } from 'pg'
+import { isRole } from './roles'
 
 type BetterAuthSession = {
   user: {
@@ -52,7 +53,14 @@ export class BetterAuthGuard implements CanActivate {
       user: {
         additionalFields: {
           role: {
-            type: ['gerant', 'vendeur', 'production', 'stock', 'comptable'],
+            type: [
+              'admin',
+              'gerant',
+              'vendeur',
+              'production',
+              'stock',
+              'comptable',
+            ],
             required: false,
             defaultValue: 'vendeur',
             input: false,
@@ -89,8 +97,9 @@ export class BetterAuthGuard implements CanActivate {
       }
 
       request.userId = session.user.id
-      request.userRole =
-        typeof session.user.role === 'string' ? session.user.role : 'vendeur'
+      request.userRole = isRole(session.user.role)
+        ? session.user.role
+        : undefined
 
       return true
     } catch (err) {
