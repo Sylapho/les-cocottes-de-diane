@@ -11,13 +11,13 @@ export class CaisseController {
   constructor(private readonly caisseService: CaisseService) {}
 
   @Get('today')
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.COMPTABLE)
+  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.COMPTABLE, ROLES.READ_ONLY)
   getToday() {
     return this.caisseService.getTodaySummary()
   }
 
   @Get('journees')
-  @Roles(ROLES.GERANT, ROLES.COMPTABLE)
+  @Roles(ROLES.GERANT, ROLES.COMPTABLE, ROLES.READ_ONLY)
   findClosedDays() {
     return this.caisseService.findClosedDays()
   }

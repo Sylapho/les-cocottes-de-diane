@@ -55,7 +55,13 @@ export class CommandesController {
 
   @Get()
   @UseGuards(BetterAuthGuard, RolesGuard)
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.VENDEUR,
+    ROLES.PRODUCTION,
+    ROLES.COMPTABLE,
+    ROLES.READ_ONLY,
+  )
   findAll() {
     return this.commandesService.findAll()
   }
@@ -79,14 +85,26 @@ export class CommandesController {
 
   @Get(':id')
   @UseGuards(BetterAuthGuard, RolesGuard)
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.VENDEUR,
+    ROLES.PRODUCTION,
+    ROLES.COMPTABLE,
+    ROLES.READ_ONLY,
+  )
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.commandesService.findOne(id)
   }
 
   @Get(':id/refunds')
   @UseGuards(BetterAuthGuard, RolesGuard)
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.COMPTABLE)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.VENDEUR,
+    ROLES.PRODUCTION,
+    ROLES.COMPTABLE,
+    ROLES.READ_ONLY,
+  )
   listRefunds(@Param('id', ParseIntPipe) id: number) {
     return this.commandeRefundsService.listForCommande(id)
   }

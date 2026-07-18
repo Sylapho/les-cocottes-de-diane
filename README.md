@@ -101,6 +101,19 @@ Notes pour la démo :
 - Le back-office est protégé par Better Auth. Les inscriptions sont désactivées ; utilisez un compte existant ou créez-en un via les outils d'administration prévus avant une démonstration complète.
 - Le scénario détaillé à montrer à un recruteur est documenté dans [`docs/DEMO.md`](docs/DEMO.md).
 
+## Aperçu du projet
+
+| Boutique Click & Collect | Back-office métier |
+| --- | --- |
+| [![Catalogue de la boutique](docs/screenshots/shop-catalog-desktop.png)](docs/screenshots/shop-catalog-desktop.png) | [![Tableau de bord du back-office](docs/screenshots/backoffice-dashboard-desktop.png)](docs/screenshots/backoffice-dashboard-desktop.png) |
+| [![Checkout Click & Collect](docs/screenshots/shop-checkout-desktop.png)](docs/screenshots/shop-checkout-desktop.png) | [![Préparation des commandes](docs/screenshots/backoffice-preparation-desktop.png)](docs/screenshots/backoffice-preparation-desktop.png) |
+
+La [galerie complète et sa procédure de régénération](docs/screenshots/README.md) couvrent aussi le panier, le suivi public, le responsive mobile, les commandes et le stock. Les neuf captures sont reproductibles avec :
+
+```bash
+pnpm screenshots
+```
+
 ## Variables d'environnement
 
 Les fichiers `.env`, `.env.local` et les secrets réels ne doivent jamais être commit.
@@ -412,7 +425,7 @@ Better Auth gère l'authentification et les sessions.
 
 - L'application web configure Better Auth côté serveur avec PostgreSQL.
 - L'API vérifie les sessions via `BetterAuthGuard`.
-- Les routes internes sensibles utilisent aussi des rôles : `gerant`, `vendeur`, `production`, `stock`, `comptable`.
+- Les routes internes sensibles utilisent aussi des rôles : `gerant`, `vendeur`, `production`, `stock`, `comptable`, `read_only`. Ce dernier est limité aux lectures et toutes ses requêtes d'écriture sont refusées par l'API.
 - Les inscriptions par e-mail et mot de passe sont désactivées côté web ; les utilisateurs sont administrés via Better Auth.
 
 La matrice des roles, les routes publiques/protegees et la separation `User` / `AuthUser` sont documentees dans `docs/AUTH_ROLES.md`.

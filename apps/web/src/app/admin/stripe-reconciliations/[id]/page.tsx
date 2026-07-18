@@ -46,6 +46,7 @@ export default async function StripeReconciliationDetailPage({
   async function retryAction() {
     'use server'
 
+    await requireUiPermission(canAccessAdmin)
     await retryStripeReconciliation(reconciliationId)
     revalidatePath(`/admin/stripe-reconciliations/${reconciliationId}`)
     revalidatePath('/admin/stripe-reconciliations')
@@ -54,6 +55,7 @@ export default async function StripeReconciliationDetailPage({
   async function resolveAction(formData: FormData) {
     'use server'
 
+    await requireUiPermission(canAccessAdmin)
     const justification = String(formData.get('justification') ?? '').trim()
     await resolveStripeReconciliation(reconciliationId, justification)
     revalidatePath(`/admin/stripe-reconciliations/${reconciliationId}`)

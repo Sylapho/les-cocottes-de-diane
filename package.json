@@ -51,7 +51,8 @@
     "db:deploy": "pnpm --filter @localco/api exec prisma migrate deploy",
     "db:seed": "pnpm --filter @localco/api seed",
     "prisma:generate": "pnpm db:generate",
-    "prisma:migrate": "pnpm db:migrate"
+    "prisma:migrate": "pnpm db:migrate",
+    "screenshots": "node scripts/generate-screenshots.mjs"
   },
   "keywords": [
     "monorepo",

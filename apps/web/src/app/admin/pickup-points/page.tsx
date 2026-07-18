@@ -7,7 +7,10 @@ import {
   type PickupPoint,
 } from '@/lib/api'
 import { requireUiPermission } from '@/lib/auth-session'
-import { canAccessAdmin } from '@/lib/permissions'
+import {
+  canManagePickupPoints,
+  canViewPickupPoints,
+} from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
 import type React from 'react'
 
@@ -24,6 +27,8 @@ const weekdays = [
 async function createPickupPointAction(formData: FormData) {
   'use server'
 
+  await requireUiPermission(canManagePickupPoints)
+
   await createPickupPoint({
     ...parsePickupPointForm(formData),
     active: formData.get('active') === 'on',
@@ -35,6 +40,8 @@ async function createPickupPointAction(formData: FormData) {
 async function updatePickupPointAction(formData: FormData) {
   'use server'
 
+  await requireUiPermission(canManagePickupPoints)
+
   const id = Number(formData.get('id'))
 
   await updatePickupPoint(id, parsePickupPointForm(formData))
@@ -45,6 +52,8 @@ async function updatePickupPointAction(formData: FormData) {
 async function deactivatePickupPointAction(formData: FormData) {
   'use server'
 
+  await requireUiPermission(canManagePickupPoints)
+
   const id = Number(formData.get('id'))
 
   await deactivatePickupPoint(id)
@@ -54,6 +63,8 @@ async function deactivatePickupPointAction(formData: FormData) {
 
 async function reactivatePickupPointAction(formData: FormData) {
   'use server'
+
+  await requireUiPermission(canManagePickupPoints)
 
   const id = Number(formData.get('id'))
 
@@ -96,7 +107,8 @@ function formatWeekdays(values: number[]) {
 }
 
 export default async function AdminPickupPointsPage() {
-  await requireUiPermission(canAccessAdmin)
+  const session = await requireUiPermission(canViewPickupPoints)
+  const userCanManagePickupPoints = canManagePickupPoints(session.user)
   const pickupPoints = await getPickupPoints()
 
   return (
@@ -108,20 +120,23 @@ export default async function AdminPickupPointsPage() {
           </p>
           <h1 className="mt-2 text-3xl font-bold">Points de retrait</h1>
           <p className="mt-2 max-w-2xl text-zinc-600">
-            Gere les lieux visibles dans la boutique et les jours proposés au
-            checkout.
+            {userCanManagePickupPoints
+              ? 'Gérez les lieux visibles dans la boutique et les jours proposés au checkout.'
+              : 'Consultez les lieux visibles dans la boutique et les jours proposés au checkout.'}
           </p>
         </div>
       </div>
 
-      <section className="mb-6 rounded border bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Nouveau point de retrait</h2>
-        <PickupPointForm
-          action={createPickupPointAction}
-          submitLabel="Créer le point"
-          defaultActive
-        />
-      </section>
+      {userCanManagePickupPoints ? (
+        <section className="mb-6 rounded border bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-semibold">Nouveau point de retrait</h2>
+          <PickupPointForm
+            action={createPickupPointAction}
+            submitLabel="Créer le point"
+            defaultActive
+          />
+        </section>
+      ) : null}
 
       <section className="grid gap-4">
         {pickupPoints.length === 0 ? (
@@ -130,7 +145,11 @@ export default async function AdminPickupPointsPage() {
           </div>
         ) : (
           pickupPoints.map((pickupPoint) => (
-            <PickupPointRow key={pickupPoint.id} pickupPoint={pickupPoint} />
+            <PickupPointRow
+              key={pickupPoint.id}
+              pickupPoint={pickupPoint}
+              canManage={userCanManagePickupPoints}
+            />
           ))
         )}
       </section>
@@ -138,7 +157,13 @@ export default async function AdminPickupPointsPage() {
   )
 }
 
-function PickupPointRow({ pickupPoint }: { pickupPoint: PickupPoint }) {
+function PickupPointRow({
+  pickupPoint,
+  canManage,
+}: {
+  pickupPoint: PickupPoint
+  canManage: boolean
+}) {
   return (
     <article className="rounded border bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -162,32 +187,36 @@ function PickupPointRow({ pickupPoint }: { pickupPoint: PickupPoint }) {
           </p>
         </div>
 
-        <form
-          action={
-            pickupPoint.active
-              ? deactivatePickupPointAction
-              : reactivatePickupPointAction
-          }
-        >
-          <input type="hidden" name="id" value={pickupPoint.id} />
-          <button
-            type="submit"
-            className={
+        {canManage ? (
+          <form
+            action={
               pickupPoint.active
-                ? 'rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700'
-                : 'rounded border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700'
+                ? deactivatePickupPointAction
+                : reactivatePickupPointAction
             }
           >
-            {pickupPoint.active ? 'Désactiver' : 'Réactiver'}
-          </button>
-        </form>
+            <input type="hidden" name="id" value={pickupPoint.id} />
+            <button
+              type="submit"
+              className={
+                pickupPoint.active
+                  ? 'rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700'
+                  : 'rounded border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700'
+              }
+            >
+              {pickupPoint.active ? 'Désactiver' : 'Réactiver'}
+            </button>
+          </form>
+        ) : null}
       </div>
 
-      <PickupPointForm
-        action={updatePickupPointAction}
-        pickupPoint={pickupPoint}
-        submitLabel="Enregistrer"
-      />
+      {canManage ? (
+        <PickupPointForm
+          action={updatePickupPointAction}
+          pickupPoint={pickupPoint}
+          submitLabel="Enregistrer"
+        />
+      ) : null}
     </article>
   )
 }

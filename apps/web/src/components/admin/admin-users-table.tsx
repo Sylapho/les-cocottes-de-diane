@@ -3,7 +3,7 @@
 import UserRoleSelect from '@/components/admin/user-role-select'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
 import { canDeleteAdminUser } from '@/lib/admin-user-permissions'
-import { roles, type Role } from '@/lib/roles'
+import { roleLabels, roles, type Role } from '@/lib/roles'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -19,6 +19,7 @@ type AdminUsersTableProps = {
   users: AdminUsersTableUser[]
   currentUserId: string
   currentUserRole: Role | null
+  canManage: boolean
 }
 
 function formatDate(date: string) {
@@ -32,6 +33,7 @@ export default function AdminUsersTable({
   users: initialUsers,
   currentUserId,
   currentUserRole,
+  canManage,
 }: AdminUsersTableProps) {
   const router = useRouter()
   const [deletedUserIds, setDeletedUserIds] = useState<string[]>([])
@@ -90,13 +92,14 @@ export default function AdminUsersTable({
               <th>Email</th>
               <th>Rôle</th>
               <th>Création</th>
-              <th>Actions</th>
+              {canManage ? <th>Actions</th> : null}
             </tr>
           </thead>
           <tbody>
             {users.map((user) => {
               const isCurrentUser = user.id === currentUserId
-              const canDelete = canDeleteAdminUser(user.id, currentUserId)
+              const canDelete =
+                canManage && canDeleteAdminUser(user.id, currentUserId)
 
               return (
                 <tr key={user.id}>
@@ -119,39 +122,47 @@ export default function AdminUsersTable({
                     {user.email}
                   </td>
                   <td>
-                    <UserRoleSelect
-                      userId={user.id}
-                      role={user.role}
-                      disabled={isCurrentUser}
-                      availableRoles={roles.filter(
-                        (role) =>
-                          currentUserRole === 'admin' ||
-                          role !== 'admin' ||
-                          user.role === 'admin',
-                      )}
-                    />
+                    {canManage ? (
+                      <UserRoleSelect
+                        userId={user.id}
+                        role={user.role}
+                        disabled={isCurrentUser}
+                        availableRoles={roles.filter(
+                          (role) =>
+                            currentUserRole === 'admin' ||
+                            role !== 'admin' ||
+                            user.role === 'admin',
+                        )}
+                      />
+                    ) : (
+                      <span className="text-sm font-medium">
+                        {user.role ? roleLabels[user.role] : 'Rôle inconnu'}
+                      </span>
+                    )}
                   </td>
                   <td className="text-[var(--muted)]">
                     {formatDate(user.createdAt)}
                   </td>
-                  <td>
-                    {canDelete ? (
-                      <button
-                        type="button"
-                        onClick={() => openDeleteDialog(user)}
-                        disabled={deletingUserId === user.id}
-                        className="lc-button lc-button-danger min-h-0 px-3 py-1.5 text-xs disabled:opacity-50"
-                      >
-                        {deletingUserId === user.id
-                          ? 'Suppression...'
-                          : 'Supprimer'}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-[var(--muted)]">
-                        Protégé
-                      </span>
-                    )}
-                  </td>
+                  {canManage ? (
+                    <td>
+                      {canDelete ? (
+                        <button
+                          type="button"
+                          onClick={() => openDeleteDialog(user)}
+                          disabled={deletingUserId === user.id}
+                          className="lc-button lc-button-danger min-h-0 px-3 py-1.5 text-xs disabled:opacity-50"
+                        >
+                          {deletingUserId === user.id
+                            ? 'Suppression...'
+                            : 'Supprimer'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[var(--muted)]">
+                          Protégé
+                        </span>
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               )
             })}

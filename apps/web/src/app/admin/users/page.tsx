@@ -9,13 +9,18 @@ import {
 } from '@/components/ui/dashboard'
 import { listAdminUsers } from '@/lib/admin-users'
 import { requireUiPermission } from '@/lib/auth-session'
-import { canCreateUsers, canManageUsers } from '@/lib/permissions'
+import {
+  canCreateUsers,
+  canManageUsers,
+  canViewUsers,
+} from '@/lib/permissions'
 import { roleLabels } from '@/lib/roles'
 
 export default async function AdminUsersPage() {
-  const session = await requireUiPermission(canManageUsers)
+  const session = await requireUiPermission(canViewUsers)
   const users = await listAdminUsers()
   const userCanCreateUsers = canCreateUsers(session.user)
+  const userCanManageUsers = canManageUsers(session.user)
   const activeRoles = new Set(
     users.flatMap((user) => (user.role === null ? [] : [user.role])),
   )
@@ -95,6 +100,7 @@ export default async function AdminUsersPage() {
             }))}
             currentUserId={session.user.id}
             currentUserRole={session.user.role}
+            canManage={userCanManageUsers}
           />
         )}
       </SectionCard>

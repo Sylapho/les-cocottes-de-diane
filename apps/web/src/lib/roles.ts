@@ -5,6 +5,7 @@ export const roles = [
   'production',
   'stock',
   'comptable',
+  'read_only',
 ] as const
 
 export type Role = (typeof roles)[number]
@@ -16,6 +17,7 @@ export const roleLabels: Record<Role, string> = {
   production: 'Production',
   stock: 'Stock',
   comptable: 'Comptable',
+  read_only: 'Lecture seule',
 }
 
 export function isRole(value: unknown): value is Role {

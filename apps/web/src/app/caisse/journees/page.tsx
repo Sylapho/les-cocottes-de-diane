@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getJourneesCaisse } from '@/lib/api'
 import { requireUiPermission } from '@/lib/auth-session'
-import { canManageCashRegister } from '@/lib/permissions'
+import { canViewCashRegisterHistory } from '@/lib/permissions'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('fr-FR', {
@@ -26,7 +26,7 @@ function formatDateTime(value: string) {
 }
 
 export default async function JourneesCaissePage() {
-  await requireUiPermission(canManageCashRegister)
+  await requireUiPermission(canViewCashRegisterHistory)
   const journees = await getJourneesCaisse()
   const totalTTC = journees.reduce((total, journee) => total + journee.totalTtcCents, 0)
   const totalMarge = journees.reduce((total, journee) => total + journee.margeCents, 0)

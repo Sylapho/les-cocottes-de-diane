@@ -1,4 +1,7 @@
 import { proxyApiResponse } from '@/lib/server-api'
+import { getCurrentAuthSession } from '@/lib/auth-session'
+import { canUseBackOfficeHttpMethod } from '@/lib/permissions'
+import { NextResponse } from 'next/server'
 
 type RouteContext = {
   params: Promise<{
@@ -27,6 +30,18 @@ export async function DELETE(request: Request, context: RouteContext) {
 }
 
 async function proxyApiRequest(request: Request, context: RouteContext) {
+  const session = await getCurrentAuthSession()
+
+  if (!canUseBackOfficeHttpMethod(session?.user, request.method)) {
+    return NextResponse.json(
+      {
+        message:
+          'Vous ne disposez pas des permissions nécessaires pour effectuer cette action.',
+      },
+      { status: 403 },
+    )
+  }
+
   const { path } = await context.params
   const targetPath = buildTargetPath(request, path)
 

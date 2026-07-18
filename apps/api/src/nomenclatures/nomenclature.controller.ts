@@ -23,7 +23,7 @@ export class NomenclatureController {
   constructor(private readonly nomenclatureService: NomenclatureService) {}
 
   @Get()
-  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK, ROLES.READ_ONLY)
   findByArticle(@Param('articleId', ParseIntPipe) articleId: number) {
     return this.nomenclatureService.findByArticle(articleId)
   }
