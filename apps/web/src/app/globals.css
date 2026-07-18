@@ -621,7 +621,8 @@ textarea::placeholder {
   gap: 8px;
 }
 
-.lc-catalog-title-row h2 {
+.lc-catalog-title-row h2,
+.lc-catalog-title-row h4 {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
