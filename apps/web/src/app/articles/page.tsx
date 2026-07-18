@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import ArticleCategoryFilter from '@/components/articles/article-category-filter'
+import ArticleCategorySection from '@/components/articles/article-category-section'
 import ArticleImage from '@/components/articles/article-image'
 import {
   ButtonLink,
@@ -8,8 +10,13 @@ import {
   SectionCard,
   StatCard,
 } from '@/components/ui/dashboard'
-import { getArticles } from '@/lib/api'
+import { getArticleCategories, getArticles, type Article } from '@/lib/api'
 import { getArticleCategoryLabel } from '@/lib/article-categories'
+import {
+  filterArticlesByCategory,
+  groupArticlesByCategory,
+  resolveArticleCategoryId,
+} from '@/lib/article-list-filters'
 import { requireUiPermission } from '@/lib/auth-session'
 import { formatCurrencyFromCents } from '@/lib/money'
 import { canManageArticles, canViewArticles } from '@/lib/permissions'
@@ -26,10 +33,26 @@ function stockLabel(stock: number) {
   return 'OK'
 }
 
-export default async function ArticlesPage() {
+type ArticlesPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function ArticlesPage({
+  searchParams,
+}: ArticlesPageProps) {
   const session = await requireUiPermission(canViewArticles)
   const userCanManageArticles = canManageArticles(session.user)
-  const articles = await getArticles()
+  const params = (await searchParams) ?? {}
+  const [articles, categories] = await Promise.all([
+    getArticles(),
+    getArticleCategories(),
+  ])
+  const selectedCategoryId = resolveArticleCategoryId(params, categories)
+  const filteredArticles = filterArticlesByCategory(
+    articles,
+    selectedCategoryId,
+  )
+  const groupedArticles = groupArticlesByCategory(filteredArticles, categories)
   const activeArticles = articles.filter((article) => !article.archivedAt)
   const archivedArticles = articles.filter((article) => article.archivedAt)
   const onlineArticles = activeArticles.filter((article) => article.online)
@@ -40,6 +63,12 @@ export default async function ArticlesPage() {
           articles.length,
       )
     : 0
+  const catalogueDescription =
+    selectedCategoryId !== null
+      ? `${filteredArticles.length} article${filteredArticles.length > 1 ? 's' : ''} affiché${filteredArticles.length > 1 ? 's' : ''} sur ${articles.length}.`
+      : articles.length > 0
+        ? `Prix moyen : ${formatCurrencyFromCents(averagePrice)}.`
+        : 'Les articles créés apparaîtront ici.'
 
   return (
     <Page>
@@ -79,10 +108,12 @@ export default async function ArticlesPage() {
       <SectionCard
         className="lc-section-spaced"
         title="Catalogue produits"
-        description={
-          articles.length > 0
-            ? `Prix moyen : ${formatCurrencyFromCents(averagePrice)}.`
-            : 'Les articles créés apparaîtront ici.'
+        description={catalogueDescription}
+        actions={
+          <ArticleCategoryFilter
+            categories={categories}
+            selectedCategoryId={selectedCategoryId}
+          />
         }
       >
         {articles.length === 0 ? (
@@ -97,102 +128,124 @@ export default async function ArticlesPage() {
               ) : null
             }
           />
+        ) : filteredArticles.length === 0 ? (
+          <EmptyState
+            title="Aucun article trouvé"
+            description="Aucun article ne correspond à cette catégorie."
+          />
         ) : (
-          <ul className="lc-catalog-grid">
-            {articles.map((article) => {
-              const tone = stockTone(article.stock)
-
-              return (
-                <li key={article.id} className="lc-catalog-card">
-                  <div className="lc-catalog-card-head">
-                    <ArticleImage
+          <div className="grid gap-5">
+            {groupedArticles.map((group) => (
+              <ArticleCategorySection
+                key={group.key}
+                name={group.name}
+                description={group.description}
+                articleCount={group.articles.length}
+                status={group.status}
+              >
+                <ul className="lc-catalog-grid">
+                  {group.articles.map((article) => (
+                    <ArticleCard
+                      key={article.id}
                       article={article}
-                      className="lc-catalog-image"
+                      canManage={userCanManageArticles}
                     />
-                    <div className="lc-catalog-card-title">
-                      <div className="lc-catalog-title-row">
-                        <h2>{article.nom}</h2>
-                        <span
-                          className={
-                            article.archivedAt
-                              ? 'lc-status-pill lc-status-pill-muted'
-                              : article.online
-                                ? 'lc-status-pill lc-status-pill-success'
-                                : 'lc-status-pill lc-status-pill-muted'
-                          }
-                        >
-                          {article.archivedAt
-                            ? 'Archivé'
-                            : article.online
-                              ? 'En ligne'
-                              : 'Hors ligne'}
-                        </span>
-                      </div>
-                      <p className="lc-catalog-category">
-                        {getArticleCategoryLabel(article.category)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {article.description ? (
-                    <p className="lc-catalog-description">
-                      {article.description}
-                    </p>
-                  ) : (
-                    <p className="lc-catalog-description">
-                      Aucune description renseignée.
-                    </p>
-                  )}
-
-                  <dl className="lc-catalog-metrics">
-                    <div>
-                      <dt>Prix TTC</dt>
-                      <dd>
-                        {formatCurrencyFromCents(article.prixCents)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Stock</dt>
-                      <dd>
-                        {article.stock}
-                        <span
-                          className={
-                            tone === 'danger'
-                              ? 'lc-stock-pill lc-stock-pill-danger'
-                              : tone === 'warning'
-                                ? 'lc-stock-pill lc-stock-pill-warning'
-                                : 'lc-stock-pill lc-stock-pill-success'
-                          }
-                        >
-                          {stockLabel(article.stock)}
-                        </span>
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <div className="lc-catalog-actions">
-                    <Link
-                      href={`/articles/${article.id}`}
-                      className="lc-button lc-button-secondary"
-                    >
-                      Voir
-                    </Link>
-
-                    {userCanManageArticles ? (
-                      <Link
-                        href={`/articles/${article.id}/edit`}
-                        className="lc-button lc-button-ghost"
-                      >
-                        Modifier
-                      </Link>
-                    ) : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+                  ))}
+                </ul>
+              </ArticleCategorySection>
+            ))}
+          </div>
         )}
       </SectionCard>
     </Page>
+  )
+}
+
+function ArticleCard({
+  article,
+  canManage,
+}: {
+  article: Article
+  canManage: boolean
+}) {
+  const tone = stockTone(article.stock)
+
+  return (
+    <li className="lc-catalog-card">
+      <div className="lc-catalog-card-head">
+        <ArticleImage article={article} className="lc-catalog-image" />
+        <div className="lc-catalog-card-title">
+          <div className="lc-catalog-title-row">
+            <h4>{article.nom}</h4>
+            <span
+              className={
+                article.archivedAt
+                  ? 'lc-status-pill lc-status-pill-muted'
+                  : article.online
+                    ? 'lc-status-pill lc-status-pill-success'
+                    : 'lc-status-pill lc-status-pill-muted'
+              }
+            >
+              {article.archivedAt
+                ? 'Archivé'
+                : article.online
+                  ? 'En ligne'
+                  : 'Hors ligne'}
+            </span>
+          </div>
+          <p className="lc-catalog-category">
+            {article.categoryId == null
+              ? 'Sans catégorie'
+              : getArticleCategoryLabel(article.category)}
+          </p>
+        </div>
+      </div>
+
+      <p className="lc-catalog-description">
+        {article.description || 'Aucune description renseignée.'}
+      </p>
+
+      <dl className="lc-catalog-metrics">
+        <div>
+          <dt>Prix TTC</dt>
+          <dd>{formatCurrencyFromCents(article.prixCents)}</dd>
+        </div>
+        <div>
+          <dt>Stock</dt>
+          <dd>
+            {article.stock}
+            <span
+              className={
+                tone === 'danger'
+                  ? 'lc-stock-pill lc-stock-pill-danger'
+                  : tone === 'warning'
+                    ? 'lc-stock-pill lc-stock-pill-warning'
+                    : 'lc-stock-pill lc-stock-pill-success'
+              }
+            >
+              {stockLabel(article.stock)}
+            </span>
+          </dd>
+        </div>
+      </dl>
+
+      <div className="lc-catalog-actions">
+        <Link
+          href={`/articles/${article.id}`}
+          className="lc-button lc-button-secondary"
+        >
+          Voir
+        </Link>
+
+        {canManage ? (
+          <Link
+            href={`/articles/${article.id}/edit`}
+            className="lc-button lc-button-ghost"
+          >
+            Modifier
+          </Link>
+        ) : null}
+      </div>
+    </li>
   )
 }
