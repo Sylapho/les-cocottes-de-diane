@@ -5,6 +5,7 @@ import {
   canAccessBackOffice,
   canCreateUsers,
   canCreateSales,
+  canManagePickupPoints,
   canManageArticleProduction,
   canManageArticles,
   canManageCashRegister,
@@ -13,10 +14,17 @@ import {
   canManageUsers,
   canRefundOrders,
   canViewArticles,
+  canViewArticleCategories,
   canViewCashRegister,
+  canViewCashRegisterHistory,
   canViewOrders,
+  canViewPickupPoints,
   canViewStock,
+  canViewUsers,
+  canUseBackOfficeHttpMethod,
+  getAccessModeLabel,
   getUserRole,
+  isReadOnlyUser,
 } from '@/lib/permissions'
 import type { Role } from '@/lib/roles'
 
@@ -49,6 +57,11 @@ test('grants every existing permission to admin', () => {
     canManageStock,
     canManageUsers,
     canManageArticleProduction,
+    canViewArticleCategories,
+    canViewCashRegisterHistory,
+    canViewPickupPoints,
+    canManagePickupPoints,
+    canViewUsers,
   ]) {
     assert.equal(permission(administrator), true)
   }
@@ -100,4 +113,54 @@ test('matches operations permissions', () => {
   assert.equal(canManageStock(user('stock')), true)
   assert.equal(canManageArticleProduction(user('production')), true)
   assert.equal(canManageArticleProduction(user('stock')), false)
+})
+
+test('exposes every approved read surface and no mutation to READ_ONLY', () => {
+  const readOnly = user('read_only')
+
+  assert.equal(isReadOnlyUser(readOnly), true)
+  assert.equal(getAccessModeLabel(readOnly), 'Mode consultation')
+
+  for (const permission of [
+    canAccessBackOffice,
+    canViewOrders,
+    canViewArticles,
+    canViewArticleCategories,
+    canViewStock,
+    canViewCashRegister,
+    canViewCashRegisterHistory,
+    canViewPickupPoints,
+    canViewUsers,
+  ]) {
+    assert.equal(permission(readOnly), true)
+  }
+
+  for (const permission of [
+    canAccessAdmin,
+    canCreateUsers,
+    canManageUsers,
+    canManageOrders,
+    canRefundOrders,
+    canManageArticles,
+    canManageArticleProduction,
+    canManageStock,
+    canManageCashRegister,
+    canManagePickupPoints,
+    canCreateSales,
+  ]) {
+    assert.equal(permission(readOnly), false)
+  }
+
+  for (const method of ['GET', 'HEAD', 'OPTIONS']) {
+    assert.equal(canUseBackOfficeHttpMethod(readOnly, method), true)
+  }
+
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+    assert.equal(canUseBackOfficeHttpMethod(readOnly, method), false)
+  }
+})
+
+test('does not show the read-only indicator for mutable roles', () => {
+  assert.equal(getAccessModeLabel(user('admin')), null)
+  assert.equal(getAccessModeLabel(user('gerant')), null)
 })

@@ -5,6 +5,7 @@ export const ROLES = {
   PRODUCTION: 'production',
   STOCK: 'stock',
   COMPTABLE: 'comptable',
+  READ_ONLY: 'read_only',
 } as const
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]

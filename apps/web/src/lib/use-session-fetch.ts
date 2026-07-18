@@ -1,5 +1,8 @@
 'use client'
 
+import { authClient } from '@/lib/auth-client'
+import { canUseBackOfficeHttpMethod } from '@/lib/permissions'
+
 const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
 
 function toSameOriginApiUrl(input: RequestInfo | URL): RequestInfo | URL {
@@ -26,10 +29,18 @@ function toSameOriginApiUrl(input: RequestInfo | URL): RequestInfo | URL {
 }
 
 export function useSessionFetch() {
+  const { data: session } = authClient.useSession()
+
   return async function sessionFetch(
     input: RequestInfo | URL,
     init: RequestInit = {},
   ) {
+    if (!canUseBackOfficeHttpMethod(session?.user, init.method)) {
+      throw new Error(
+        "Le mode consultation n'autorise pas cette opération.",
+      )
+    }
+
     const headers = new Headers(init.headers)
 
     return fetch(toSameOriginApiUrl(input), {

@@ -28,13 +28,25 @@ export class MouvementsStockController {
   ) {}
 
   @Get()
-  @Roles(ROLES.GERANT, ROLES.STOCK, ROLES.PRODUCTION, ROLES.COMPTABLE)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.STOCK,
+    ROLES.PRODUCTION,
+    ROLES.COMPTABLE,
+    ROLES.READ_ONLY,
+  )
   findAll() {
     return this.mouvementsStockService.findAll()
   }
 
   @Get('lots')
-  @Roles(ROLES.GERANT, ROLES.STOCK, ROLES.PRODUCTION, ROLES.COMPTABLE)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.STOCK,
+    ROLES.PRODUCTION,
+    ROLES.COMPTABLE,
+    ROLES.READ_ONLY,
+  )
   findLots() {
     return this.mouvementsStockService.findLots()
   }

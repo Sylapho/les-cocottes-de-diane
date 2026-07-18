@@ -2,13 +2,14 @@
 
 import { authClient } from '@/lib/auth-client'
 import {
-  canAccessAdmin,
   canAccessBackOffice,
   canCreateSales,
-  canManageArticles,
-  canManageUsers,
+  canViewArticleCategories,
   canViewArticles,
   canViewOrders,
+  canViewPickupPoints,
+  canViewUsers,
+  getAccessModeLabel,
   getUserRole,
   type UserWithRole,
 } from '@/lib/permissions'
@@ -93,7 +94,7 @@ const navItems: NavItem[] = [
     short: 'Cat.',
     icon: 'articles',
     description: 'Familles produits',
-    canAccess: canManageArticles,
+    canAccess: canViewArticleCategories,
   },
   // {
   //   label: 'Stock',
@@ -120,7 +121,7 @@ const adminNavItems: NavItem[] = [
     short: 'Admin',
     icon: 'users',
     description: 'Rôles et accès',
-    canAccess: canManageUsers,
+    canAccess: canViewUsers,
   },
   {
     label: 'Retraits',
@@ -128,7 +129,7 @@ const adminNavItems: NavItem[] = [
     short: 'Lieu',
     icon: 'pickup',
     description: 'Points de retrait',
-    canAccess: canAccessAdmin,
+    canAccess: canViewPickupPoints,
   },
   // {
   //   label: 'Stripe',
@@ -296,6 +297,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { data: session, isPending } = authClient.useSession()
   const user = session?.user
   const role = getUserRole(user)
+  const accessModeLabel = getAccessModeLabel(user)
   const hasSession = Boolean(session)
   const isLoaded = !isPending
   const visibleNavItems = navItems.filter((item) => item.canAccess(user))
@@ -392,6 +394,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
             ) : null}
           </div>
           <div className="lc-topbar-actions">
+            {isLoaded && hasSession && accessModeLabel ? (
+              <span
+                role="status"
+                className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800"
+              >
+                {accessModeLabel}
+              </span>
+            ) : null}
             {isLoaded && hasSession && canCreateSales(user) ? (
               <Link href="/ventes/new" className="lc-topbar-action">
                 Nouvelle vente
