@@ -23,6 +23,7 @@ export class PickupPointsController {
   constructor(private readonly pickupPointsService: PickupPointsService) {}
 
   @Get()
+  @Roles(ROLES.GERANT, ROLES.READ_ONLY)
   findAll() {
     return this.pickupPointsService.findAll()
   }

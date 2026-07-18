@@ -20,13 +20,13 @@ export class VentesController {
   constructor(private readonly ventesService: VentesService) {}
 
   @Get()
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.COMPTABLE)
+  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.COMPTABLE, ROLES.READ_ONLY)
   findAll() {
     return this.ventesService.findAll()
   }
 
   @Get(':id')
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.COMPTABLE)
+  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.COMPTABLE, ROLES.READ_ONLY)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.ventesService.findOne(id)
   }

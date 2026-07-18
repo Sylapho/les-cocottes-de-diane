@@ -12,11 +12,15 @@ Ce document definit les roles de l'application Les cocottes de Diane et les perm
 | `production` | Production des articles, consultation des recettes/nomenclatures et stock utile a la production. |
 | `stock`      | Gestion des matieres premieres, receptions, corrections et alertes stock.                        |
 | `comptable`  | Consultation caisse, historique, exports et chiffres, sans modifier l'exploitation.              |
+| `read_only`  | Consultation transversale des donnees autorisees, sans aucune action de modification.             |
 
 ## Matrice des permissions
 
 Le role `admin` dispose de toutes les permissions listees ci-dessous. La matrice
-detaille le comportement des roles metier existants.
+detaille le comportement des roles metier existants. `read_only` a acces a
+toutes les actions commencant par "Voir" dans ce tableau, ainsi qu'aux
+categories, points de retrait et utilisateurs. Toutes les autres actions lui
+sont refusees.
 
 | Action                          | gerant | vendeur | production | stock | comptable |
 | ------------------------------- | ------ | ------- | ---------- | ----- | --------- |
@@ -52,7 +56,12 @@ detaille le comportement des roles metier existants.
 ## Permissions par route API
 
 Le role `admin` est autorise sur toutes les routes protegees ci-dessous, en plus
-des roles indiques.
+des roles indiques. Le role `read_only` est autorise sur les lectures des
+articles, categories, matieres premieres, nomenclatures, commandes et
+remboursements existants, ventes, caisse, lots, mouvements de stock et points
+de retrait. Il n'est autorise sur aucune route d'ecriture ni sur les
+reconciliations Stripe. Les colonnes ci-dessous decrivent les autres roles
+metier.
 
 | Route                                         | Methode  | Roles autorises                                |
 | --------------------------------------------- | -------- | ---------------------------------------------- |
@@ -87,6 +96,12 @@ Le role `admin` est autorise sur toutes les pages du back-office. Le role
 `gerant` n'a acces ni a la page, ni au menu, ni aux endpoints de gestion des
 utilisateurs.
 
+Le role `read_only` peut ouvrir les pages de consultation correspondantes, dont
+les listes et details articles, commandes, stock, caisse, categories, points de
+retrait et utilisateurs. Les pages dediees a la creation ou a l'edition le
+redirigent vers la page 403 avec une explication. Les formulaires, menus
+d'actions et boutons de mutation ne sont pas rendus.
+
 | Page                                   | Roles autorises                                                 |
 | -------------------------------------- | --------------------------------------------------------------- |
 | `/articles`                            | `gerant`, `vendeur`, `production`, `stock`                      |
@@ -114,6 +129,9 @@ Les roles pris en charge sont :
 - `production`
 - `stock`
 - `comptable`
+- `read_only`
 
 Les permissions sont centralisees dans les helpers web et dans `RolesGuard` cote
-API. Toute valeur absente ou inconnue est refusee par defaut.
+API. Pour `read_only`, `RolesGuard` refuse aussi centralement toute methode autre
+que `GET`, `HEAD` ou `OPTIONS`. Toute valeur absente ou inconnue est refusee par
+defaut.

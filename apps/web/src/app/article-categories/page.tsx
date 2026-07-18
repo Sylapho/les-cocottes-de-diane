@@ -7,12 +7,17 @@ import {
 } from '@/lib/api'
 import type { ArticleCategory } from '@/lib/article-categories'
 import { requireUiPermission } from '@/lib/auth-session'
-import { canManageArticles } from '@/lib/permissions'
+import {
+  canManageArticles,
+  canViewArticleCategories,
+} from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
 import type React from 'react'
 
 async function createArticleCategoryAction(formData: FormData) {
   'use server'
+
+  await requireUiPermission(canManageArticles)
 
   await createArticleCategory(parseArticleCategoryForm(formData))
 
@@ -22,6 +27,8 @@ async function createArticleCategoryAction(formData: FormData) {
 
 async function updateArticleCategoryAction(formData: FormData) {
   'use server'
+
+  await requireUiPermission(canManageArticles)
 
   const id = Number(formData.get('id'))
 
@@ -33,6 +40,8 @@ async function updateArticleCategoryAction(formData: FormData) {
 
 async function deleteArticleCategoryAction(formData: FormData) {
   'use server'
+
+  await requireUiPermission(canManageArticles)
 
   const id = Number(formData.get('id'))
 
@@ -63,7 +72,8 @@ function getFormString(formData: FormData, key: string) {
 }
 
 export default async function ArticleCategoriesPage() {
-  await requireUiPermission(canManageArticles)
+  const session = await requireUiPermission(canViewArticleCategories)
+  const userCanManageArticles = canManageArticles(session.user)
   const categories = await getArticleCategories()
   const activeCategories = categories.filter((category) => category.isActive)
 
@@ -78,8 +88,9 @@ export default async function ArticleCategoriesPage() {
             Catégories d&apos;articles
           </h1>
           <p className="mt-2 max-w-2xl text-zinc-600">
-            Gérez les catégories utilisées par le back-office et par la boutique
-            publique.
+            {userCanManageArticles
+              ? 'Gérez les catégories utilisées par le back-office et par la boutique publique.'
+              : 'Consultez les catégories utilisées par le back-office et par la boutique publique.'}
           </p>
         </div>
 
@@ -89,14 +100,16 @@ export default async function ArticleCategoriesPage() {
         </div>
       </div>
 
-      <section className="mb-6 rounded border bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Nouvelle catégorie</h2>
-        <ArticleCategoryForm
-          action={createArticleCategoryAction}
-          submitLabel="Créer la catégorie"
-          defaultActive
-        />
-      </section>
+      {userCanManageArticles ? (
+        <section className="mb-6 rounded border bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-semibold">Nouvelle catégorie</h2>
+          <ArticleCategoryForm
+            action={createArticleCategoryAction}
+            submitLabel="Créer la catégorie"
+            defaultActive
+          />
+        </section>
+      ) : null}
 
       <section className="grid gap-4">
         {categories.length === 0 ? (
@@ -105,7 +118,11 @@ export default async function ArticleCategoriesPage() {
           </div>
         ) : (
           categories.map((category) => (
-            <ArticleCategoryRow key={category.id} category={category} />
+            <ArticleCategoryRow
+              key={category.id}
+              category={category}
+              canManage={userCanManageArticles}
+            />
           ))
         )}
       </section>
@@ -113,7 +130,13 @@ export default async function ArticleCategoriesPage() {
   )
 }
 
-function ArticleCategoryRow({ category }: { category: ArticleCategory }) {
+function ArticleCategoryRow({
+  category,
+  canManage,
+}: {
+  category: ArticleCategory
+  canManage: boolean
+}) {
   const articlesCount = category._count?.articles ?? 0
 
   return (
@@ -143,29 +166,33 @@ function ArticleCategoryRow({ category }: { category: ArticleCategory }) {
           ) : null}
         </div>
 
-        <DeleteArticleCategoryForm
-          action={deleteArticleCategoryAction}
-          categoryId={category.id}
-          isUsed={articlesCount > 0}
-        >
-          <button
-            type="submit"
-            className={
-              articlesCount > 0
-                ? 'rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700'
-                : 'rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-700'
-            }
+        {canManage ? (
+          <DeleteArticleCategoryForm
+            action={deleteArticleCategoryAction}
+            categoryId={category.id}
+            isUsed={articlesCount > 0}
           >
-            {articlesCount > 0 ? 'Désactiver' : 'Supprimer'}
-          </button>
-        </DeleteArticleCategoryForm>
+            <button
+              type="submit"
+              className={
+                articlesCount > 0
+                  ? 'rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700'
+                  : 'rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-700'
+              }
+            >
+              {articlesCount > 0 ? 'Désactiver' : 'Supprimer'}
+            </button>
+          </DeleteArticleCategoryForm>
+        ) : null}
       </div>
 
-      <ArticleCategoryForm
-        action={updateArticleCategoryAction}
-        category={category}
-        submitLabel="Enregistrer"
-      />
+      {canManage ? (
+        <ArticleCategoryForm
+          action={updateArticleCategoryAction}
+          category={category}
+          submitLabel="Enregistrer"
+        />
+      ) : null}
     </article>
   )
 }

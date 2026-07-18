@@ -60,6 +60,7 @@ export class BetterAuthGuard implements CanActivate {
               'production',
               'stock',
               'comptable',
+              'read_only',
             ],
             required: false,
             defaultValue: 'vendeur',

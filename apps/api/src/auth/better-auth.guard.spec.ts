@@ -107,6 +107,25 @@ describe('BetterAuthGuard', () => {
     expect(request.userRole).toBe('gerant')
   })
 
+  it('should preserve the READ_ONLY role from the validated session', async () => {
+    const guard = createGuard()
+    const request: TestRequest = {
+      headers: {
+        cookie: 'better-auth.session_token=session-token',
+      },
+    }
+
+    getSession.mockResolvedValue({
+      user: {
+        id: 'read_only_user',
+        role: 'read_only',
+      },
+    })
+
+    await expect(guard.canActivate(createContext(request))).resolves.toBe(true)
+    expect(request.userRole).toBe('read_only')
+  })
+
   it('should not grant a role when the session has no role', async () => {
     const guard = createGuard()
     const request: TestRequest = {

@@ -18,6 +18,10 @@ test('allows only administrators to create users', () => {
     allowed: false,
     status: 403,
   })
+  assert.deepEqual(getUserCreationAuthorization({ role: 'read_only' }), {
+    allowed: false,
+    status: 403,
+  })
   assert.deepEqual(getUserCreationAuthorization({ role: 'unknown' }), {
     allowed: false,
     status: 403,
@@ -33,6 +37,8 @@ test('prevents gerant from assigning every role', () => {
   assert.equal(canAssignUserRole({ role: 'admin' }, 'vendeur'), true)
   assert.equal(canAssignUserRole({ role: 'gerant' }, 'vendeur'), false)
   assert.equal(canAssignUserRole({ role: 'gerant' }, 'admin'), false)
+  assert.equal(canAssignUserRole({ role: 'admin' }, 'read_only'), true)
+  assert.equal(canAssignUserRole({ role: 'read_only' }, 'vendeur'), false)
   assert.equal(canAssignUserRole({ role: 'unknown' }, 'vendeur'), false)
 })
 

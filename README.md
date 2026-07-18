@@ -425,7 +425,7 @@ Better Auth gère l'authentification et les sessions.
 
 - L'application web configure Better Auth côté serveur avec PostgreSQL.
 - L'API vérifie les sessions via `BetterAuthGuard`.
-- Les routes internes sensibles utilisent aussi des rôles : `gerant`, `vendeur`, `production`, `stock`, `comptable`.
+- Les routes internes sensibles utilisent aussi des rôles : `gerant`, `vendeur`, `production`, `stock`, `comptable`, `read_only`. Ce dernier est limité aux lectures et toutes ses requêtes d'écriture sont refusées par l'API.
 - Les inscriptions par e-mail et mot de passe sont désactivées côté web ; les utilisateurs sont administrés via Better Auth.
 
 La matrice des roles, les routes publiques/protegees et la separation `User` / `AuthUser` sont documentees dans `docs/AUTH_ROLES.md`.

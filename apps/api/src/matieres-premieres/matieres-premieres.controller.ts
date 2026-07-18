@@ -25,13 +25,13 @@ export class MatieresPremieresController {
   ) {}
 
   @Get()
-  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK, ROLES.READ_ONLY)
   findAll() {
     return this.matieresPremieresService.findAll()
   }
 
   @Get(':id')
-  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK, ROLES.READ_ONLY)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.matieresPremieresService.findOne(id)
   }

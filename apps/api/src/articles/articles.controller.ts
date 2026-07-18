@@ -40,13 +40,19 @@ export class ArticlesController {
   constructor(private readonly articlesService: ArticlesService) {}
 
   @Get()
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.VENDEUR,
+    ROLES.PRODUCTION,
+    ROLES.STOCK,
+    ROLES.READ_ONLY,
+  )
   findAll() {
     return this.articlesService.findAll()
   }
 
   @Get(':id/capacity')
-  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(ROLES.GERANT, ROLES.PRODUCTION, ROLES.STOCK, ROLES.READ_ONLY)
   getProductionCapacity(@Param('id', ParseIntPipe) id: number) {
     return this.articlesService.getProductionCapacity(id)
   }
@@ -61,7 +67,13 @@ export class ArticlesController {
   }
 
   @Get(':id')
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.VENDEUR,
+    ROLES.PRODUCTION,
+    ROLES.STOCK,
+    ROLES.READ_ONLY,
+  )
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.articlesService.findOne(id)
   }

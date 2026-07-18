@@ -26,7 +26,13 @@ export class ArticleCategoriesController {
   ) {}
 
   @Get()
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.VENDEUR,
+    ROLES.PRODUCTION,
+    ROLES.STOCK,
+    ROLES.READ_ONLY,
+  )
   findAll(@Query('active') active?: string) {
     if (active === 'true') {
       return this.articleCategoriesService.findActive()
@@ -36,7 +42,13 @@ export class ArticleCategoriesController {
   }
 
   @Get(':id')
-  @Roles(ROLES.GERANT, ROLES.VENDEUR, ROLES.PRODUCTION, ROLES.STOCK)
+  @Roles(
+    ROLES.GERANT,
+    ROLES.VENDEUR,
+    ROLES.PRODUCTION,
+    ROLES.STOCK,
+    ROLES.READ_ONLY,
+  )
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.articleCategoriesService.findOne(id)
   }

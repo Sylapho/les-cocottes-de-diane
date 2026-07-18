@@ -18,4 +18,5 @@ export const betterAuthRoles = {
   production: employee,
   stock: employee,
   comptable: employee,
+  read_only: employee,
 }
