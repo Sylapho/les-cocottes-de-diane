@@ -131,7 +131,21 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
     .filter((group) => group.articles.length > 0)
 
   function isCategoryOpen(categorySlug: string) {
-    return openCategories[categorySlug] ?? true
+    return openCategories[categorySlug] ?? false
+  }
+
+  function selectCategory(nextCategory: CategoryFilter) {
+    setCategory(nextCategory)
+
+    if (nextCategory === 'ALL') {
+      setOpenCategories({})
+      return
+    }
+
+    setOpenCategories((currentCategories) => ({
+      ...currentCategories,
+      [nextCategory]: true,
+    }))
   }
 
   function toggleCategory(categorySlug: string) {
@@ -300,7 +314,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
             <button
               key={item}
               type="button"
-              onClick={() => setCategory(item)}
+              onClick={() => selectCategory(item)}
               className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${
                 category === item
                   ? 'bg-[#b5006e] text-white'
