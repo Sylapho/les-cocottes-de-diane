@@ -27,10 +27,25 @@ test('shop user can add a product and create a checkout session', async ({
   await expect(
     page.getByRole('heading', { name: 'Produits disponibles' }),
   ).toBeVisible()
-  await expect(page.getByText('Terrine de volaille')).toBeVisible()
-  await expect(page.locator('article').first()).toContainText(
-    'Saucisse de poulet',
+  const terrinesTrigger = page.getByRole('button', {
+    name: /^Terrines\s+1 produit$/,
+  })
+
+  await expect(terrinesTrigger).toHaveAttribute(
+    'aria-expanded',
+    'false',
   )
+
+  await terrinesTrigger.click()
+
+  await expect(terrinesTrigger).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  )
+
+  await expect(
+    page.getByText('Terrine de volaille', { exact: true }),
+  ).toBeVisible()
 
   await page
     .locator('article')
