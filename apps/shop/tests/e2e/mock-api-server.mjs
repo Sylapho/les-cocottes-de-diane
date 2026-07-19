@@ -2,30 +2,10 @@ import http from 'node:http'
 
 const port = Number(process.env.PLAYWRIGHT_MOCK_API_PORT ?? 4010)
 
-const terrinesCategory = {
-  id: 1,
-  name: 'Terrines',
-  slug: 'terrines',
-  description: null,
-  sortOrder: 1,
-  isActive: true,
-}
-
-const sausagesCategory = {
-  id: 2,
-  name: 'Saucisses',
-  slug: 'saucisses',
-  description: null,
-  sortOrder: 2,
-  isActive: true,
-}
-
 const articles = [
   {
     id: 1,
     nom: 'Terrine de volaille',
-    categoryId: terrinesCategory.id,
-    category: terrinesCategory,
     prixCents: 650,
     tvaBps: 550,
     stock: 4,
@@ -38,8 +18,6 @@ const articles = [
   {
     id: 2,
     nom: 'Saucisse de poulet',
-    categoryId: sausagesCategory.id,
-    category: sausagesCategory,
     prixCents: 480,
     tvaBps: 550,
     stock: 8,
