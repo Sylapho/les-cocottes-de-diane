@@ -16,6 +16,18 @@ export function getUserCreationAuthorization(
   return role === 'admin' ? { allowed: true } : { allowed: false, status: 403 }
 }
 
+export function getUserLoginStatisticsAuthorization(
+  user: UserWithRole,
+): UserCreationAuthorization {
+  const role = getUserRole(user)
+
+  if (!user) {
+    return { allowed: false, status: 401 }
+  }
+
+  return role === 'admin' ? { allowed: true } : { allowed: false, status: 403 }
+}
+
 export function canAssignUserRole(user: UserWithRole, role: Role) {
   return getUserRole(user) === 'admin' && role.length > 0
 }

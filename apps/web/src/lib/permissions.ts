@@ -47,6 +47,10 @@ export function canManageUsers(user: UserWithRole) {
   return getUserRole(user) === 'admin'
 }
 
+export function canViewUserLoginStatistics(user: UserWithRole) {
+  return getUserRole(user) === 'admin'
+}
+
 export function canCreateUsers(user: UserWithRole) {
   return canManageUsers(user)
 }

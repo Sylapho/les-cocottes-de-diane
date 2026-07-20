@@ -1,6 +1,12 @@
 'use client'
 
 import UserRoleSelect from '@/components/admin/user-role-select'
+import {
+  formatAdminUserDate,
+  formatFullAdminUserDate,
+  formatLastLoginAt,
+  getLoginStatisticsColumnLabels,
+} from '@/lib/admin-user-login-statistics'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
 import { canDeleteAdminUser } from '@/lib/admin-user-permissions'
 import { roleLabels, roles, type Role } from '@/lib/roles'
@@ -13,6 +19,8 @@ export type AdminUsersTableUser = {
   email: string
   role: Role | null
   createdAt: string
+  loginCount?: number
+  lastLoginAt?: string | null
 }
 
 type AdminUsersTableProps = {
@@ -20,13 +28,7 @@ type AdminUsersTableProps = {
   currentUserId: string
   currentUserRole: Role | null
   canManage: boolean
-}
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(date))
+  showLoginStatistics: boolean
 }
 
 export default function AdminUsersTable({
@@ -34,6 +36,7 @@ export default function AdminUsersTable({
   currentUserId,
   currentUserRole,
   canManage,
+  showLoginStatistics,
 }: AdminUsersTableProps) {
   const router = useRouter()
   const [deletedUserIds, setDeletedUserIds] = useState<string[]>([])
@@ -85,13 +88,20 @@ export default function AdminUsersTable({
       ) : null}
 
       <div className="overflow-x-auto">
-        <table className="lc-data-table min-w-[860px]">
+        <table
+          className={`lc-data-table ${showLoginStatistics ? 'min-w-[1120px]' : 'min-w-[860px]'}`}
+        >
           <thead>
             <tr>
               <th>Nom</th>
               <th>Email</th>
               <th>Rôle</th>
               <th>Création</th>
+              {getLoginStatisticsColumnLabels(showLoginStatistics).map(
+                (label) => (
+                  <th key={label}>{label}</th>
+                ),
+              )}
               {canManage ? <th>Actions</th> : null}
             </tr>
           </thead>
@@ -141,8 +151,28 @@ export default function AdminUsersTable({
                     )}
                   </td>
                   <td className="text-[var(--muted)]">
-                    {formatDate(user.createdAt)}
+                    {formatAdminUserDate(user.createdAt)}
                   </td>
+                  {showLoginStatistics ? (
+                    <td className="font-semibold tabular-nums">
+                      {user.loginCount ?? 0}
+                    </td>
+                  ) : null}
+                  {showLoginStatistics ? (
+                    <td className="text-[var(--muted)]">
+                      {user.lastLoginAt ? (
+                        <time
+                          dateTime={user.lastLoginAt}
+                          title={formatFullAdminUserDate(user.lastLoginAt)}
+                          className="whitespace-nowrap"
+                        >
+                          {formatLastLoginAt(user.lastLoginAt)}
+                        </time>
+                      ) : (
+                        'Jamais'
+                      )}
+                    </td>
+                  ) : null}
                   {canManage ? (
                     <td>
                       {canDelete ? (

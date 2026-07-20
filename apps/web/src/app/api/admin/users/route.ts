@@ -1,8 +1,36 @@
-import { getUserCreationAuthorization } from '@/lib/admin-user-permissions'
-import { createEmployee } from '@/lib/admin-users'
+import {
+  getUserCreationAuthorization,
+  getUserLoginStatisticsAuthorization,
+} from '@/lib/admin-user-permissions'
+import {
+  createEmployee,
+  listAdminUsersWithLoginStatistics,
+} from '@/lib/admin-users'
+import { serializeAdminUserLoginStatistics } from '@/lib/admin-user-login-statistics'
 import { getCurrentAuthSession } from '@/lib/auth-session'
 import { isRole } from '@/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET() {
+  const session = await getCurrentAuthSession()
+  const authorization = getUserLoginStatisticsAuthorization(session?.user)
+
+  if (!authorization.allowed) {
+    return NextResponse.json(
+      {
+        message:
+          authorization.status === 401
+            ? 'Authentification requise'
+            : 'Accès interdit',
+      },
+      { status: authorization.status },
+    )
+  }
+
+  const users = await listAdminUsersWithLoginStatistics(session!.user)
+
+  return NextResponse.json(users.map(serializeAdminUserLoginStatistics))
+}
 
 export async function POST(request: NextRequest) {
   const session = await getCurrentAuthSession()
