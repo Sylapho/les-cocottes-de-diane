@@ -87,6 +87,14 @@ export function canManageArticles(user: UserWithRole) {
   return hasRole(user, ['gerant'])
 }
 
+export function canUpdateArticlePrice(user: UserWithRole) {
+  return getUserRole(user) === 'admin'
+}
+
+export function canDeleteArticle(user: UserWithRole) {
+  return getUserRole(user) === 'admin'
+}
+
 export function canManageArticleProduction(user: UserWithRole) {
   return hasRole(user, ['gerant', 'production'])
 }

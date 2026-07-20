@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
+import { ROLES_KEY } from '../auth/roles.decorator'
+import { ROLES } from '../auth/roles'
 import { ArticlesController } from './articles.controller'
 import { ArticlesService } from './articles.service'
 import {
@@ -78,7 +80,14 @@ describe('ArticlesController', () => {
 
     articlesServiceMock.update.mockResolvedValue(result)
 
-    await expect(controller.update(1, body)).resolves.toEqual(result)
+    await expect(
+      controller.update(1, body, { userRole: ROLES.ADMIN }),
+    ).resolves.toEqual(result)
+    expect(articlesServiceMock.update).toHaveBeenCalledWith(
+      1,
+      body,
+      ROLES.ADMIN,
+    )
   })
 
   it('uploadImage should update article image', async () => {
@@ -158,6 +167,15 @@ describe('ArticlesController', () => {
     articlesServiceMock.remove.mockResolvedValue(result)
 
     await expect(controller.remove(1)).resolves.toEqual(result)
+  })
+
+  it('remove should require the administrator role', () => {
+    const removeHandler = Object.getOwnPropertyDescriptor(
+      ArticlesController.prototype,
+      'remove',
+    )?.value as object
+
+    expect(Reflect.getMetadata(ROLES_KEY, removeHandler)).toEqual([ROLES.ADMIN])
   })
 
   it('getProductionCapacity should return article capacity', async () => {

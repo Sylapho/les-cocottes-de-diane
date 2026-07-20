@@ -1,10 +1,11 @@
-import { ConflictException } from '@nestjs/common'
+import { ConflictException, ForbiddenException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { ArticleCategoriesService } from '../article-categories/article-categories.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { ArticlesService } from './articles.service'
 import { CreateArticleDto } from './dto/create-article.dto'
+import { ROLES } from '../auth/roles'
 
 describe('ArticlesService', () => {
   let service: ArticlesService
@@ -203,9 +204,9 @@ describe('ArticlesService', () => {
 
     prismaMock.article.update.mockResolvedValue(updated)
 
-    await expect(service.update(1, { prixCents: 130 })).resolves.toEqual(
-      updated,
-    )
+    await expect(
+      service.update(1, { prixCents: 130 }, ROLES.ADMIN),
+    ).resolves.toEqual(updated)
     expect(prismaMock.article.update).toHaveBeenCalledWith({
       where: { id: 1 },
       data: {
@@ -223,6 +224,70 @@ describe('ArticlesService', () => {
     expect(
       articleCategoriesServiceMock.ensureAssignableCategory,
     ).not.toHaveBeenCalled()
+  })
+
+  it('update should allow a manager to update non-price fields', async () => {
+    const updated = {
+      id: 1,
+      nom: 'Baguette renommÃ©e',
+      prixCents: 120,
+    }
+
+    prismaMock.article.update.mockResolvedValue(updated)
+
+    await expect(
+      service.update(1, { nom: 'Baguette renommÃ©e' }, ROLES.GERANT),
+    ).resolves.toEqual(updated)
+    expect(prismaMock.article.findUniqueOrThrow).not.toHaveBeenCalled()
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: expect.objectContaining({
+        nom: 'Baguette renommÃ©e',
+        prixCents: undefined,
+      }),
+    })
+  })
+
+  it('update should reject a manager price change before any write', async () => {
+    prismaMock.article.findUniqueOrThrow.mockResolvedValue({ prixCents: 120 })
+
+    await expect(
+      service.update(
+        1,
+        { nom: 'Modification partielle', prixCents: 130 },
+        ROLES.GERANT,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException)
+    expect(prismaMock.article.update).not.toHaveBeenCalled()
+    expect(
+      articleCategoriesServiceMock.ensureAssignableCategory,
+    ).not.toHaveBeenCalled()
+  })
+
+  it('update should accept an unchanged manager price without writing it', async () => {
+    const updated = {
+      id: 1,
+      nom: 'Baguette renommÃ©e',
+      prixCents: 120,
+    }
+
+    prismaMock.article.findUniqueOrThrow.mockResolvedValue({ prixCents: 120 })
+    prismaMock.article.update.mockResolvedValue(updated)
+
+    await expect(
+      service.update(
+        1,
+        { nom: 'Baguette renommÃ©e', prixCents: 120 },
+        ROLES.GERANT,
+      ),
+    ).resolves.toEqual(updated)
+    expect(prismaMock.article.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: expect.objectContaining({
+        nom: 'Baguette renommÃ©e',
+        prixCents: undefined,
+      }),
+    })
   })
 
   it('update should accept legacy article category values', async () => {
