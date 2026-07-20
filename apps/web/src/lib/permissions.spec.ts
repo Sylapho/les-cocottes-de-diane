@@ -8,11 +8,14 @@ import {
   canManagePickupPoints,
   canManageArticleProduction,
   canManageArticles,
+  canDeleteArticle,
   canManageCashRegister,
   canManageOrders,
   canManageStock,
   canManageUsers,
+  canViewUserLoginStatistics,
   canRefundOrders,
+  canUpdateArticlePrice,
   canViewArticles,
   canViewArticleCategories,
   canViewCashRegister,
@@ -46,6 +49,8 @@ test('grants every existing permission to admin', () => {
     canAccessBackOffice,
     canCreateUsers,
     canManageArticles,
+    canDeleteArticle,
+    canUpdateArticlePrice,
     canRefundOrders,
     canCreateSales,
     canViewCashRegister,
@@ -56,6 +61,7 @@ test('grants every existing permission to admin', () => {
     canViewStock,
     canManageStock,
     canManageUsers,
+    canViewUserLoginStatistics,
     canManageArticleProduction,
     canViewArticleCategories,
     canViewCashRegisterHistory,
@@ -71,9 +77,15 @@ test('reserves all user management to admin', () => {
   assert.equal(canAccessAdmin(user('gerant')), true)
   assert.equal(canManageUsers(user('admin')), true)
   assert.equal(canManageUsers(user('gerant')), false)
+  assert.equal(canViewUserLoginStatistics(user('admin')), true)
+  assert.equal(canViewUserLoginStatistics(user('gerant')), false)
   assert.equal(canCreateUsers(user('admin')), true)
   assert.equal(canCreateUsers(user('gerant')), false)
   assert.equal(canManageArticles(user('gerant')), true)
+  assert.equal(canDeleteArticle(user('admin')), true)
+  assert.equal(canDeleteArticle(user('gerant')), false)
+  assert.equal(canUpdateArticlePrice(user('admin')), true)
+  assert.equal(canUpdateArticlePrice(user('gerant')), false)
   assert.equal(canRefundOrders(user('gerant')), true)
 
   for (const role of ['vendeur', 'production', 'stock', 'comptable'] as const) {
@@ -89,10 +101,13 @@ test('grants no permission to missing or unknown roles', () => {
   for (const invalidUser of [null, { role: 'unknown' }]) {
     assert.equal(canAccessAdmin(invalidUser), false)
     assert.equal(canManageUsers(invalidUser), false)
+    assert.equal(canViewUserLoginStatistics(invalidUser), false)
     assert.equal(canAccessBackOffice(invalidUser), false)
     assert.equal(canCreateUsers(invalidUser), false)
     assert.equal(canManageOrders(invalidUser), false)
     assert.equal(canViewArticles(invalidUser), false)
+    assert.equal(canDeleteArticle(invalidUser), false)
+    assert.equal(canUpdateArticlePrice(invalidUser), false)
   }
 })
 
@@ -142,6 +157,8 @@ test('exposes every approved read surface and no mutation to READ_ONLY', () => {
     canManageOrders,
     canRefundOrders,
     canManageArticles,
+    canDeleteArticle,
+    canUpdateArticlePrice,
     canManageArticleProduction,
     canManageStock,
     canManageCashRegister,

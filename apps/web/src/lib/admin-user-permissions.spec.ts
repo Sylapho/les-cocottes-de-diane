@@ -4,6 +4,7 @@ import {
   canAssignUserRole,
   canDeleteAdminUser,
   getUserCreationAuthorization,
+  getUserLoginStatisticsAuthorization,
 } from '@/lib/admin-user-permissions'
 
 test('allows only administrators to create users', () => {
@@ -40,6 +41,31 @@ test('prevents gerant from assigning every role', () => {
   assert.equal(canAssignUserRole({ role: 'admin' }, 'read_only'), true)
   assert.equal(canAssignUserRole({ role: 'read_only' }, 'vendeur'), false)
   assert.equal(canAssignUserRole({ role: 'unknown' }, 'vendeur'), false)
+})
+
+test('reserves login statistics API access to administrators', () => {
+  assert.deepEqual(getUserLoginStatisticsAuthorization({ role: 'admin' }), {
+    allowed: true,
+  })
+
+  for (const role of [
+    'gerant',
+    'vendeur',
+    'production',
+    'stock',
+    'comptable',
+    'read_only',
+  ] as const) {
+    assert.deepEqual(getUserLoginStatisticsAuthorization({ role }), {
+      allowed: false,
+      status: 403,
+    })
+  }
+
+  assert.deepEqual(getUserLoginStatisticsAuthorization(null), {
+    allowed: false,
+    status: 401,
+  })
 })
 
 test('allows deleting another admin user', () => {

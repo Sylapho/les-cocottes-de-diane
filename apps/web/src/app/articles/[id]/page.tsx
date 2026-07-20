@@ -12,6 +12,7 @@ import { formatCurrencyFromCents } from '@/lib/money'
 import {
   canManageArticleProduction,
   canManageArticles,
+  canDeleteArticle,
   canViewArticles,
   canViewStock,
 } from '@/lib/permissions'
@@ -26,6 +27,7 @@ type PageProps = {
 export default async function ArticleDetailPage({ params }: PageProps) {
   const session = await requireUiPermission(canViewArticles)
   const userCanManageArticles = canManageArticles(session.user)
+  const userCanDeleteArticle = canDeleteArticle(session.user)
   const userCanManageArticleProduction = canManageArticleProduction(
     session.user,
   )
@@ -133,7 +135,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           </div>
         ) : null}
 
-        {userCanManageArticles ? (
+        {userCanDeleteArticle ? (
           <div className="mt-6">
             <DeleteArticleButton articleId={article.id} />
           </div>

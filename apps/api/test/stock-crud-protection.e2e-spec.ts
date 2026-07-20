@@ -63,7 +63,6 @@ describe('API E2E - stock CRUD protection', () => {
       .set(authAs(ROLES.GERANT))
       .send({
         nom: 'Article metadata updated E2E',
-        prixCents: 300,
         online: false,
       })
       .expect(200)
@@ -71,7 +70,7 @@ describe('API E2E - stock CRUD protection', () => {
     expect(response.body).toMatchObject({
       id: article.id,
       nom: 'Article metadata updated E2E',
-      prixCents: 300,
+      prixCents: 250,
       stock: 4,
       online: false,
     })

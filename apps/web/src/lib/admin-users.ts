@@ -3,7 +3,11 @@ import 'server-only'
 import { auth } from '@/lib/auth'
 import { getCurrentAuthSession } from '@/lib/auth-session'
 import { canDeleteAdminUser } from '@/lib/admin-user-permissions'
-import { canManageUsers } from '@/lib/permissions'
+import {
+  canManageUsers,
+  canViewUserLoginStatistics,
+  type UserWithRole,
+} from '@/lib/permissions'
 import { isRole, type Role } from '@/lib/roles'
 import { headers } from 'next/headers'
 import { Pool } from 'pg'
@@ -24,6 +28,11 @@ export type AdminUser = {
   email: string
   role: Role | null
   createdAt: Date
+}
+
+export type AdminUserWithLoginStatistics = AdminUser & {
+  loginCount: number
+  lastLoginAt: Date | null
 }
 
 export class AdminUserDeletionError extends Error {
@@ -63,6 +72,45 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
     email: user.email,
     role: isRole(user.role) ? user.role : null,
     createdAt: user.createdAt,
+  }))
+}
+
+export async function listAdminUsersWithLoginStatistics(
+  currentUser: UserWithRole,
+): Promise<AdminUserWithLoginStatistics[]> {
+  if (!canViewUserLoginStatistics(currentUser)) {
+    throw new Error('Forbidden user login statistics access')
+  }
+
+  const result = await pool.query<{
+    id: string
+    name: string | null
+    email: string
+    role: string | null
+    createdAt: Date
+    loginCount: number
+    lastLoginAt: Date | null
+  }>(
+    `SELECT
+      id,
+      name,
+      email,
+      role,
+      "createdAt",
+      "loginCount",
+      "lastLoginAt"
+    FROM "user"
+    ORDER BY "createdAt" DESC`,
+  )
+
+  return result.rows.map((user) => ({
+    id: user.id,
+    name: user.name ?? 'Sans nom',
+    email: user.email,
+    role: isRole(user.role) ? user.role : null,
+    createdAt: user.createdAt,
+    loginCount: user.loginCount,
+    lastLoginAt: user.lastLoginAt,
   }))
 }
 

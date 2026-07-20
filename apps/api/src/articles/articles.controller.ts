@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Req,
   UploadedFile,
   UseInterceptors,
   UseGuards,
@@ -29,9 +30,14 @@ import { BetterAuthGuard } from '../auth/better-auth.guard'
 import { Roles } from '../auth/roles.decorator'
 import { RolesGuard } from '../auth/roles.guard'
 import { ROLES } from '../auth/roles'
+import type { Role } from '../auth/roles'
 
 type UploadedArticleImage = {
   filename: string
+}
+
+type AuthenticatedRequest = {
+  userRole?: Role
 }
 
 @Controller('articles')
@@ -89,8 +95,9 @@ export class ArticlesController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: UpdateArticleDto,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.articlesService.update(id, body)
+    return this.articlesService.update(id, body, request.userRole)
   }
 
   @Post(':id/image')
@@ -128,7 +135,7 @@ export class ArticlesController {
   }
 
   @Delete(':id')
-  @Roles(ROLES.GERANT)
+  @Roles(ROLES.ADMIN)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.articlesService.remove(id)
   }

@@ -47,6 +47,10 @@ export function canManageUsers(user: UserWithRole) {
   return getUserRole(user) === 'admin'
 }
 
+export function canViewUserLoginStatistics(user: UserWithRole) {
+  return getUserRole(user) === 'admin'
+}
+
 export function canCreateUsers(user: UserWithRole) {
   return canManageUsers(user)
 }
@@ -85,6 +89,14 @@ export function canViewArticleCategories(user: UserWithRole) {
 
 export function canManageArticles(user: UserWithRole) {
   return hasRole(user, ['gerant'])
+}
+
+export function canUpdateArticlePrice(user: UserWithRole) {
+  return getUserRole(user) === 'admin'
+}
+
+export function canDeleteArticle(user: UserWithRole) {
+  return getUserRole(user) === 'admin'
 }
 
 export function canManageArticleProduction(user: UserWithRole) {
