@@ -13,6 +13,9 @@ export function prepareE2eEnvironment() {
   process.env.STRIPE_SECRET_KEY ||= 'sk_test_localco_e2e'
   process.env.STRIPE_WEBHOOK_SECRET ||= 'whsec_localco_e2e_secret'
   process.env.CHECKOUT_RATE_LIMIT_MAX ||= '1000'
+  process.env.ANALYTICS_HASH_SECRET ||=
+    'test_analytics_hash_secret_at_least_32_chars'
+  process.env.ANALYTICS_RATE_LIMIT_MAX ||= '1000'
   process.env.ABANDONED_ORDER_DELAY_MINUTES ||= '60'
 
   assertSafeE2eDatabaseUrl(process.env.DATABASE_URL)

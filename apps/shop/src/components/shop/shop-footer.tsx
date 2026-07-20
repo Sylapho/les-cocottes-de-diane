@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { SVGProps } from 'react'
 import { getSocialLinks } from '@/lib/social-links'
+import AnalyticsPreferencesButton from '@/components/analytics/analytics-preferences-button'
 
 const legalLinks = [
   { href: '/mentions-legales', label: 'Mentions légales' },
@@ -66,6 +67,7 @@ export default function ShopFooter() {
                 {link.label}
               </Link>
             ))}
+            <AnalyticsPreferencesButton />
           </nav>
         </div>
       </div>

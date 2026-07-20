@@ -1,6 +1,7 @@
 'use client'
 
 import type { CreateCommandePayload, PickupPoint, ShopArticle } from '@/lib/api'
+import { getCheckoutAnalyticsIdentifiers } from '@/lib/analytics'
 import {
   buildCartLines,
   clearStoredCart,
@@ -147,12 +148,15 @@ export default function CheckoutClient({
     setLoading(true)
 
     try {
+      const analyticsIdentifiers = getCheckoutAnalyticsIdentifiers()
       const payload: CreateCommandePayload = {
         nom,
         email,
         tel: tel || undefined,
         lieu: formatPickupPoint(selectedPickupPoint),
         dateRetrait: selectedDateRetrait,
+        analyticsVisitorId: analyticsIdentifiers?.visitorId,
+        analyticsSessionId: analyticsIdentifiers?.sessionId,
         lignes: lines.map((line) => ({
           articleId: line.article.id,
           quantite: line.quantite,

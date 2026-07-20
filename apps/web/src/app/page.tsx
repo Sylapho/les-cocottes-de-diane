@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import AnalyticsDashboard from '@/components/analytics/analytics-dashboard'
 import {
   getArticles,
   getCaisseToday,
@@ -16,6 +17,7 @@ import {
   canViewCashRegister,
   canViewOrders,
   canViewStock,
+  canViewShopAnalytics,
 } from '@/lib/permissions'
 import { getProductionNeeds } from '@/lib/production-needs'
 import {
@@ -105,6 +107,7 @@ export default async function Home() {
   const userCanViewCashRegister = canViewCashRegister(session.user)
   const userCanViewOrders = canViewOrders(session.user)
   const userCanViewStock = canViewStock(session.user)
+  const userCanViewShopAnalytics = canViewShopAnalytics(session.user)
   const [caisse, commandes, articles, matieres, lots] = await Promise.all([
     userCanViewCashRegister ? getCaisseToday() : Promise.resolve(null),
     userCanViewOrders ? getCommandes() : Promise.resolve([]),
@@ -163,6 +166,8 @@ export default async function Home() {
           ) : null
         }
       />
+
+      {userCanViewShopAnalytics ? <AnalyticsDashboard /> : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {caisse ? (

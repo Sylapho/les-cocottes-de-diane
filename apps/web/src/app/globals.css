@@ -735,6 +735,156 @@ textarea::placeholder {
   display: none;
 }
 
+.lc-analytics-panel {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  padding: 20px;
+}
+
+.lc-analytics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.lc-analytics-header h2,
+.lc-analytics-panel > div:first-child h2 {
+  font-size: 1.08rem;
+  font-weight: 850;
+}
+
+.lc-analytics-header p,
+.lc-analytics-panel > div:first-child p {
+  max-width: 65ch;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.lc-period-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 4px;
+}
+
+.lc-period-selector button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 11px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lc-period-selector button:hover {
+  color: var(--foreground);
+}
+
+.lc-period-selector button[aria-pressed='true'] {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 2px 6px rgba(51, 35, 46, 0.1);
+}
+
+.lc-period-selector button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.lc-analytics-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 20px;
+  border-block: 1px solid var(--border);
+}
+
+.lc-analytics-metric {
+  min-width: 0;
+  padding: 18px 16px;
+}
+
+.lc-analytics-metric + .lc-analytics-metric {
+  border-left: 1px solid var(--border);
+}
+
+.lc-analytics-metric p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.lc-analytics-metric strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--foreground);
+  font-size: 1.7rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.lc-analytics-metric.primary strong {
+  color: var(--primary);
+}
+
+.lc-analytics-metric span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.lc-analytics-empty {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.lc-analytics-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f1ecef 25%, #faf7f8 50%, #f1ecef 75%);
+  background-size: 200% 100%;
+  animation: lc-analytics-pulse 1.5s ease-in-out infinite;
+}
+
+.lc-analytics-skeleton.heading {
+  width: min(340px, 70%);
+  height: 42px;
+}
+
+.lc-analytics-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.lc-analytics-skeleton.metric {
+  height: 110px;
+}
+
+@keyframes lc-analytics-pulse {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-analytics-skeleton {
+    animation: none;
+  }
+}
+
 .lc-content .bg-black {
   background-color: var(--primary) !important;
 }
@@ -776,6 +926,27 @@ textarea::placeholder {
   .lc-page-header,
   .lc-card-header {
     display: grid;
+  }
+
+  .lc-analytics-header {
+    display: grid;
+  }
+
+  .lc-analytics-metrics,
+  .lc-analytics-skeleton-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lc-analytics-metric + .lc-analytics-metric {
+    border-left: 0;
+  }
+
+  .lc-analytics-metric:nth-child(even) {
+    border-left: 1px solid var(--border);
+  }
+
+  .lc-analytics-metric:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
   }
 
   .lc-page-actions,
@@ -837,6 +1008,30 @@ textarea::placeholder {
 
   .lc-mobile-nav a.active span {
     background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+@media (max-width: 520px) {
+  .lc-analytics-panel {
+    padding: 16px;
+  }
+
+  .lc-period-selector {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .lc-analytics-metrics,
+  .lc-analytics-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-analytics-metric:nth-child(even) {
+    border-left: 0;
+  }
+
+  .lc-analytics-metric + .lc-analytics-metric {
+    border-top: 1px solid var(--border);
   }
 }
 

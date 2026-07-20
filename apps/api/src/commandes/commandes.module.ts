@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { AnalyticsModule } from '../analytics/analytics.module'
 import { EmailsModule } from '../emails/emails.module'
 import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module'
 import { PickupPointsModule } from '../pickup-points/pickup-points.module'
@@ -13,7 +14,12 @@ import { CommandesService } from './commandes.service'
 import { StripeCheckoutGateway } from './stripe-checkout.gateway'
 
 @Module({
-  imports: [MouvementsStockModule, EmailsModule, PickupPointsModule],
+  imports: [
+    MouvementsStockModule,
+    EmailsModule,
+    PickupPointsModule,
+    AnalyticsModule,
+  ],
   controllers: [CommandesController],
   providers: [
     CommandesService,
