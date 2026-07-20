@@ -48,7 +48,7 @@ describe('API E2E - catalog deletion workflow', () => {
 
     const response = await request(testApp.app.getHttpServer())
       .delete(`/api/articles/${article.id}`)
-      .set(authAs(ROLES.GERANT))
+      .set(authAs(ROLES.ADMIN))
       .expect(200)
 
     expect(response.body).toMatchObject({
@@ -84,7 +84,7 @@ describe('API E2E - catalog deletion workflow', () => {
 
     await request(testApp.app.getHttpServer())
       .delete(`/api/articles/${article.id}`)
-      .set(authAs(ROLES.GERANT))
+      .set(authAs(ROLES.ADMIN))
       .expect(200)
 
     await expect(

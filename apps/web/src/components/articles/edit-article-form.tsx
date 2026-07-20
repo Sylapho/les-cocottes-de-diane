@@ -4,6 +4,7 @@ import ArticleImage from '@/components/articles/article-image'
 import type { Article } from '@/lib/api'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
 import type { ArticleCategory } from '@/lib/article-categories'
+import { buildArticleUpdatePayload } from '@/lib/article-update'
 import { centsToEuros, eurosToCents } from '@/lib/money'
 import { useSessionFetch } from '@/lib/use-session-fetch'
 import Image from 'next/image'
@@ -13,6 +14,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react'
 type EditArticleFormProps = {
   article: Article
   categories: ArticleCategory[]
+  canUpdatePrice: boolean
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -22,6 +24,7 @@ const ARTICLE_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp'
 export default function EditArticleForm({
   article,
   categories,
+  canUpdatePrice,
 }: EditArticleFormProps) {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
@@ -121,13 +124,18 @@ export default function EditArticleForm({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          nom,
-          categoryId: categoryId || null,
-          prixCents: eurosToCents(Number(prix)),
-          description: description || undefined,
-          online,
-        }),
+        body: JSON.stringify(
+          buildArticleUpdatePayload(
+            {
+              nom,
+              categoryId: categoryId || null,
+              prixCents: eurosToCents(Number(prix)),
+              description: description || undefined,
+              online,
+            },
+            canUpdatePrice,
+          ),
+        ),
       })
 
       if (!response.ok) {
@@ -171,9 +179,16 @@ export default function EditArticleForm({
           min="0"
           value={prix}
           onChange={(e) => setPrix(e.target.value)}
-          className="rounded border px-3 py-2"
+          className="rounded border px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-700"
+          disabled={!canUpdatePrice}
+          aria-describedby={!canUpdatePrice ? 'prix-permission-help' : undefined}
           required
         />
+        {!canUpdatePrice ? (
+          <p id="prix-permission-help" className="text-sm text-gray-600">
+            Seul un administrateur peut modifier le prix.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-1">

@@ -14,6 +14,11 @@ import { CreateArticleDto } from './dto/create-article.dto'
 import { ProduceArticleDto } from './dto/produce-article.dto'
 import { UpdateArticleDto } from './dto/update-article.dto'
 import { ARTICLE_IMAGE_UPLOAD_DIR } from './article-image-upload'
+import type { Role } from '../auth/roles'
+import {
+  assertArticlePriceUpdateAllowed,
+  canUpdateArticlePrice,
+} from './article-permissions'
 
 const ARTICLE_IMAGE_FILENAME_PATTERN =
   /^article-\d+-\d+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i
@@ -101,7 +106,20 @@ export class ArticlesService {
     })
   }
 
-  async update(id: number, data: UpdateArticleDto) {
+  async update(id: number, data: UpdateArticleDto, role?: Role) {
+    if (data.prixCents !== undefined && !canUpdateArticlePrice(role)) {
+      const currentArticle = await this.prisma.article.findUniqueOrThrow({
+        where: { id },
+        select: { prixCents: true },
+      })
+
+      assertArticlePriceUpdateAllowed(
+        role,
+        currentArticle.prixCents,
+        data.prixCents,
+      )
+    }
+
     const categoryId = await this.resolveCategoryId(data, false)
 
     return this.prisma.article.update({
@@ -109,7 +127,7 @@ export class ArticlesService {
       data: {
         nom: data.nom,
         categoryId,
-        prixCents: data.prixCents,
+        prixCents: canUpdateArticlePrice(role) ? data.prixCents : undefined,
         tvaBps: data.tvaBps,
         online: data.online,
         description: data.description,
