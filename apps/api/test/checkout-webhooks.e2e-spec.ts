@@ -122,12 +122,29 @@ describe('API E2E - checkout and Stripe webhooks', () => {
       stock: 2,
     })
 
+    const analyticsVisitorId = '46b3a5e8-2e8c-4f43-a01c-1d0d4313b8a1'
+    const analyticsSessionId = 'b25f1169-5ac8-44a4-8bb1-87f31f7fab82'
+    await request(testApp.app.getHttpServer())
+      .post('/api/analytics/visits')
+      .send({
+        visitorId: analyticsVisitorId,
+        sessionId: analyticsSessionId,
+      })
+      .expect(201)
+
     await request(testApp.app.getHttpServer())
       .post('/api/commandes/checkout')
-      .send(checkoutPayload(article.id, 5))
+      .send({
+        ...checkoutPayload(article.id, 5),
+        analyticsVisitorId,
+        analyticsSessionId,
+      })
       .expect(201)
 
     const commande = await testApp.prisma.commande.findFirstOrThrow()
+    expect(commande.analyticsVisitorId).not.toBeNull()
+    expect(commande.analyticsSessionId).not.toBeNull()
+    expect(commande.confirmedAt).toBeNull()
     const event = createSignedStripeEvent({
       id: 'evt_e2e_completed_once',
       type: 'checkout.session.completed',
@@ -151,6 +168,7 @@ describe('API E2E - checkout and Stripe webhooks', () => {
       })
 
     expect(confirmed.statut).toBe('nouvelle')
+    expect(confirmed.confirmedAt).toBeInstanceOf(Date)
     expect(
       confirmed.historique.filter(
         (entry) => entry.motif === 'paiement_confirme',
@@ -167,6 +185,11 @@ describe('API E2E - checkout and Stripe webhooks', () => {
       lastError: null,
     })
     expect(webhookEvent.processedAt).toBeInstanceOf(Date)
+    const convertedSession =
+      await testApp.prisma.analyticsSession.findUniqueOrThrow({
+        where: { id: confirmed.analyticsSessionId! },
+      })
+    expect(convertedSession.convertedAt).toEqual(confirmed.confirmedAt)
   })
 
   it('signed checkout.session.expired cancels pending order and releases stock once', async () => {

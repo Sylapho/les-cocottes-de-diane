@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config'
 import { Test, TestingModule } from '@nestjs/testing'
 import Stripe from 'stripe'
+import { AnalyticsIdentityService } from '../analytics/analytics-identity.service'
 import { EmailsService } from '../emails/emails.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PickupPointsService } from '../pickup-points/pickup-points.service'
@@ -135,6 +136,9 @@ describe('CommandesService', () => {
   const commandeRefundsServiceMock = {
     isStripeRefundWebhookEvent: jest.fn(),
     handleStripeRefundWebhook: jest.fn(),
+  }
+  const analyticsIdentityServiceMock = {
+    resolveAttributionBestEffort: jest.fn().mockResolvedValue(null),
   }
 
   type TransactionClient = {
@@ -274,6 +278,10 @@ describe('CommandesService', () => {
         {
           provide: PickupPointsService,
           useValue: pickupPointsServiceMock,
+        },
+        {
+          provide: AnalyticsIdentityService,
+          useValue: analyticsIdentityServiceMock,
         },
       ],
     }).compile()
@@ -1018,6 +1026,7 @@ describe('CommandesService', () => {
         dateRetrait: new Date(validPickupDate),
         totalTtcCents: 600,
         statut: 'nouvelle',
+        confirmedAt: expect.any(Date) as Date,
         lignes: {
           create: [
             {
@@ -1111,6 +1120,7 @@ describe('CommandesService', () => {
         dateRetrait: new Date(validPickupDate),
         totalTtcCents: 1000,
         statut: 'nouvelle',
+        confirmedAt: expect.any(Date) as Date,
         lignes: {
           create: [
             {
@@ -1928,7 +1938,12 @@ describe('CommandesService', () => {
     expect(transactionClient.$queryRaw).toHaveBeenCalled()
     expect(prismaMock.commande.update).toHaveBeenCalledWith({
       where: { id: 55 },
-      data: { statut: 'nouvelle', stripeId: 'cs_paid' },
+      data: {
+        statut: 'nouvelle',
+        confirmedAt: expect.any(Date) as Date,
+        stripeId: 'cs_paid',
+        stripePaymentIntentId: undefined,
+      },
       include: {
         lignes: {
           include: {
@@ -2170,7 +2185,12 @@ describe('CommandesService', () => {
 
     expect(prismaMock.commande.update).toHaveBeenCalledWith({
       where: { id: 56 },
-      data: { statut: 'nouvelle', stripeId: 'cs_paid_email' },
+      data: {
+        statut: 'nouvelle',
+        confirmedAt: expect.any(Date) as Date,
+        stripeId: 'cs_paid_email',
+        stripePaymentIntentId: undefined,
+      },
       include: {
         lignes: {
           include: {
@@ -2700,7 +2720,10 @@ describe('CommandesService', () => {
 
     expect(prismaMock.commande.update).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: { statut: 'preparee' },
+      data: {
+        statut: 'preparee',
+        confirmedAt: expect.any(Date) as Date,
+      },
       include: {
         lignes: {
           include: {
@@ -3239,6 +3262,7 @@ describe('CommandesService', () => {
         new CommandeStockReservationService(
           mouvementsStockServiceMock as never,
         ),
+        analyticsIdentityServiceMock as never,
       )
 
       prismaMock.commande.findMany.mockResolvedValue([])

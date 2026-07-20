@@ -15,12 +15,14 @@ import { PickupPointsModule } from './pickup-points/pickup-points.module'
 import { ArticleCategoriesModule } from './article-categories/article-categories.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
+import { AnalyticsModule } from './analytics/analytics.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
     PrismaModule,
+    AnalyticsModule,
     ArticleCategoriesModule,
     ArticlesModule,
     MatieresPremieresModule,

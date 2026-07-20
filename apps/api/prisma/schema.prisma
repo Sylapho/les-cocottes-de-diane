@@ -178,29 +178,67 @@ model LigneVente {
 }
 
 model Commande {
-  id            Int                        @id @default(autoincrement())
-  trackingToken String                     @unique
-  nom           String
-  email         String
-  tel           String?
-  totalTtcCents Int
-  lieu          String
-  dateRetrait   DateTime?
-  statut        String                     @default("nouvelle")
-  stripeId      String?
-  stripePaymentIntentId String?
-  createdAt     DateTime                   @default(now())
-  lignes        LigneCommande[]
-  historique    CommandeStatutHistorique[]
-  reservationRelease CommandeReservationRelease?
-  stockAllocations CommandeStockAllocation[]
+  id                            Int                            @id @default(autoincrement())
+  trackingToken                 String                         @unique
+  nom                           String
+  email                         String
+  tel                           String?
+  totalTtcCents                 Int
+  lieu                          String
+  dateRetrait                   DateTime?
+  statut                        String                         @default("nouvelle")
+  stripeId                      String?
+  stripePaymentIntentId         String?
+  confirmedAt                   DateTime?
+  analyticsVisitorId            String?
+  analyticsSessionId            String?
+  createdAt                     DateTime                       @default(now())
+  lignes                        LigneCommande[]
+  historique                    CommandeStatutHistorique[]
+  reservationRelease            CommandeReservationRelease?
+  stockAllocations              CommandeStockAllocation[]
   stripeCheckoutReconciliations StripeCheckoutReconciliation[]
-  refunds       Refund[]
+  refunds                       Refund[]
+  analyticsVisitor              AnalyticsVisitor?              @relation(fields: [analyticsVisitorId], references: [id], onDelete: SetNull)
+  analyticsSession              AnalyticsSession?              @relation(fields: [analyticsSessionId], references: [id], onDelete: SetNull)
 
   @@index([statut])
   @@index([stripeId])
   @@index([stripePaymentIntentId])
   @@index([dateRetrait])
+  @@index([confirmedAt])
+  @@index([analyticsVisitorId, confirmedAt])
+  @@index([analyticsSessionId])
+}
+
+model AnalyticsVisitor {
+  id          String             @id @default(cuid())
+  visitorHash String             @unique
+  firstSeenAt DateTime           @default(now())
+  lastSeenAt  DateTime           @default(now())
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  sessions    AnalyticsSession[]
+  orders      Commande[]
+
+  @@index([firstSeenAt])
+  @@index([lastSeenAt])
+}
+
+model AnalyticsSession {
+  id             String           @id @default(cuid())
+  sessionHash    String           @unique
+  visitorId      String
+  visitor        AnalyticsVisitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  startedAt      DateTime         @default(now())
+  lastActivityAt DateTime         @default(now())
+  convertedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  orders         Commande[]
+
+  @@index([startedAt])
+  @@index([visitorId, startedAt])
+  @@index([visitorId, lastActivityAt])
 }
 
 model PickupPoint {

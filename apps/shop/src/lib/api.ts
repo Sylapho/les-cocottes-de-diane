@@ -28,6 +28,8 @@ export type CreateCommandePayload = {
   tel?: string
   lieu: string
   dateRetrait?: string
+  analyticsVisitorId?: string
+  analyticsSessionId?: string
   lignes: {
     articleId: number
     quantite: number
