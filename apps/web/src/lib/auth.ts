@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { admin } from 'better-auth/plugins'
 import { authAccessControl, betterAuthRoles } from '@/lib/auth-access'
+import { trackSuccessfulLogin } from '@/lib/login-statistics'
 import { Pool } from 'pg'
 
 const databaseUrl = process.env.DATABASE_URL
@@ -28,10 +29,25 @@ const socialProviders = {
     : {}),
 }
 
+const database = new Pool({
+  connectionString: databaseUrl,
+})
+
 export const auth = betterAuth({
-  database: new Pool({
-    connectionString: databaseUrl,
-  }),
+  database,
+  databaseHooks: {
+    session: {
+      create: {
+        async after(session, context) {
+          try {
+            await trackSuccessfulLogin({ database, session, context })
+          } catch (error) {
+            console.error('Failed to record successful login', error)
+          }
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,

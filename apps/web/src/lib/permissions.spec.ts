@@ -13,6 +13,7 @@ import {
   canManageOrders,
   canManageStock,
   canManageUsers,
+  canViewUserLoginStatistics,
   canRefundOrders,
   canUpdateArticlePrice,
   canViewArticles,
@@ -60,6 +61,7 @@ test('grants every existing permission to admin', () => {
     canViewStock,
     canManageStock,
     canManageUsers,
+    canViewUserLoginStatistics,
     canManageArticleProduction,
     canViewArticleCategories,
     canViewCashRegisterHistory,
@@ -75,6 +77,8 @@ test('reserves all user management to admin', () => {
   assert.equal(canAccessAdmin(user('gerant')), true)
   assert.equal(canManageUsers(user('admin')), true)
   assert.equal(canManageUsers(user('gerant')), false)
+  assert.equal(canViewUserLoginStatistics(user('admin')), true)
+  assert.equal(canViewUserLoginStatistics(user('gerant')), false)
   assert.equal(canCreateUsers(user('admin')), true)
   assert.equal(canCreateUsers(user('gerant')), false)
   assert.equal(canManageArticles(user('gerant')), true)
@@ -97,6 +101,7 @@ test('grants no permission to missing or unknown roles', () => {
   for (const invalidUser of [null, { role: 'unknown' }]) {
     assert.equal(canAccessAdmin(invalidUser), false)
     assert.equal(canManageUsers(invalidUser), false)
+    assert.equal(canViewUserLoginStatistics(invalidUser), false)
     assert.equal(canAccessBackOffice(invalidUser), false)
     assert.equal(canCreateUsers(invalidUser), false)
     assert.equal(canManageOrders(invalidUser), false)

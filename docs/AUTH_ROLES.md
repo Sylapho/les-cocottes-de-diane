@@ -46,6 +46,48 @@ Ces deux modeles ne doivent pas etre melanges. Les autorisations et les sessions
 doivent utiliser `AuthUser` / Better Auth. Le modele `User` reste lie au domaine
 metier des ventes tant qu'il n'est pas migre explicitement.
 
+## Statistiques de connexion
+
+Les statistiques de connexion du back-office sont stockees directement sur le
+modele Prisma `AuthUser`, dans la table Better Auth `"user"` :
+
+- `loginCount` contient le nombre de connexions reussies et vaut `0` par defaut ;
+- `lastLoginAt` contient la date de la derniere connexion reussie et reste nullable.
+
+La migration `20260720120000_add_auth_user_login_statistics` initialise ainsi
+les utilisateurs existants avec un compteur a `0` et une date a `null`. Aucun
+historique artificiel n'est reconstruit a partir des sessions existantes.
+
+La comptabilisation est configuree dans `apps/web/src/lib/auth.ts` avec le hook
+Better Auth `databaseHooks.session.create.after`. Le hook appelle
+`trackSuccessfulLogin` uniquement lorsqu'une session vient d'etre creee par une
+connexion email reussie ou par un callback OAuth. L'increment PostgreSQL
+`"loginCount" = "loginCount" + 1` est atomique. Les echecs de connexion, les
+lectures et rafraichissements de session, la creation d'un employe, le bootstrap
+administrateur et l'impersonation ne sont pas comptes.
+
+Les champs sont exposes par `GET /api/admin/users` et affiches sur
+`/admin/users` uniquement pour le role `admin`. L'endpoint renvoie `403` aux
+roles `gerant`, `read_only` et aux autres roles non administrateurs. La liste
+read-only de la page utilise une requete distincte qui ne selectionne pas ces
+colonnes. La reponse API repose sur une liste blanche et n'inclut ni mots de
+passe, ni tokens, ni sessions, ni adresses IP, ni user-agents.
+
+Appliquer la migration en production avec :
+
+```bash
+pnpm db:deploy
+```
+
+En developpement, `pnpm db:migrate` applique les migrations et regenere le
+client Prisma selon la configuration locale.
+
+Le hook est execute apres la creation reussie de la session afin de ne jamais
+compter un echec. Cette mise a jour n'est pas dans la meme transaction que la
+creation interne de session Better Auth : une panne de base survenant exactement
+entre les deux operations peut laisser une connexion non comptabilisee. L'erreur
+est journalisee sans invalider une session utilisateur deja creee.
+
 ## Routes publiques API
 
 | Route                                            | Statut                   | Note                                                                                      |

@@ -98,6 +98,8 @@ model AuthUser {
   banned        Boolean?      @default(false)
   banReason     String?
   banExpires    DateTime?     @db.Timestamp(6)
+  loginCount    Int           @default(0)
+  lastLoginAt   DateTime?     @db.Timestamp(6)
   createdAt     DateTime      @default(now()) @db.Timestamp(6)
   updatedAt     DateTime      @default(now()) @db.Timestamp(6)
   sessions      AuthSession[]

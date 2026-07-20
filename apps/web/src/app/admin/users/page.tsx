@@ -7,20 +7,35 @@ import {
   SectionCard,
   StatCard,
 } from '@/components/ui/dashboard'
-import { listAdminUsers } from '@/lib/admin-users'
+import {
+  listAdminUsers,
+  listAdminUsersWithLoginStatistics,
+  type AdminUser,
+  type AdminUserWithLoginStatistics,
+} from '@/lib/admin-users'
 import { requireUiPermission } from '@/lib/auth-session'
 import {
   canCreateUsers,
   canManageUsers,
+  canViewUserLoginStatistics,
   canViewUsers,
 } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roles'
 
+function hasLoginStatistics(
+  user: AdminUser,
+): user is AdminUserWithLoginStatistics {
+  return 'loginCount' in user && 'lastLoginAt' in user
+}
+
 export default async function AdminUsersPage() {
   const session = await requireUiPermission(canViewUsers)
-  const users = await listAdminUsers()
   const userCanCreateUsers = canCreateUsers(session.user)
   const userCanManageUsers = canManageUsers(session.user)
+  const userCanViewLoginStatistics = canViewUserLoginStatistics(session.user)
+  const users = userCanViewLoginStatistics
+    ? await listAdminUsersWithLoginStatistics(session.user)
+    : await listAdminUsers()
   const activeRoles = new Set(
     users.flatMap((user) => (user.role === null ? [] : [user.role])),
   )
@@ -97,10 +112,18 @@ export default async function AdminUsersPage() {
             users={users.map((user) => ({
               ...user,
               createdAt: user.createdAt.toISOString(),
+              loginCount: hasLoginStatistics(user)
+                ? user.loginCount
+                : undefined,
+              lastLoginAt:
+                hasLoginStatistics(user)
+                  ? (user.lastLoginAt?.toISOString() ?? null)
+                  : undefined,
             }))}
             currentUserId={session.user.id}
             currentUserRole={session.user.role}
             canManage={userCanManageUsers}
+            showLoginStatistics={userCanViewLoginStatistics}
           />
         )}
       </SectionCard>
