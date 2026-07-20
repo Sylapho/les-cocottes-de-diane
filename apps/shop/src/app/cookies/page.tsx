@@ -39,13 +39,16 @@ export default function CookiesPage() {
 
       <LegalSection title="Cookies de mesure d’audience ou de personnalisation">
         <p>
-          Si des outils de mesure d’audience, de personnalisation ou de suivi
-          marketing sont ajoutés au site, ils ne seront utilisés qu’avec votre
-          consentement lorsque celui-ci est requis.
+          Avec votre accord, la boutique mesure de manière first-party le nombre
+          de visites et de commandes. Aucun outil publicitaire tiers n’est
+          utilisé pour cette mesure et aucune adresse IP brute n’est conservée.
         </p>
         <p>
-          Vous pourrez alors accepter, refuser ou modifier vos préférences depuis
-          le bandeau ou le module de gestion des cookies prévu à cet effet.
+          Un identifiant aléatoire est conservé dans le stockage local du
+          navigateur pendant au plus 13 mois et pseudonymisé par le serveur. Le
+          choix de consentement est renouvelé après six mois. Vous pouvez
+          accepter, refuser ou modifier ce choix depuis le bandeau et le lien «
+          Gérer mes préférences » en bas de chaque page.
         </p>
       </LegalSection>
 

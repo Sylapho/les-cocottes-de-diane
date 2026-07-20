@@ -8,6 +8,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import express, { Request } from 'express'
 import request from 'supertest'
 import Stripe from 'stripe'
+import { AnalyticsIdentityService } from '../analytics/analytics-identity.service'
 import { EmailsService } from '../emails/emails.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PickupPointsService } from '../pickup-points/pickup-points.service'
@@ -178,6 +179,10 @@ describe('Commandes integration', () => {
     handleStripeRefundWebhook: jest.fn(),
   }
 
+  const analyticsIdentityServiceMock = {
+    resolveAttributionBestEffort: jest.fn().mockResolvedValue(null),
+  }
+
   const validPickupPoint = 'Marché de Gaillon - Mardi matin, 8h-12h'
   const validPickupDate = getNextDateForWeekday(2)
 
@@ -215,6 +220,10 @@ describe('Commandes integration', () => {
         {
           provide: CommandeRefundsService,
           useValue: commandeRefundsServiceMock,
+        },
+        {
+          provide: AnalyticsIdentityService,
+          useValue: analyticsIdentityServiceMock,
         },
       ],
     })
@@ -450,6 +459,7 @@ describe('Commandes integration', () => {
         dateRetrait: new Date(validPickupDate),
         totalTtcCents: 1000,
         statut: 'nouvelle',
+        confirmedAt: expect.any(Date) as Date,
         lignes: {
           create: [
             {
@@ -859,7 +869,12 @@ describe('Commandes integration', () => {
     })
     expect(prismaMock.commande.update).toHaveBeenCalledWith({
       where: { id: 220 },
-      data: { statut: 'nouvelle', stripeId: 'cs_test_critical' },
+      data: {
+        statut: 'nouvelle',
+        confirmedAt: expect.any(Date) as Date,
+        stripeId: 'cs_test_critical',
+        stripePaymentIntentId: undefined,
+      },
       include: {
         lignes: {
           include: {
@@ -1430,7 +1445,12 @@ describe('Commandes integration', () => {
 
     expect(prismaMock.commande.update).toHaveBeenCalledWith({
       where: { id: 303 },
-      data: { statut: 'nouvelle', stripeId: 'cs_paid' },
+      data: {
+        statut: 'nouvelle',
+        confirmedAt: expect.any(Date) as Date,
+        stripeId: 'cs_paid',
+        stripePaymentIntentId: undefined,
+      },
       include: {
         lignes: {
           include: {

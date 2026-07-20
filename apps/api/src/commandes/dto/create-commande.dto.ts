@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -46,6 +47,14 @@ export class CreateCommandeDto {
   @IsOptional()
   @IsDateString()
   dateRetrait?: string
+
+  @IsOptional()
+  @IsUUID('4')
+  analyticsVisitorId?: string
+
+  @IsOptional()
+  @IsUUID('4')
+  analyticsSessionId?: string
 
   @IsArray()
   @ArrayMinSize(1)

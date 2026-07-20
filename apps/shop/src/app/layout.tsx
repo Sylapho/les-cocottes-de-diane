@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import ShopFooter from '@/components/shop/shop-footer'
+import ShopAnalytics from '@/components/analytics/shop-analytics'
 import {
   defaultSeoDescription,
   defaultSeoTitle,
@@ -78,6 +79,7 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col bg-stone-50 font-sans text-stone-900 antialiased">
         {children}
         <ShopFooter />
+        <ShopAnalytics />
       </body>
     </html>
   )

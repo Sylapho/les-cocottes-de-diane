@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { randomBytes } from 'crypto'
+import { AnalyticsIdentityService } from '../analytics/analytics-identity.service'
 import { EmailsService } from '../emails/emails.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PickupPointsService } from '../pickup-points/pickup-points.service'
@@ -183,6 +184,7 @@ export class CommandesService {
     private readonly commandeRefundsService: CommandeRefundsService,
     private readonly commandeStatusHistoryService: CommandeStatusHistoryService,
     private readonly commandeStockReservationService: CommandeStockReservationService,
+    private readonly analyticsIdentityService: AnalyticsIdentityService,
   ) {
     this.abandonedDelayMinutes = this.parseAbandonedOrderDelayMinutes()
   }
@@ -334,6 +336,7 @@ export class CommandesService {
             : undefined,
           totalTtcCents,
           statut: 'nouvelle',
+          confirmedAt: new Date(),
           lignes: {
             create: lignesAgregees.map((ligne) => {
               const article = articles.find(
@@ -386,6 +389,11 @@ export class CommandesService {
       'http://localhost:3001'
     const { lignesAgregees, articles, totalTtcCents } =
       await this.prepareCommande(data)
+    const analyticsAttribution =
+      await this.analyticsIdentityService.resolveAttributionBestEffort(
+        data.analyticsVisitorId,
+        data.analyticsSessionId,
+      )
 
     const commande = await this.prisma.$transaction(async (tx) => {
       const created = await tx.commande.create({
@@ -400,6 +408,8 @@ export class CommandesService {
             : undefined,
           totalTtcCents,
           statut: 'paiement_en_attente',
+          analyticsVisitorId: analyticsAttribution?.visitorId,
+          analyticsSessionId: analyticsAttribution?.sessionId,
           lignes: {
             create: lignesAgregees.map((ligne) => {
               const article = articles.find(
@@ -929,7 +939,12 @@ export class CommandesService {
 
       const updated = await tx.commande.update({
         where: { id: commande.id },
-        data: { statut: nextStatus },
+        data: {
+          statut: nextStatus,
+          confirmedAt:
+            commande.confirmedAt ??
+            (this.isEligibleOrderStatus(nextStatus) ? new Date() : undefined),
+        },
         include: {
           lignes: {
             include: {
@@ -945,6 +960,17 @@ export class CommandesService {
         nouveauStatut: nextStatus,
         motif,
       })
+
+      if (
+        !commande.confirmedAt &&
+        this.isEligibleOrderStatus(nextStatus) &&
+        commande.analyticsSessionId
+      ) {
+        await tx.analyticsSession.updateMany({
+          where: { id: commande.analyticsSessionId, convertedAt: null },
+          data: { convertedAt: updated.confirmedAt },
+        })
+      }
 
       return updated
     })
@@ -1063,6 +1089,7 @@ export class CommandesService {
         where: { id: lockedCommande.id },
         data: {
           statut: 'nouvelle',
+          confirmedAt: lockedCommande.confirmedAt ?? new Date(),
           stripeId: lockedCommande.stripeId ?? session.id,
           stripePaymentIntentId:
             lockedCommande.stripePaymentIntentId ??
@@ -1083,6 +1110,16 @@ export class CommandesService {
         nouveauStatut: 'nouvelle',
         motif: 'paiement_confirme',
       })
+
+      if (lockedCommande.analyticsSessionId) {
+        await tx.analyticsSession.updateMany({
+          where: {
+            id: lockedCommande.analyticsSessionId,
+            convertedAt: null,
+          },
+          data: { convertedAt: updated.confirmedAt },
+        })
+      }
 
       return updated
     })
@@ -2000,6 +2037,12 @@ export class CommandesService {
     },
   ) {
     await this.commandeStatusHistoryService.record(tx, data)
+  }
+
+  private isEligibleOrderStatus(status: string) {
+    return (
+      status === 'nouvelle' || status === 'preparee' || status === 'traitee'
+    )
   }
 
   private async prepareCommande(data: CreateCommandeDto) {
