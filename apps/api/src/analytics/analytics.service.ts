@@ -145,9 +145,9 @@ export class AnalyticsService implements OnModuleInit, OnModuleDestroy {
     const rows = await this.prisma.$queryRaw<OverviewRow[]>`
       WITH periods(period, from_at, to_at) AS (
         VALUES
-          ('daily', ${periods.daily.from}, ${periods.daily.to}),
-          ('weekly', ${periods.weekly.from}, ${periods.weekly.to}),
-          ('monthly', ${periods.monthly.from}, ${periods.monthly.to})
+          ('daily', ${periods.daily.from}::timestamp, ${periods.daily.to}::timestamp),
+          ('weekly', ${periods.weekly.from}::timestamp, ${periods.weekly.to}::timestamp),
+          ('monthly', ${periods.monthly.from}::timestamp, ${periods.monthly.to}::timestamp)
       ),
       visit_counts AS (
         SELECT
