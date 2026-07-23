@@ -2,8 +2,11 @@ packages:
   - 'apps/*'
 overrides:
   postcss: '>=8.5.10'
-  '@hono/node-server': '>=1.19.13'
-  multer: 2.2.0
+  '@hono/node-server': '2.0.10'
+  hono: '4.12.27'
+  fast-uri: '3.1.4'
+  sharp: '0.35.3'
+  multer: '2.2.0'
 allowBuilds:
   '@nestjs/core': false
   '@prisma/engines': true
@@ -11,3 +14,9 @@ allowBuilds:
   prisma: true
   sharp: true
   unrs-resolver: false
+minimumReleaseAgeExclude:
+  - hono@4.12.27
+  - fast-uri@3.1.4
+  - sharp@0.35.0
+  - '@hono/node-server@2.0.10'
+  - fast-uri@3.1.3
