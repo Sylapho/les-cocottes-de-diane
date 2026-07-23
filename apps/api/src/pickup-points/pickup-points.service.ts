@@ -1,8 +1,10 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
+import { ORDER_CLOCK, type OrderClock } from '../commandes/order-clock'
 import { PrismaService } from '../prisma/prisma.service'
 import {
   getPublicPickupPoints,
@@ -23,7 +25,10 @@ type PickupPointWriteData = {
 
 @Injectable()
 export class PickupPointsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(ORDER_CLOCK) private readonly orderClock: OrderClock,
+  ) {}
 
   async findAll() {
     return this.prisma.pickupPoint.findMany({
@@ -59,7 +64,7 @@ export class PickupPointsService {
   async validatePickupSlot(lieu: string, dateRetrait?: string) {
     const pickupPoints = await this.findActive()
 
-    validatePickupSlot(lieu, dateRetrait, pickupPoints)
+    validatePickupSlot(lieu, dateRetrait, pickupPoints, this.orderClock.now())
   }
 
   async create(data: CreatePickupPointDto) {
