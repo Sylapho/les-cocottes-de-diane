@@ -3,6 +3,9 @@ import { PrismaService } from '../prisma/prisma.service'
 import { PickupPointsService } from './pickup-points.service'
 
 describe('PickupPointsService', () => {
+  const orderClock = {
+    now: jest.fn(() => new Date('2026-07-20T11:59:00.000Z')),
+  }
   const prismaMock = {
     pickupPoint: {
       findMany: jest.fn(),
@@ -16,7 +19,10 @@ describe('PickupPointsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    service = new PickupPointsService(prismaMock as unknown as PrismaService)
+    service = new PickupPointsService(
+      prismaMock as unknown as PrismaService,
+      orderClock,
+    )
   })
 
   it('findAll should return pickup points with merchant ordering', async () => {
