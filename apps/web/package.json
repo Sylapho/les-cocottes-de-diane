@@ -14,13 +14,13 @@
     "test:cov": "node --experimental-test-coverage --import tsx --test \"src/**/*.spec.ts\""
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-query": "^5.101.4",
     "axios": "^1.18.1",
-    "better-auth": "^1.6.23",
-    "next": "16.2.10",
+    "better-auth": "^1.6.25",
+    "next": "16.2.11",
     "pg": "^8.22.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -30,7 +30,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.11",
     "tailwindcss": "^4.3.3",
     "tsx": "4.23.1",
     "typescript": "^6.0.3"
