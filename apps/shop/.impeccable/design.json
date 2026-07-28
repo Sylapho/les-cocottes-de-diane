@@ -1,0 +1,426 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-28T12:19:48.0212612+02:00",
+  "title": "Design System: Les Cocottes de Diane — Boutique",
+  "extensions": {
+    "colorMeta": {
+      "brand-wine": {
+        "role": "primary",
+        "displayName": "Bordeaux de l’enseigne",
+        "canonical": "#5a0037",
+        "tonalRamp": [
+          "oklch(15% 0.05 347)",
+          "oklch(25% 0.09 347)",
+          "oklch(35% 0.13 347)",
+          "oklch(45% 0.13 347)",
+          "oklch(58% 0.11 347)",
+          "oklch(70% 0.08 347)",
+          "oklch(83% 0.04 347)",
+          "oklch(95% 0.015 347)"
+        ]
+      },
+      "brand-magenta": {
+        "role": "primary",
+        "displayName": "Magenta commande",
+        "canonical": "#b5006e",
+        "tonalRamp": [
+          "oklch(15% 0.07 347)",
+          "oklch(25% 0.12 347)",
+          "oklch(35% 0.17 347)",
+          "oklch(45% 0.21 347)",
+          "oklch(58% 0.22 347)",
+          "oklch(70% 0.16 347)",
+          "oklch(83% 0.09 347)",
+          "oklch(95% 0.025 347)"
+        ]
+      },
+      "brand-magenta-deep": {
+        "role": "primary",
+        "displayName": "Magenta pressé",
+        "canonical": "#8c0055",
+        "tonalRamp": [
+          "oklch(15% 0.06 347)",
+          "oklch(25% 0.11 347)",
+          "oklch(35% 0.16 347)",
+          "oklch(45% 0.19 347)",
+          "oklch(58% 0.17 347)",
+          "oklch(70% 0.12 347)",
+          "oklch(83% 0.07 347)",
+          "oklch(95% 0.02 347)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Encre prune",
+        "canonical": "#181014",
+        "tonalRamp": [
+          "oklch(15% 0.015 345)",
+          "oklch(25% 0.018 345)",
+          "oklch(35% 0.02 345)",
+          "oklch(45% 0.018 345)",
+          "oklch(58% 0.015 345)",
+          "oklch(70% 0.012 345)",
+          "oklch(83% 0.008 345)",
+          "oklch(95% 0.004 345)"
+        ]
+      },
+      "body": {
+        "role": "neutral",
+        "displayName": "Texte cacao",
+        "canonical": "#4a3d43",
+        "tonalRamp": [
+          "oklch(15% 0.012 345)",
+          "oklch(25% 0.016 345)",
+          "oklch(35% 0.02 345)",
+          "oklch(45% 0.02 345)",
+          "oklch(58% 0.016 345)",
+          "oklch(70% 0.012 345)",
+          "oklch(83% 0.008 345)",
+          "oklch(95% 0.004 345)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Taupe sourd",
+        "canonical": "#7a6d73",
+        "tonalRamp": [
+          "oklch(15% 0.008 345)",
+          "oklch(25% 0.012 345)",
+          "oklch(35% 0.016 345)",
+          "oklch(45% 0.018 345)",
+          "oklch(58% 0.016 345)",
+          "oklch(70% 0.012 345)",
+          "oklch(83% 0.008 345)",
+          "oklch(95% 0.004 345)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Toile rosée",
+        "canonical": "#faf7f8",
+        "tonalRamp": [
+          "oklch(15% 0.006 345)",
+          "oklch(25% 0.008 345)",
+          "oklch(35% 0.01 345)",
+          "oklch(45% 0.012 345)",
+          "oklch(58% 0.012 345)",
+          "oklch(70% 0.01 345)",
+          "oklch(83% 0.007 345)",
+          "oklch(95% 0.004 345)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Blanc comptoir",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(58% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(83% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "surface-soft": {
+        "role": "neutral",
+        "displayName": "Porcelaine chaude",
+        "canonical": "#fffafb",
+        "tonalRamp": [
+          "oklch(15% 0.008 345)",
+          "oklch(25% 0.01 345)",
+          "oklch(35% 0.012 345)",
+          "oklch(45% 0.014 345)",
+          "oklch(58% 0.012 345)",
+          "oklch(70% 0.01 345)",
+          "oklch(83% 0.007 345)",
+          "oklch(95% 0.004 345)"
+        ]
+      },
+      "surface-tint": {
+        "role": "neutral",
+        "displayName": "Rose papier",
+        "canonical": "#fceef6",
+        "tonalRamp": [
+          "oklch(15% 0.025 347)",
+          "oklch(25% 0.04 347)",
+          "oklch(35% 0.055 347)",
+          "oklch(45% 0.06 347)",
+          "oklch(58% 0.05 347)",
+          "oklch(70% 0.04 347)",
+          "oklch(83% 0.025 347)",
+          "oklch(95% 0.01 347)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Trait poudré",
+        "canonical": "#eee2e7",
+        "tonalRamp": [
+          "oklch(15% 0.012 345)",
+          "oklch(25% 0.018 345)",
+          "oklch(35% 0.024 345)",
+          "oklch(45% 0.028 345)",
+          "oklch(58% 0.024 345)",
+          "oklch(70% 0.018 345)",
+          "oklch(83% 0.012 345)",
+          "oklch(95% 0.006 345)"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Trait poudré renforcé",
+        "canonical": "#e8e1e4",
+        "tonalRamp": [
+          "oklch(15% 0.01 345)",
+          "oklch(25% 0.016 345)",
+          "oklch(35% 0.022 345)",
+          "oklch(45% 0.025 345)",
+          "oklch(58% 0.022 345)",
+          "oklch(70% 0.016 345)",
+          "oklch(83% 0.01 345)",
+          "oklch(95% 0.005 345)"
+        ]
+      },
+      "border-tint": {
+        "role": "neutral",
+        "displayName": "Trait rose",
+        "canonical": "#f0dbe6",
+        "tonalRamp": [
+          "oklch(15% 0.02 347)",
+          "oklch(25% 0.032 347)",
+          "oklch(35% 0.044 347)",
+          "oklch(45% 0.05 347)",
+          "oklch(58% 0.044 347)",
+          "oklch(70% 0.032 347)",
+          "oklch(83% 0.02 347)",
+          "oklch(95% 0.008 347)"
+        ]
+      },
+      "warm-highlight": {
+        "role": "tertiary",
+        "displayName": "Or chaud",
+        "canonical": "#fde68a",
+        "tonalRamp": [
+          "oklch(15% 0.035 88)",
+          "oklch(25% 0.06 88)",
+          "oklch(35% 0.09 88)",
+          "oklch(45% 0.12 88)",
+          "oklch(58% 0.14 88)",
+          "oklch(70% 0.12 88)",
+          "oklch(83% 0.08 88)",
+          "oklch(95% 0.025 88)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Titre principal de page, 2.25rem sur mobile et 3rem à partir de 640px."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Titre de catalogue ou de grand bloc."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Sections, panneaux, catégories et récapitulatifs."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions, explications et informations de retrait."
+      },
+      "action": {
+        "displayName": "Action",
+        "purpose": "Boutons, filtres, champs et contrôles."
+      },
+      "eyebrow": {
+        "displayName": "Eyebrow",
+        "purpose": "Repère court en capitales au-dessus d’un titre."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rest-subtle",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.10), 0 1px 2px -1px rgb(0 0 0 / 0.10)",
+        "purpose": "Panneaux, champs et actions qui doivent se détacher légèrement."
+      },
+      {
+        "name": "focus-brand",
+        "value": "0 0 0 3px rgb(181 0 110 / 0.18)",
+        "purpose": "Focus visible global sur liens, boutons, champs et sélecteurs."
+      },
+      {
+        "name": "overlay",
+        "value": "0 20px 25px -5px rgb(0 0 0 / 0.10), 0 8px 10px -6px rgb(0 0 0 / 0.10)",
+        "purpose": "Tiroir de panier ou autre couche réellement superposée."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Survol, focus et changement de couleur."
+      },
+      {
+        "name": "feedback",
+        "value": "200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Retour tactile discret du bouton d’ajout."
+      },
+      {
+        "name": "image",
+        "value": "300ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Agrandissement léger d’une photographie produit au survol."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale de commande ou de validation.",
+      "html": "<button class=\"ds-btn-primary\">Commander maintenant</button>",
+      "css": ".ds-btn-primary { min-height: 44px; border: 0; border-radius: 9999px; background: #b5006e; color: #fff; padding: 12px 24px; font: 700 14px/1.25 Arial, Helvetica, sans-serif; box-shadow: 0 1px 3px rgb(0 0 0 / .10), 0 1px 2px -1px rgb(0 0 0 / .10); transition: background 150ms cubic-bezier(.4,0,.2,1), transform 150ms cubic-bezier(.4,0,.2,1); cursor: pointer; } .ds-btn-primary:hover { background: #8c0055; } .ds-btn-primary:active { transform: scale(.98); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(181 0 110 / .18); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Action secondaire ou accès aux informations de retrait.",
+      "html": "<button class=\"ds-btn-secondary\">Voir les points de retrait</button>",
+      "css": ".ds-btn-secondary { min-height: 44px; border: 1px solid #e8e1e4; border-radius: 9999px; background: #fff; color: #5a0037; padding: 12px 24px; font: 700 14px/1.25 Arial, Helvetica, sans-serif; transition: border-color 150ms cubic-bezier(.4,0,.2,1), color 150ms cubic-bezier(.4,0,.2,1); cursor: pointer; } .ds-btn-secondary:hover { border-color: #b5006e; color: #8c0055; } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(181 0 110 / .18); }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "search-input",
+      "description": "Recherche rapide par produit, ingrédient ou allergène.",
+      "html": "<label class=\"ds-search-label\" for=\"ds-search\">Rechercher un produit</label><input class=\"ds-search\" id=\"ds-search\" placeholder=\"Rechercher un produit, un ingrédient, un allergène…\">",
+      "css": ".ds-search-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .ds-search { width: min(100%, 420px); min-height: 44px; border: 1px solid #e8e1e4; border-radius: 9999px; background: #fff; color: #181014; padding: 0 16px; font: 400 14px/1.25 Arial, Helvetica, sans-serif; box-shadow: 0 1px 3px rgb(0 0 0 / .10), 0 1px 2px -1px rgb(0 0 0 / .10); transition: border-color 150ms cubic-bezier(.4,0,.2,1), box-shadow 150ms cubic-bezier(.4,0,.2,1); } .ds-search::placeholder { color: #7a6d73; } .ds-search:focus-visible { outline: none; border-color: #b5006e; box-shadow: 0 0 0 4px #fceef6; }"
+    },
+    {
+      "name": "Category Chip",
+      "kind": "chip",
+      "refersTo": "chip-selected",
+      "description": "Filtre horizontal de catégorie, ici dans son état sélectionné.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">Terrines</button>",
+      "css": ".ds-chip { min-height: 36px; border: 1px solid #b5006e; border-radius: 9999px; background: #b5006e; color: #fff; padding: 8px 16px; font: 700 14px/1.25 Arial, Helvetica, sans-serif; transition: background 150ms cubic-bezier(.4,0,.2,1); cursor: pointer; } .ds-chip:hover { background: #8c0055; } .ds-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(181 0 110 / .18); }"
+    },
+    {
+      "name": "Product Row",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Ligne compacte pour comparer un produit et l’ajouter sans quitter le catalogue.",
+      "html": "<article class=\"ds-product\"><div class=\"ds-product-photo\" aria-hidden=\"true\"></div><div class=\"ds-product-copy\"><strong>Terrine de volaille</strong><span>Préparée localement</span></div><div class=\"ds-product-action\"><strong>8,50 €</strong><button>Ajouter</button></div></article>",
+      "css": ".ds-product { display: grid; grid-template-columns: 72px minmax(0,1fr) auto; align-items: center; gap: 16px; padding: 16px; border: 1px solid #eee2e7; border-radius: 24px; background: #fff; color: #181014; font-family: Arial, Helvetica, sans-serif; } .ds-product-photo { width: 72px; height: 72px; border-radius: 16px; background: #fceef6; } .ds-product-copy { display: grid; gap: 4px; } .ds-product-copy strong { font-size: 16px; font-weight: 900; } .ds-product-copy span { color: #7a6d73; font-size: 14px; line-height: 1.5; } .ds-product-action { display: grid; justify-items: end; gap: 8px; color: #b5006e; } .ds-product-action button { border: 0; border-radius: 9999px; background: #b5006e; color: #fff; padding: 8px 16px; font-weight: 700; cursor: pointer; } .ds-product-action button:hover { background: #8c0055; } .ds-product-action button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(181 0 110 / .18); }"
+    },
+    {
+      "name": "Quantity Stepper",
+      "kind": "custom",
+      "description": "Contrôle compact des quantités dans le catalogue et le panier.",
+      "html": "<div class=\"ds-stepper\"><button aria-label=\"Retirer un produit\">−</button><strong>2</strong><button aria-label=\"Ajouter un produit\">+</button></div>",
+      "css": ".ds-stepper { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e8e1e4; border-radius: 9999px; background: #fff; padding: 4px; color: #181014; font-family: Arial, Helvetica, sans-serif; } .ds-stepper button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 9999px; background: #faf7f8; color: #181014; font-weight: 700; cursor: pointer; } .ds-stepper button:hover { background: #fceef6; color: #8c0055; } .ds-stepper button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(181 0 110 / .18); } .ds-stepper strong { min-width: 20px; text-align: center; font-size: 14px; font-weight: 900; }"
+    },
+    {
+      "name": "Pickup Point",
+      "kind": "custom",
+      "description": "Choix explicite d’un point de retrait et de son horaire.",
+      "html": "<button class=\"ds-pickup\" aria-pressed=\"true\"><span>Marché de Gaillon</span><small>Mardi matin, 8h–12h</small></button>",
+      "css": ".ds-pickup { display: grid; width: 100%; gap: 4px; border: 2px solid #b5006e; border-radius: 16px; background: #fceef6; color: #181014; padding: 16px; text-align: left; font-family: Arial, Helvetica, sans-serif; cursor: pointer; } .ds-pickup span { font-size: 14px; font-weight: 900; } .ds-pickup small { color: #7a6d73; font-size: 12px; line-height: 1.5; } .ds-pickup:hover { border-color: #8c0055; } .ds-pickup:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(181 0 110 / .18); }"
+    },
+    {
+      "name": "Shop Navigation",
+      "kind": "nav",
+      "description": "Bandeau de marque collant avec accès prioritaire au panier.",
+      "html": "<nav class=\"ds-nav\"><div><strong>Les Cocottes de <em>Diane</em></strong><small>Commande en ligne</small></div><a href=\"#produits\">Boutique</a><button>Panier (2)</button></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; background: #5a0037; color: #fff; padding: 12px 16px; font-family: Arial, Helvetica, sans-serif; box-shadow: 0 1px 3px rgb(0 0 0 / .10), 0 1px 2px -1px rgb(0 0 0 / .10); } .ds-nav div { display: grid; } .ds-nav strong { font-weight: 900; } .ds-nav em { color: #fde68a; font-style: normal; } .ds-nav small { color: rgb(255 255 255 / .70); } .ds-nav a { color: rgb(255 255 255 / .80); font-size: 14px; font-weight: 600; text-decoration: none; } .ds-nav a:hover { color: #fff; } .ds-nav button { min-height: 40px; border: 1px solid rgb(255 255 255 / .25); border-radius: 9999px; background: rgb(255 255 255 / .15); color: #fff; padding: 8px 16px; font-weight: 700; cursor: pointer; } .ds-nav button:hover { background: rgb(255 255 255 / .25); } .ds-nav a:focus-visible, .ds-nav button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le comptoir local",
+    "overview": "La boutique doit donner l’impression d’un comptoir de proximité bien tenu : les produits, les prix et le retrait sont au premier plan ; la marque apporte la chaleur et la reconnaissance ; l’interface reste simple, directe et professionnelle. L’identité existante s’appuie sur un bordeaux profond, un magenta franc, des blancs légèrement rosés, des formes généreusement arrondies et une typographie très affirmée.\n\nCette expression ne doit pas dériver vers un tableau de bord SaaS, un catalogue de cartes décoratives ou une page publicitaire surchargée. La personnalité vient du logo, des photographies réelles, du langage local et du soin porté aux détails fonctionnels. Le mode de la boutique est avant tout Operate : aider le client à accomplir une commande ; les moments de persuasion restent courts et factuels.",
+    "keyCharacteristics": [
+      "Hiérarchie forte et immédiatement lisible.",
+      "Palette bordeaux, magenta et blanc rosé issue de l’interface existante.",
+      "Photographies réelles des produits comme preuve principale.",
+      "Actions en pilules, surfaces calmes et panneaux aux coins souples.",
+      "Parcours mobile-first avec panier et total toujours faciles à retrouver.",
+      "États de disponibilité, retrait, paiement et suivi formulés sans ambiguïté."
+    ],
+    "rules": [
+      {
+        "name": "The One Action Color Rule",
+        "body": "Le magenta porte l’action et la sélection. Ne pas introduire une autre couleur vive pour une action de même priorité.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Is More Than Color Rule",
+        "body": "Une rupture, une erreur ou une confirmation conserve toujours un libellé explicite et, si nécessaire, une icône ou une structure distincte.",
+        "section": "colors"
+      },
+      {
+        "name": "The Clarity Before Flourish Rule",
+        "body": "Les prix, dates, stocks et libellés d’action n’utilisent jamais une police décorative.",
+        "section": "typography"
+      },
+      {
+        "name": "The Font Authority Warning",
+        "body": "Inter et Playfair Display sont chargées dans le layout, mais les styles calculés de l’interface observée utilisent Arial et aucun composant ne référence Playfair. Arial reste donc la vérité documentée tant que cette divergence n’est pas résolue explicitement.",
+        "section": "typography"
+      },
+      {
+        "name": "The Conversion Path Rule",
+        "body": "Sur petit écran, le prix, l’action d’ajout, la quantité, le total et l’accès au panier ne doivent jamais être relégués derrière une information décorative.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Surface, One Purpose Rule",
+        "body": "Un panneau regroupe une tâche cohérente. Éviter les cartes imbriquées lorsque bordure, espace ou séparateur suffisent à exprimer la structure.",
+        "section": "layout"
+      },
+      {
+        "name": "The Semantic Elevation Rule",
+        "body": "Une ombre signifie qu’un élément doit ressortir ou survoler ; elle ne sert pas à décorer chaque conteneur.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Soft, Not Puffy Rule",
+        "body": "Les coins sont accueillants, mais les épaisseurs, espacements et ombres restent retenus. Ne pas empiler plusieurs silhouettes arrondies autour de la même information.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do montrer les photographies réelles disponibles et réserver le logo au remplacement d’une image absente.",
+      "Do placer prix, disponibilité, allergènes et action d’ajout dans le premier niveau de lecture.",
+      "Do garder les actions principales magenta, les actions secondaires blanches et les zones de marque bordeaux.",
+      "Do conserver des cibles tactiles d’au moins 44px et un focus visible.",
+      "Do utiliser les états de chargement, d’erreur et de confirmation déjà prévus par le produit, avec une formulation directe.",
+      "Do rappeler le lieu, la date et le total avant de quitter la boutique pour Stripe."
+    ],
+    "donts": [
+      "Don't transformer le catalogue en grille de cartes SaaS uniformes ou multiplier les cartes imbriquées.",
+      "Don't ajouter de dégradés génériques, d’illustrations artificielles ou d’ornements qui concurrencent les produits.",
+      "Don't masquer un prix, une indisponibilité, un allergène ou une erreur derrière un popover obligatoire ou une couleur seule.",
+      "Don't utiliser d’animations longues, rebondissantes ou décoratives pendant l’ajout, le checkout ou le paiement.",
+      "Don't remplacer les contenus réels par des accroches marketing vagues, des preuves inventées ou des promesses non vérifiées.",
+      "Don't appliquer une refonte purement esthétique si elle augmente le nombre d’étapes ou diminue la lisibilité mobile."
+    ]
+  }
+}
