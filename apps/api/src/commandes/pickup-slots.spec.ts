@@ -10,7 +10,6 @@ import {
   pickupPoints,
   toStoredPickupDate,
   validatePickupSlot,
-  type PickupPoint,
 } from './pickup-slots'
 
 function getPickupPointByLabel(label: string) {
@@ -27,33 +26,6 @@ function dateFromInput(value: string) {
   const [year, month, day] = value.split('-').map(Number)
 
   return new Date(year, month - 1, day)
-}
-
-function formatInputDate(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
-
-function getNextDate(point: PickupPoint, expectedAllowed: boolean) {
-  const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-  cursor.setDate(cursor.getDate() + 1)
-
-  for (let index = 0; index < 60; index += 1) {
-    if (
-      point.allowedWeekdays.includes(cursor.getDay()) &&
-      isPickupDateAllowed(point, cursor) === expectedAllowed
-    ) {
-      return formatInputDate(cursor)
-    }
-
-    cursor.setDate(cursor.getDate() + 1)
-  }
-
-  throw new Error('No matching pickup date found')
 }
 
 describe('pickup slots', () => {
@@ -161,12 +133,13 @@ describe('pickup slots', () => {
       'AMAP Autheuil-Authouillet',
     )
     const lieu = formatPickupPoint(autheuilAuthouillet)
+    const now = new Date('2026-07-01T10:00:00.000Z')
 
     expect(() =>
-      validatePickupSlot(lieu, getNextDate(autheuilAuthouillet, true)),
+      validatePickupSlot(lieu, '2026-07-02', pickupPoints, now),
     ).not.toThrow()
     expect(() =>
-      validatePickupSlot(lieu, getNextDate(autheuilAuthouillet, false)),
+      validatePickupSlot(lieu, '2026-07-09', pickupPoints, now),
     ).toThrow('La date de retrait ne correspond pas au lieu choisi')
   })
 
