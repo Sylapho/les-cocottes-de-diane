@@ -22,6 +22,7 @@ export default async function CheckoutPage() {
     <CheckoutClient
       articles={articles}
       apiUrl={getApiUrl()}
+      initialNow={new Date().toISOString()}
       pickupPoints={pickupPoints}
     />
   )

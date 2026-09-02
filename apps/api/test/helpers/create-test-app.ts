@@ -10,6 +10,7 @@ import { E2eBetterAuthGuard } from './auth'
 import { prepareE2eEnvironment } from './database'
 import { FakeEmailsService } from './fake-emails.service'
 import { FakeStripeCheckoutGateway } from './fake-stripe-checkout.gateway'
+import { ORDER_CLOCK } from '../../src/commandes/order-clock'
 
 export type E2eTestApp = {
   app: NestExpressApplication
@@ -18,13 +19,19 @@ export type E2eTestApp = {
   stripe: FakeStripeCheckoutGateway
 }
 
-export async function createTestApp(): Promise<E2eTestApp> {
+type CreateTestAppOptions = {
+  orderNow?: Date
+}
+
+export async function createTestApp(
+  options: CreateTestAppOptions = {},
+): Promise<E2eTestApp> {
   prepareE2eEnvironment()
 
   const emails = new FakeEmailsService()
   const stripe = new FakeStripeCheckoutGateway()
 
-  const moduleFixture = await Test.createTestingModule({
+  const moduleBuilder = Test.createTestingModule({
     imports: [AppModule],
   })
     .overrideProvider(EmailsService)
@@ -33,7 +40,15 @@ export async function createTestApp(): Promise<E2eTestApp> {
     .useValue(stripe)
     .overrideGuard(BetterAuthGuard)
     .useClass(E2eBetterAuthGuard)
-    .compile()
+
+  if (options.orderNow) {
+    const orderNow = new Date(options.orderNow)
+    moduleBuilder.overrideProvider(ORDER_CLOCK).useValue({
+      now: () => new Date(orderNow),
+    })
+  }
+
+  const moduleFixture = await moduleBuilder.compile()
 
   const app = moduleFixture.createNestApplication<NestExpressApplication>({
     rawBody: true,

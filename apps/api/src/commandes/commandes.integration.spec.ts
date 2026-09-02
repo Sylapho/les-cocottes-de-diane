@@ -24,6 +24,12 @@ import { CommandesService } from './commandes.service'
 import { BetterAuthGuard } from '../auth/better-auth.guard'
 import { RolesGuard } from '../auth/roles.guard'
 import { StripeCheckoutGateway } from './stripe-checkout.gateway'
+import {
+  NEXT_DAY_ORDER_CUTOFF_MESSAGE,
+  formatPickupPoint,
+  validatePickupSlot,
+  type PickupPoint,
+} from './pickup-slots'
 
 const mockStripeCheckoutSessionsCreate = jest.fn()
 const mockStripeCheckoutSessionsRetrieve = jest.fn()
@@ -541,6 +547,46 @@ describe('Commandes integration', () => {
       })
       .expect(400)
 
+    expect(prismaMock.article.findMany).not.toHaveBeenCalled()
+    expect(prismaMock.commande.create).not.toHaveBeenCalled()
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/commandes/checkout should reject tomorrow at 14:00 Paris', async () => {
+    const tuesdayMarket: PickupPoint = {
+      label: 'Marché de Gaillon',
+      schedule: 'Mardi matin, 8h-12h',
+      allowedWeekdays: [2],
+    }
+    const lieu = formatPickupPoint(tuesdayMarket)
+
+    pickupPointsServiceMock.validatePickupSlot.mockImplementation(
+      (requestedLieu: string, requestedDate?: string) => {
+        validatePickupSlot(
+          requestedLieu,
+          requestedDate,
+          [tuesdayMarket],
+          new Date('2026-07-20T12:00:00.000Z'),
+        )
+      },
+    )
+
+    const response = await request(app.getHttpServer())
+      .post('/api/commandes/checkout')
+      .send({
+        nom: 'Marie Dupont',
+        email: 'marie@example.fr',
+        tel: '0612345678',
+        lieu,
+        dateRetrait: '2026-07-21',
+        lignes: [{ articleId: 1, quantite: 1 }],
+      })
+      .expect(400)
+
+    expect(response.body).toMatchObject({
+      statusCode: 400,
+      message: NEXT_DAY_ORDER_CUTOFF_MESSAGE,
+    })
     expect(prismaMock.article.findMany).not.toHaveBeenCalled()
     expect(prismaMock.commande.create).not.toHaveBeenCalled()
     expect(prismaMock.$transaction).not.toHaveBeenCalled()

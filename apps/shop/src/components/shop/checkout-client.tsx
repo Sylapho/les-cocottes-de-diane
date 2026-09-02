@@ -15,6 +15,8 @@ import {
   formatPickupPoint,
   getAllowedPickupWeekdays,
   getNextPickupDates,
+  isNextDayOrderingAllowed,
+  isOrderDateAllowed,
 } from '@/lib/pickup-points'
 import Link from 'next/link'
 import type * as React from 'react'
@@ -23,6 +25,7 @@ import { useEffect, useMemo, useState } from 'react'
 type CheckoutClientProps = {
   articles: ShopArticle[]
   apiUrl: string
+  initialNow: string
   pickupPoints: PickupPoint[]
 }
 
@@ -43,12 +46,12 @@ type StockIssue = {
 type ApiErrorPayload = {
   statusCode?: number
   message?:
-  | string
-  | string[]
-  | {
-    message?: string
-    insufficientStock?: StockIssue[]
-  }
+    | string
+    | string[]
+    | {
+        message?: string
+        insufficientStock?: StockIssue[]
+      }
   error?: string
   insufficientStock?: StockIssue[]
 }
@@ -59,9 +62,13 @@ const inputClassName =
 export default function CheckoutClient({
   articles,
   apiUrl,
+  initialNow,
   pickupPoints,
 }: CheckoutClientProps) {
   const firstPickupPoint = pickupPoints[0]
+  const [availabilityNow, setAvailabilityNow] = useState(
+    () => new Date(initialNow),
+  )
   const [cart, setCart] = useState<Cart>({})
   const [cartReady, setCartReady] = useState(false)
 
@@ -73,7 +80,9 @@ export default function CheckoutClient({
     firstPickupPoint ? formatPickupPoint(firstPickupPoint) : '',
   )
   const [dateRetrait, setDateRetrait] = useState(
-    firstPickupPoint ? (getNextPickupDates(firstPickupPoint, 1)[0] ?? '') : '',
+    firstPickupPoint
+      ? (getNextPickupDates(firstPickupPoint, 1, availabilityNow)[0] ?? '')
+      : '',
   )
 
   const [loading, setLoading] = useState(false)
@@ -87,8 +96,11 @@ export default function CheckoutClient({
     findPickupPoint(pickupPoints, lieu) ?? firstPickupPoint
 
   const pickupDateOptions = useMemo(
-    () => (selectedPickupPoint ? getNextPickupDates(selectedPickupPoint) : []),
-    [selectedPickupPoint],
+    () =>
+      selectedPickupPoint
+        ? getNextPickupDates(selectedPickupPoint, 8, availabilityNow)
+        : [],
+    [availabilityNow, selectedPickupPoint],
   )
 
   const selectedDateRetrait = pickupDateOptions.includes(dateRetrait)
@@ -104,12 +116,35 @@ export default function CheckoutClient({
     return () => window.clearTimeout(handle)
   }, [])
 
+  useEffect(() => {
+    let timeoutId: number
+
+    const refreshAvailability = () => {
+      const current = new Date()
+      setAvailabilityNow(current)
+      timeoutId = window.setTimeout(
+        refreshAvailability,
+        60_000 - (current.getTime() % 60_000) + 50,
+      )
+    }
+
+    const current = new Date()
+    timeoutId = window.setTimeout(
+      refreshAvailability,
+      60_000 - (current.getTime() % 60_000) + 50,
+    )
+
+    return () => window.clearTimeout(timeoutId)
+  }, [])
+
   function handlePickupPointChange(value: string) {
     const nextPickupPoint = findPickupPoint(pickupPoints, value)
 
     setLieu(value)
     setDateRetrait(
-      nextPickupPoint ? (getNextPickupDates(nextPickupPoint, 1)[0] ?? '') : '',
+      nextPickupPoint
+        ? (getNextPickupDates(nextPickupPoint, 1, availabilityNow)[0] ?? '')
+        : '',
     )
   }
 
@@ -136,11 +171,21 @@ export default function CheckoutClient({
       return
     }
 
-    if (!pickupDateOptions.includes(selectedDateRetrait)) {
+    const submissionNow = new Date()
+    const currentPickupDateOptions = getNextPickupDates(
+      selectedPickupPoint,
+      8,
+      submissionNow,
+    )
+
+    if (!currentPickupDateOptions.includes(dateRetrait)) {
+      setAvailabilityNow(submissionNow)
+      setDateRetrait(currentPickupDateOptions[0] ?? '')
       setError({
-        title: 'Date de retrait invalide',
-        message:
-          'La date choisie ne correspond pas au lieu de retrait sélectionné.',
+        title: 'Date de retrait à modifier',
+        message: isOrderDateAllowed(dateRetrait, submissionNow)
+          ? 'La date choisie ne correspond plus au lieu de retrait sélectionné.'
+          : 'Il est désormais trop tard pour commander pour demain. Veuillez choisir une autre date.',
       })
       return
     }
@@ -318,6 +363,19 @@ export default function CheckoutClient({
                     {getAllowedPickupWeekdays(selectedPickupPoint)} pour ce
                     point de retrait.
                   </p>
+
+                  <p
+                    aria-live="polite"
+                    className={`rounded-xl px-3 py-2 text-xs leading-5 ${
+                      isNextDayOrderingAllowed(availabilityNow)
+                        ? 'bg-[#faf7f8] text-[#5f5359]'
+                        : 'bg-amber-50 text-amber-900'
+                    }`}
+                  >
+                    {isNextDayOrderingAllowed(availabilityNow)
+                      ? 'Les commandes pour le lendemain sont possibles jusqu’à 14 h, heure de Paris.'
+                      : 'Il est désormais trop tard pour commander pour demain. La première date compatible suivante a été sélectionnée.'}
+                  </p>
                 </div>
               </section>
 
@@ -399,9 +457,9 @@ export default function CheckoutClient({
                     Préparation de votre commande
                   </p>
                   <p>
-                    Certains produits peuvent nécessiter une préparation avant le retrait. La
-                    date proposée permet à l’équipe de préparer votre commande dans les
-                    meilleures conditions.
+                    Certains produits peuvent nécessiter une préparation avant
+                    le retrait. La date proposée permet à l’équipe de préparer
+                    votre commande dans les meilleures conditions.
                   </p>
                 </div>
 
@@ -419,7 +477,6 @@ export default function CheckoutClient({
                   </Link>
                   .
                 </p>
-
               </section>
 
               {error ? <CheckoutErrorNotice error={error} /> : null}
@@ -452,7 +509,8 @@ export default function CheckoutClient({
                         {line.article.nom}
                       </p>
                       <p className="text-sm text-[#7a6d73]">
-                        {line.quantite} x {formatCurrency(line.article.prixCents)}
+                        {line.quantite} x{' '}
+                        {formatCurrency(line.article.prixCents)}
                       </p>
                     </div>
 
@@ -505,7 +563,7 @@ export default function CheckoutClient({
               <button
                 type="submit"
                 form="checkout-form"
-                disabled={loading}
+                disabled={loading || !selectedDateRetrait}
                 className="mt-5 w-full rounded-full bg-[#b5006e] px-5 py-4 text-sm font-black text-white shadow-sm transition hover:bg-[#8c0055] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading
@@ -577,6 +635,14 @@ async function readCheckoutError(response: Response): Promise<CheckoutError> {
       title: 'Point de retrait invalide',
       message:
         'Le point de retrait sélectionné n’est plus valide. Choisissez un autre retrait puis réessayez.',
+    }
+  }
+
+  if (normalizedMessage.includes('avant 14 h')) {
+    return {
+      title: 'Date de retrait à modifier',
+      message:
+        'Il est désormais trop tard pour commander pour demain. Veuillez choisir une autre date.',
     }
   }
 
@@ -799,10 +865,11 @@ function PickupPointCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`rounded-2xl border p-4 text-left shadow-sm transition ${selected
+      className={`rounded-2xl border p-4 text-left shadow-sm transition ${
+        selected
           ? 'border-[#b5006e] bg-[#fceef6] ring-4 ring-[#fceef6]'
           : 'border-[#eee2e7] bg-[#faf7f8] hover:border-[#b5006e] hover:bg-white'
-        }`}
+      }`}
     >
       <span className="flex items-start justify-between gap-3">
         <span>
@@ -815,10 +882,11 @@ function PickupPointCard({
         </span>
 
         <span
-          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-black ${selected
+          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-black ${
+            selected
               ? 'bg-[#b5006e] text-white'
               : 'border border-[#e8e1e4] bg-white text-transparent'
-            }`}
+          }`}
         >
           ✓
         </span>

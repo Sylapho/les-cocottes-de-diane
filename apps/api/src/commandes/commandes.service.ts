@@ -20,6 +20,7 @@ import {
 } from './commande-status-transitions'
 import { CreateCommandeDto } from './dto/create-commande.dto'
 import { CommandeStatut } from './dto/update-commande-statut.dto'
+import { toStoredPickupDate } from './pickup-slots'
 import {
   CheckoutSessionExpirationResult,
   StripeCheckoutGateway,
@@ -332,7 +333,7 @@ export class CommandesService {
           tel: data.tel,
           lieu: data.lieu,
           dateRetrait: data.dateRetrait
-            ? new Date(data.dateRetrait)
+            ? toStoredPickupDate(data.dateRetrait)
             : undefined,
           totalTtcCents,
           statut: 'nouvelle',
@@ -404,7 +405,7 @@ export class CommandesService {
           tel: data.tel,
           lieu: data.lieu,
           dateRetrait: data.dateRetrait
-            ? new Date(data.dateRetrait)
+            ? toStoredPickupDate(data.dateRetrait)
             : undefined,
           totalTtcCents,
           statut: 'paiement_en_attente',

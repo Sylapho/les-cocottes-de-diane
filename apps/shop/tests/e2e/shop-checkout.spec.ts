@@ -18,6 +18,35 @@ test('checkout displays an empty cart state', async ({ page }) => {
   )
 })
 
+test('checkout removes tomorrow at 14:00 Paris and selects the next valid date', async ({
+  page,
+}) => {
+  await page.clock.install({
+    time: new Date('2026-07-20T11:58:59.000Z'),
+  })
+  await page.addInitScript(() => {
+    window.localStorage.setItem('localco-shop-cart', JSON.stringify({ 1: 1 }))
+  })
+
+  await page.goto('/checkout')
+  await page.clock.fastForward(1_100)
+
+  await page.locator('#dateRetrait').selectOption('2026-07-21')
+  await expect(page.locator('#dateRetrait')).toHaveValue('2026-07-21')
+
+  await page.clock.fastForward(60_000)
+
+  await expect(
+    page.getByText(
+      'Il est désormais trop tard pour commander pour demain. La première date compatible suivante a été sélectionnée.',
+    ),
+  ).toBeVisible()
+  await expect(page.locator('#dateRetrait')).toHaveValue('2026-07-28')
+  await expect(
+    page.locator('#dateRetrait option[value="2026-07-21"]'),
+  ).toHaveCount(0)
+})
+
 test('shop user can add a product and create a checkout session', async ({
   page,
   request,
