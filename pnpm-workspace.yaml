@@ -30,3 +30,12 @@ minimumReleaseAgeExclude:
   - fast-uri@3.1.6
   - sharp@0.35.0
   - '@hono/node-server@2.0.10'
+# Temporary: these better-auth advisories are only fixed in 1.7.x, which requires
+# an AuthAccount schema migration (tracked in a dedicated upgrade PR).
+# None is reachable here: the app only uses email/password and the admin plugin.
+# Remove this list once better-auth >= 1.7.7 is installed.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-965c-763c-88jm # critical: OAuth state reused as magic link
+    - GHSA-r4xp-prcw-77qf # high: oauth-proxy plugin sign-in as another user
+    - GHSA-q84f-53jg-9ppm # high: device-authorization approval screen
