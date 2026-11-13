@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { IBM_Plex_Sans } from 'next/font/google'
 import AppShell from '@/components/layout/app-shell'
+import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" className={ibmPlexSans.variable}>
       <body suppressHydrationWarning>
         <AppShell>{children}</AppShell>
+        <Toaster />
       </body>
     </html>
   )
