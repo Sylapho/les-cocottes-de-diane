@@ -1,34 +1,72 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens from the Figma file "Back Office Redesign" (page Design System).
+ * Variable names follow the Figma handoff; `--muted` is a text colour there.
+ */
 :root {
-  --primary: #a0005f;
-  --primary-dark: #750047;
-  --primary-soft: #fdf2f8;
-  --accent: #f4c95d;
-  --background: #f6f3ef;
+  --primary: #863858;
+  --primary-hover: #692a44;
+  --primary-soft: #f6eaf0;
+  --background: #f7f7f4;
   --surface: #ffffff;
-  --surface-soft: #fbfaf8;
-  --foreground: #211820;
-  --muted: #6f6470;
-  --border: #e7dfd8;
-  --border-strong: #d8ccc4;
-  --success: #166534;
-  --success-soft: #dcfce7;
-  --warning: #92400e;
-  --warning-soft: #fef3c7;
-  --danger: #991b1b;
-  --danger-soft: #fee2e2;
-  --info: #1d4ed8;
-  --info-soft: #dbeafe;
-  --shadow-card: 0 18px 45px rgba(51, 35, 46, 0.08);
-  --shadow-subtle: 0 8px 26px rgba(51, 35, 46, 0.06);
+  --soft: #f1f0ed;
+  --foreground: #242625;
+  --muted: #626761;
+  --border: #dcdfd8;
+  --success: #246347;
+  --success-soft: #eaf4ed;
+  --warning: #855d17;
+  --warning-soft: #fff3d9;
+  --danger: #ad3238;
+  --danger-soft: #fcedef;
+  --info: #365f93;
+  --info-soft: #ebf1fa;
+  --focus-ring: 0 0 0 3px rgb(134 56 88 / 0.24);
+
+  /* Legacy aliases kept until every screen uses the new components. */
+  --primary-dark: var(--primary-hover);
+  --accent: #f4c95d;
+  --surface-soft: var(--soft);
+  --border-strong: var(--border);
+  --shadow-card: 0 1px 2px rgb(36 38 37 / 0.04);
+  --shadow-subtle: 0 1px 2px rgb(36 38 37 / 0.04);
 }
 
+/*
+ * Semantic colours exposed to Tailwind with shadcn/ui naming
+ * (e.g. `bg-muted` = soft surface, `text-muted-foreground` = muted text).
+ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--surface);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--soft);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--soft);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
@@ -41,11 +79,11 @@ html {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(244, 201, 93, 0.16), transparent 28rem),
-    linear-gradient(180deg, #fbfaf8 0%, var(--background) 34rem);
+  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
   overflow-x: hidden;
 }
 
@@ -62,20 +100,20 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(160, 0, 95, 0.2);
+  box-shadow: var(--focus-ring);
 }
 
 input,
 select,
 textarea {
   border-color: var(--border);
-  background: #fff;
+  background: var(--surface);
   color: var(--foreground);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #9a8f98;
+  color: var(--muted);
 }
 
 .lc-shell {
@@ -91,9 +129,7 @@ textarea::placeholder {
   width: 280px;
   flex-direction: column;
   border-right: 1px solid rgba(255, 255, 255, 0.14);
-  background:
-    linear-gradient(180deg, rgba(117, 0, 71, 0.98), rgba(80, 0, 50, 0.98)),
-    var(--primary-dark);
+  background: var(--primary-hover);
   color: #fff;
 }
 
@@ -396,7 +432,7 @@ textarea::placeholder {
   border: 1px solid var(--primary);
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 10px 20px rgba(160, 0, 95, 0.16);
+  box-shadow: none;
 }
 
 .lc-button-secondary {
@@ -461,7 +497,7 @@ textarea::placeholder {
   width: 76px;
   height: 76px;
   border-radius: 999px;
-  background: rgba(160, 0, 95, 0.07);
+  background: rgb(134 56 88 / 0.07);
   content: '';
   transform: translate(28px, -32px);
 }
@@ -586,7 +622,7 @@ textarea::placeholder {
 }
 
 .lc-catalog-card:hover {
-  border-color: rgba(160, 0, 95, 0.32);
+  border-color: rgb(134 56 88 / 0.32);
   box-shadow: 0 14px 32px rgba(51, 35, 46, 0.08);
   transform: translateY(-1px);
 }
@@ -852,7 +888,7 @@ textarea::placeholder {
 
 .lc-analytics-skeleton {
   border-radius: 8px;
-  background: linear-gradient(90deg, #f1ecef 25%, #faf7f8 50%, #f1ecef 75%);
+  background: linear-gradient(90deg, var(--soft) 25%, var(--background) 50%, var(--soft) 75%);
   background-size: 200% 100%;
   animation: lc-analytics-pulse 1.5s ease-in-out infinite;
 }
