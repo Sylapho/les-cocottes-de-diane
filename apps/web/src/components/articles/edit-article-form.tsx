@@ -18,7 +18,8 @@ type EditArticleFormProps = {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
-const ARTICLE_IMAGE_MAX_SIZE_BYTES = 2 * 2048 * 2048
+// Keep in sync with ARTICLE_IMAGE_MAX_SIZE_BYTES in apps/api/src/articles/article-image-upload.ts.
+const ARTICLE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024
 const ARTICLE_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp'
 
 export default function EditArticleForm({
