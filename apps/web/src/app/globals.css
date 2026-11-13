@@ -1,4 +1,11 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * The redesign is light-only. Bind `dark:` to an explicit `.dark` class (never set)
+ * instead of prefers-color-scheme, so shadcn/ui `dark:` styles stay inactive.
+ */
+@custom-variant dark (&:is(.dark *));
 
 /*
  * Design tokens from the Figma file "Back Office Redesign" (page Design System).
@@ -69,51 +76,57 @@
   --font-sans: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-}
+/*
+ * Element defaults live in the base layer so Tailwind utilities
+ * (e.g. `border-primary`, `bg-muted`, `text-xs`) can override them.
+ */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 
-html {
-  background: var(--background);
-}
+  html {
+    background: var(--background);
+  }
 
-body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 20px;
-  overflow-x: hidden;
-}
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    overflow-x: hidden;
+  }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
 
-input,
-select,
-textarea {
-  border-color: var(--border);
-  background: var(--surface);
-  color: var(--foreground);
-}
+  input,
+  select,
+  textarea {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--foreground);
+  }
 
-input::placeholder,
-textarea::placeholder {
-  color: var(--muted);
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+  }
 }
 
 .lc-shell {

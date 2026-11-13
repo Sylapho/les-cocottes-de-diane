@@ -1,4 +1,6 @@
+import { Badge, type badgeVariants } from '@/components/ui/badge'
 import type { CommandeStatut } from '@/lib/api'
+import type { VariantProps } from 'class-variance-authority'
 
 export const commandeStatusLabels: Record<CommandeStatut, string> = {
   paiement_en_attente: 'Paiement en attente',
@@ -9,25 +11,34 @@ export const commandeStatusLabels: Record<CommandeStatut, string> = {
   paiement_a_verifier: 'Paiement à vérifier',
 }
 
-const commandeStatusClasses: Record<CommandeStatut, string> = {
-  paiement_en_attente: 'border-zinc-200 bg-zinc-100 text-zinc-700',
-  nouvelle: 'border-amber-200 bg-amber-100 text-amber-800',
-  preparee: 'border-blue-200 bg-blue-100 text-blue-800',
-  traitee: 'border-green-200 bg-green-100 text-green-800',
-  annulee: 'border-red-200 bg-red-100 text-red-800',
-  paiement_a_verifier: 'border-violet-200 bg-violet-100 text-violet-800',
+type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>
+
+// Tone and glyph per status, from the Figma "Order status" component.
+const commandeStatusStyles: Record<
+  CommandeStatut,
+  { variant: BadgeVariant; glyph: string }
+> = {
+  paiement_en_attente: { variant: 'neutral', glyph: '◷' },
+  nouvelle: { variant: 'warning', glyph: '◷' },
+  preparee: { variant: 'info', glyph: '✓' },
+  traitee: { variant: 'success', glyph: '✓' },
+  annulee: { variant: 'danger', glyph: '×' },
+  paiement_a_verifier: { variant: 'primary', glyph: '!' },
 }
 
 export default function CommandeStatusBadge({
   statut,
+  className,
 }: {
   statut: CommandeStatut
+  className?: string
 }) {
+  const { variant, glyph } = commandeStatusStyles[statut]
+
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${commandeStatusClasses[statut]}`}
-    >
+    <Badge variant={variant} className={className}>
+      <span aria-hidden="true">{glyph}</span>
       {commandeStatusLabels[statut]}
-    </span>
+    </Badge>
   )
 }
