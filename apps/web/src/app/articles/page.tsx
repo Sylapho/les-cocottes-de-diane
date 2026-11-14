@@ -1,40 +1,213 @@
-import Link from 'next/link'
-import ArticleCategoryFilter from '@/components/articles/article-category-filter'
-import ArticleCategorySection from '@/components/articles/article-category-section'
 import ArticleImage from '@/components/articles/article-image'
+import { FilterMenu } from '@/components/layout/filter-menu'
 import {
-  ButtonLink,
-  EmptyState,
-  Page,
-  PageHeader,
-  SectionCard,
-  StatCard,
-} from '@/components/ui/dashboard'
+  Callout,
+  ListPagination,
+  PageContainer,
+  PageHeading,
+} from '@/components/layout/page-layout'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { getArticleCategories, getArticles, type Article } from '@/lib/api'
 import { getArticleCategoryLabel } from '@/lib/article-categories'
 import {
-  filterArticlesByCategory,
-  groupArticlesByCategory,
-  resolveArticleCategoryId,
-} from '@/lib/article-list-filters'
+  ARTICLES_PAGE_SIZE,
+  buildArticlesHref,
+  filterArticles,
+  formatArticleStock,
+  getArticleCounts,
+  parseArticleListFilters,
+  type ArticleListFilters,
+  type ArticleTab,
+} from '@/lib/article-list'
+import { resolveArticleCategoryId } from '@/lib/article-list-filters'
 import { requireUiPermission } from '@/lib/auth-session'
+import { paginate } from '@/lib/commande-list'
 import { formatCurrencyFromCents } from '@/lib/money'
 import { canManageArticles, canViewArticles } from '@/lib/permissions'
-
-function stockTone(stock: number) {
-  if (stock <= 0) return 'danger'
-  if (stock <= 3) return 'warning'
-  return 'success'
-}
-
-function stockLabel(stock: number) {
-  if (stock <= 0) return 'Rupture'
-  if (stock <= 3) return 'Bas'
-  return 'OK'
-}
+import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 type ArticlesPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+function getVisibility(article: Article) {
+  if (article.archivedAt) {
+    return { label: 'Archivé', variant: 'neutral' as const }
+  }
+
+  return article.online
+    ? { label: 'En ligne', variant: 'success' as const }
+    : { label: 'Hors ligne', variant: 'neutral' as const }
+}
+
+function getCategoryName(article: Article) {
+  return article.categoryId == null
+    ? 'Sans catégorie'
+    : getArticleCategoryLabel(article.category)
+}
+
+function SearchForm({ filters }: { filters: ArticleListFilters }) {
+  return (
+    <form action="/articles" role="search" className="min-w-0 flex-1 basis-72">
+      {filters.tab !== 'all' ? (
+        <input type="hidden" name="tab" value={filters.tab} />
+      ) : null}
+      {filters.categoryId !== null ? (
+        <input type="hidden" name="category" value={filters.categoryId} />
+      ) : null}
+      <label htmlFor="articles-search" className="sr-only">
+        Rechercher un article
+      </label>
+      <Input
+        id="articles-search"
+        type="search"
+        name="q"
+        defaultValue={filters.q}
+        placeholder="Rechercher un article…"
+      />
+    </form>
+  )
+}
+
+function ArticlesTable({
+  articles,
+  canManage,
+}: {
+  articles: Article[]
+  canManage: boolean
+}) {
+  return (
+    <>
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Article</TableHead>
+              <TableHead>Catégorie</TableHead>
+              <TableHead>Prix TTC</TableHead>
+              <TableHead>Stock</TableHead>
+              <TableHead>Boutique</TableHead>
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {articles.map((article) => (
+              <TableRow key={article.id} className="relative">
+                <TableCell>
+                  <span className="flex items-center gap-3">
+                    <ArticleImage
+                      article={article}
+                      className="size-9 shrink-0 overflow-hidden rounded-md bg-muted text-muted-foreground"
+                    />
+                    {/* Stretched link: the whole row opens the article. */}
+                    <Link
+                      href={`/articles/${article.id}`}
+                      className="font-medium after:absolute after:inset-0"
+                    >
+                      {article.nom}
+                    </Link>
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {getCategoryName(article)}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">
+                  {formatCurrencyFromCents(article.prixCents)}
+                </TableCell>
+                <TableCell
+                  className={cn(
+                    'whitespace-nowrap',
+                    article.stock <= 0 ? 'text-danger' : 'text-muted-foreground',
+                  )}
+                >
+                  {formatArticleStock(article.stock)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {getVisibility(article).label}
+                </TableCell>
+                <TableCell>
+                  {canManage && !article.archivedAt ? (
+                    <Link
+                      href={`/articles/${article.id}/edit`}
+                      className="relative z-10 whitespace-nowrap text-muted-foreground hover:text-foreground hover:underline"
+                      aria-label={`Modifier ${article.nom}`}
+                    >
+                      Modifier <span aria-hidden="true">→</span>
+                    </Link>
+                  ) : (
+                    <span className="whitespace-nowrap text-muted-foreground">
+                      Voir <span aria-hidden="true">→</span>
+                    </span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <ul className="flex flex-col gap-6 md:hidden">
+        {articles.map((article) => {
+          const visibility = getVisibility(article)
+
+          return (
+            <li
+              key={article.id}
+              className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6"
+            >
+              <div className="flex items-center gap-3">
+                <ArticleImage
+                  article={article}
+                  className="size-11 shrink-0 overflow-hidden rounded-md bg-muted text-muted-foreground"
+                />
+                <h3 className="text-lg leading-[26px] font-semibold">
+                  {article.nom}
+                </h3>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-sm leading-5">
+                <span>{formatCurrencyFromCents(article.prixCents)}</span>
+                <span
+                  className={cn(article.stock <= 0 && 'text-danger')}
+                >
+                  {formatArticleStock(article.stock)}
+                </span>
+                <Badge variant={visibility.variant}>{visibility.label}</Badge>
+              </div>
+              <Button asChild variant="secondary" className="w-full">
+                <Link
+                  href={
+                    canManage && !article.archivedAt
+                      ? `/articles/${article.id}/edit`
+                      : `/articles/${article.id}`
+                  }
+                >
+                  {canManage && !article.archivedAt ? 'Modifier' : 'Voir'}
+                </Link>
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
+    </>
+  )
 }
 
 export default async function ArticlesPage({
@@ -47,205 +220,141 @@ export default async function ArticlesPage({
     getArticles(),
     getArticleCategories(),
   ])
-  const selectedCategoryId = resolveArticleCategoryId(params, categories)
-  const filteredArticles = filterArticlesByCategory(
-    articles,
-    selectedCategoryId,
+  const filters = parseArticleListFilters(
+    params,
+    resolveArticleCategoryId(params, categories),
   )
-  const groupedArticles = groupArticlesByCategory(filteredArticles, categories)
-  const activeArticles = articles.filter((article) => !article.archivedAt)
-  const archivedArticles = articles.filter((article) => article.archivedAt)
-  const onlineArticles = activeArticles.filter((article) => article.online)
-  const lowStockArticles = activeArticles.filter((article) => article.stock <= 3)
-  const averagePrice = articles.length
-    ? Math.round(
-        articles.reduce((total, article) => total + article.prixCents, 0) /
-          articles.length,
-      )
-    : 0
-  const catalogueDescription =
-    selectedCategoryId !== null
-      ? `${filteredArticles.length} article${filteredArticles.length > 1 ? 's' : ''} affiché${filteredArticles.length > 1 ? 's' : ''} sur ${articles.length}.`
-      : articles.length > 0
-        ? `Prix moyen : ${formatCurrencyFromCents(averagePrice)}.`
-        : 'Les articles créés apparaîtront ici.'
+  const counts = getArticleCounts(articles)
+  const pagination = paginate(
+    filterArticles(articles, filters),
+    filters.page,
+    ARTICLES_PAGE_SIZE,
+  )
+  const selectedCategory = categories.find(
+    (category) => category.id === filters.categoryId,
+  )
+  const tabs: { value: ArticleTab; label: string; count: number }[] = [
+    { value: 'all', label: 'Tous', count: counts.all },
+    { value: 'online', label: 'En ligne', count: counts.online },
+    { value: 'offline', label: 'Hors ligne', count: counts.offline },
+    ...(counts.archived > 0
+      ? [
+          {
+            value: 'archived' as const,
+            label: 'Archivés',
+            count: counts.archived,
+          },
+        ]
+      : []),
+  ]
+  const hasFilters =
+    filters.tab !== 'all' || filters.categoryId !== null || Boolean(filters.q)
 
   return (
-    <Page>
-      <PageHeader
-        eyebrow="Catalogue"
+    <PageContainer>
+      <PageHeading
+        context="Articles"
         title="Articles"
-        description="Pilotez les produits vendus en boutique : prix, catégorie, visibilité en ligne et disponibilité."
-        actions={
-          userCanManageArticles ? (
-            <ButtonLink href="/articles/new" variant="primary">
-              Nouvel article
-            </ButtonLink>
-          ) : null
-        }
+        description="Un catalogue clair, des disponibilités fiables."
       />
 
-      <section className="lc-stat-grid">
-        <StatCard
-          label="Articles"
-          value={articles.length}
-          detail={`${archivedArticles.length} archivé${archivedArticles.length > 1 ? 's' : ''}`}
+      <div className="flex flex-wrap gap-3">
+        <SearchForm filters={filters} />
+        <FilterMenu
+          ariaLabel="Catégorie"
+          label={selectedCategory?.name ?? 'Toutes les catégories'}
+          className="min-w-52"
+          options={[
+            {
+              label: 'Toutes les catégories',
+              href: buildArticlesHref(filters, { categoryId: null }),
+              active: filters.categoryId === null,
+            },
+            ...categories.map((category) => ({
+              label: category.isActive
+                ? category.name
+                : `${category.name} (inactive)`,
+              href: buildArticlesHref(filters, { categoryId: category.id }),
+              active: filters.categoryId === category.id,
+            })),
+          ]}
         />
-        <StatCard
-          label="En ligne"
-          value={onlineArticles.length}
-          detail="Visibles côté boutique"
-          tone="success"
-        />
-        <StatCard
-          label="Stock bas"
-          value={lowStockArticles.length}
-          detail="À produire ou réapprovisionner"
-          tone={lowStockArticles.length > 0 ? 'warning' : 'success'}
-        />
-      </section>
-
-      <SectionCard
-        className="lc-section-spaced"
-        title="Catalogue produits"
-        description={catalogueDescription}
-        actions={
-          <ArticleCategoryFilter
-            categories={categories}
-            selectedCategoryId={selectedCategoryId}
-          />
-        }
-      >
-        {articles.length === 0 ? (
-          <EmptyState
-            title="Aucun article disponible"
-            description="Créez un premier article pour alimenter le catalogue de la boutique et commencer à suivre le stock."
-            action={
-              userCanManageArticles ? (
-                <ButtonLink href="/articles/new" variant="primary">
-                  Créer un article
-                </ButtonLink>
-              ) : null
-            }
-          />
-        ) : filteredArticles.length === 0 ? (
-          <EmptyState
-            title="Aucun article trouvé"
-            description="Aucun article ne correspond à cette catégorie."
-          />
-        ) : (
-          <div className="grid gap-5">
-            {groupedArticles.map((group) => (
-              <ArticleCategorySection
-                key={group.key}
-                name={group.name}
-                description={group.description}
-                articleCount={group.articles.length}
-                status={group.status}
-              >
-                <ul className="lc-catalog-grid">
-                  {group.articles.map((article) => (
-                    <ArticleCard
-                      key={article.id}
-                      article={article}
-                      canManage={userCanManageArticles}
-                    />
-                  ))}
-                </ul>
-              </ArticleCategorySection>
-            ))}
-          </div>
-        )}
-      </SectionCard>
-    </Page>
-  )
-}
-
-function ArticleCard({
-  article,
-  canManage,
-}: {
-  article: Article
-  canManage: boolean
-}) {
-  const tone = stockTone(article.stock)
-
-  return (
-    <li className="lc-catalog-card">
-      <div className="lc-catalog-card-head">
-        <ArticleImage article={article} className="lc-catalog-image" />
-        <div className="lc-catalog-card-title">
-          <div className="lc-catalog-title-row">
-            <h4>{article.nom}</h4>
-            <span
-              className={
-                article.archivedAt
-                  ? 'lc-status-pill lc-status-pill-muted'
-                  : article.online
-                    ? 'lc-status-pill lc-status-pill-success'
-                    : 'lc-status-pill lc-status-pill-muted'
-              }
-            >
-              {article.archivedAt
-                ? 'Archivé'
-                : article.online
-                  ? 'En ligne'
-                  : 'Hors ligne'}
-            </span>
-          </div>
-          <p className="lc-catalog-category">
-            {article.categoryId == null
-              ? 'Sans catégorie'
-              : getArticleCategoryLabel(article.category)}
-          </p>
-        </div>
-      </div>
-
-      <p className="lc-catalog-description">
-        {article.description || 'Aucune description renseignée.'}
-      </p>
-
-      <dl className="lc-catalog-metrics">
-        <div>
-          <dt>Prix TTC</dt>
-          <dd>{formatCurrencyFromCents(article.prixCents)}</dd>
-        </div>
-        <div>
-          <dt>Stock</dt>
-          <dd>
-            {article.stock}
-            <span
-              className={
-                tone === 'danger'
-                  ? 'lc-stock-pill lc-stock-pill-danger'
-                  : tone === 'warning'
-                    ? 'lc-stock-pill lc-stock-pill-warning'
-                    : 'lc-stock-pill lc-stock-pill-success'
-              }
-            >
-              {stockLabel(article.stock)}
-            </span>
-          </dd>
-        </div>
-      </dl>
-
-      <div className="lc-catalog-actions">
-        <Link
-          href={`/articles/${article.id}`}
-          className="lc-button lc-button-secondary"
-        >
-          Voir
-        </Link>
-
-        {canManage ? (
-          <Link
-            href={`/articles/${article.id}/edit`}
-            className="lc-button lc-button-ghost"
-          >
-            Modifier
-          </Link>
+        {userCanManageArticles ? (
+          <Button asChild className="min-w-52">
+            <Link href="/articles/new">Créer un article</Link>
+          </Button>
         ) : null}
       </div>
-    </li>
+
+      <nav
+        aria-label="Filtrer par visibilité"
+        className="-mx-5 flex gap-3 overflow-x-auto px-5 md:mx-0 md:flex-wrap md:px-0"
+      >
+        {tabs.map((tab) => {
+          const active = filters.tab === tab.value
+
+          return (
+            <Button
+              key={tab.value}
+              asChild
+              variant={active ? 'default' : 'secondary'}
+              className="shrink-0 px-6"
+            >
+              <Link
+                href={buildArticlesHref(filters, { tab: tab.value })}
+                aria-current={active ? 'page' : undefined}
+              >
+                {tab.label} · {tab.count}
+              </Link>
+            </Button>
+          )
+        })}
+      </nav>
+
+      {pagination.total > 0 ? (
+        <>
+          <ArticlesTable
+            articles={pagination.items}
+            canManage={userCanManageArticles}
+          />
+          <ListPagination
+            start={pagination.start}
+            end={pagination.end}
+            total={pagination.total}
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+            itemLabel={['article', 'articles']}
+            hrefForPage={(page) => buildArticlesHref(filters, { page })}
+          />
+        </>
+      ) : (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>
+              {articles.length === 0
+                ? 'Aucun article pour le moment'
+                : 'Aucun article ne correspond à ces filtres'}
+            </EmptyTitle>
+            <EmptyDescription>
+              {articles.length === 0
+                ? 'Créez un premier article pour alimenter la boutique.'
+                : 'Modifiez la recherche ou réinitialisez les filtres.'}
+            </EmptyDescription>
+          </EmptyHeader>
+          {hasFilters ? (
+            <EmptyContent>
+              <Button asChild variant="secondary">
+                <Link href="/articles">Réinitialiser les filtres</Link>
+              </Button>
+            </EmptyContent>
+          ) : null}
+        </Empty>
+      )}
+
+      <Callout tone="info" title="Visibilité et disponibilité sont distinctes">
+        Un article en ligne peut être indisponible. Ajustez les stocks dans le
+        parcours dédié, sans modifier les prix.
+      </Callout>
+    </PageContainer>
   )
 }

@@ -2,6 +2,14 @@ import ArticleImage from '@/components/articles/article-image'
 import DeleteArticleButton from '@/components/articles/delete-article-button'
 import ProduceArticleForm from '@/components/articles/produce-article-form'
 import {
+  Callout,
+  KeyFigures,
+  PageContainer,
+  PageHeading,
+  Panel,
+} from '@/components/layout/page-layout'
+import { Button } from '@/components/ui/button'
+import {
   getArticle,
   getArticleNomenclature,
   getProductionCapacity,
@@ -10,21 +18,31 @@ import { getArticleCategoryLabel } from '@/lib/article-categories'
 import { requireUiPermission } from '@/lib/auth-session'
 import { formatCurrencyFromCents } from '@/lib/money'
 import {
+  canDeleteArticle,
   canManageArticleProduction,
   canManageArticles,
-  canDeleteArticle,
+  canUpdateArticlePrice,
   canViewArticles,
   canViewStock,
 } from '@/lib/permissions'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 
 type PageProps = {
   params: Promise<{
     id: string
   }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-export default async function ArticleDetailPage({ params }: PageProps) {
+function plural(count: number, singular: string, pluralForm: string) {
+  return Math.abs(count) > 1 ? pluralForm : singular
+}
+
+export default async function ArticleDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const session = await requireUiPermission(canViewArticles)
   const userCanManageArticles = canManageArticles(session.user)
   const userCanDeleteArticle = canDeleteArticle(session.user)
@@ -35,190 +53,180 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   const { id } = await params
   const articleId = Number(id)
 
+  if (!Number.isInteger(articleId)) {
+    notFound()
+  }
+
+  const query = (await searchParams) ?? {}
+  const justSaved = query.saved === '1'
   const [article, nomenclature, capacity] = await Promise.all([
     getArticle(articleId),
     userCanViewStock ? getArticleNomenclature(articleId) : Promise.resolve([]),
-    userCanViewStock
-      ? getProductionCapacity(articleId)
-      : Promise.resolve(null),
+    userCanViewStock ? getProductionCapacity(articleId) : Promise.resolve(null),
   ])
 
-  const coutTotalCents = nomenclature.reduce((total, line) => {
-    return total + Math.round(line.quantite * line.mp.coutUnitaireCents)
-  }, 0)
+  const coutTotalCents = nomenclature.reduce(
+    (total, line) => total + Math.round(line.quantite * line.mp.coutUnitaireCents),
+    0,
+  )
   const margeCents = article.prixCents - coutTotalCents
   const hasNomenclature = nomenclature.length > 0
+  const visibility = article.archivedAt
+    ? { label: 'Archivé', detail: 'Retiré du catalogue' }
+    : article.online
+      ? { label: 'En ligne', detail: 'Visible aux clients' }
+      : { label: 'Hors ligne', detail: 'Masqué sur la boutique' }
 
   return (
-    <main className="p-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/articles" className="rounded border px-3 py-2 text-sm">
-          Retour à la liste
-        </Link>
+    <PageContainer>
+      <PageHeading
+        context="Articles"
+        contextHref="/articles"
+        title={article.nom}
+        description={
+          justSaved ? 'Articles / Détail · fiche enregistrée' : 'Articles / Détail'
+        }
+      />
 
-        {userCanManageArticles ? (
-          <Link
-            href={`/articles/${article.id}/edit`}
-            className="rounded border px-3 py-2 text-sm"
-          >
-            Modifier
-          </Link>
+      {justSaved ? (
+        <Callout tone="success" title="Modifications enregistrées">
+          La fiche de l’article est à jour.
+        </Callout>
+      ) : null}
+
+      {article.archivedAt ? (
+        <Callout tone="warning" title="Article archivé">
+          Il n’apparaît plus dans le catalogue ; il est conservé pour
+          l’historique des ventes et des commandes.
+        </Callout>
+      ) : null}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        {userCanManageArticles && !article.archivedAt ? (
+          <Button asChild className="sm:min-w-44">
+            <Link href={`/articles/${article.id}/edit`}>Modifier l’article</Link>
+          </Button>
         ) : null}
-
         {userCanManageArticleProduction ? (
-          <Link
-            href={`/articles/${article.id}/nomenclature`}
-            className="rounded border px-3 py-2 text-sm"
-          >
-            Gérer la nomenclature
-          </Link>
+          <Button asChild variant="secondary" className="sm:min-w-44">
+            <Link href={`/articles/${article.id}/nomenclature`}>
+              Voir la nomenclature
+            </Link>
+          </Button>
+        ) : null}
+        {userCanDeleteArticle && !article.archivedAt ? (
+          <DeleteArticleButton articleId={article.id} articleName={article.nom} />
         ) : null}
       </div>
 
-      <div className="rounded border p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-3">
-          <ArticleImage
-            article={article}
-            className="h-24 w-24 overflow-hidden rounded border bg-gray-100"
-          />
-          <div>
-            <h1 className="text-2xl font-bold">{article.nom}</h1>
-            <p className="text-sm text-gray-500">ID : {article.id}</p>
+      <Panel title="Informations du catalogue">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          {article.imageUrl ? (
+            <ArticleImage
+              article={article}
+              className="size-24 shrink-0 overflow-hidden rounded-md bg-muted"
+            />
+          ) : null}
+          <div className="flex flex-col gap-4">
+            <dl className="flex flex-col gap-1">
+              <dt className="text-xs leading-[17px] text-muted-foreground">
+                Catégorie
+              </dt>
+              <dd className="text-sm leading-5 font-medium">
+                {article.categoryId == null
+                  ? 'Sans catégorie'
+                  : getArticleCategoryLabel(article.category)}
+              </dd>
+            </dl>
+            <p className="text-sm leading-5 text-muted-foreground">
+              {article.description || 'Aucune description renseignée.'}
+            </p>
           </div>
         </div>
+        <KeyFigures
+          className="max-sm:grid-cols-1"
+          items={[
+            {
+              label: 'Prix TTC',
+              value: formatCurrencyFromCents(article.prixCents),
+              detail: canUpdateArticlePrice(session.user)
+                ? `TVA ${article.tvaBps / 100} %`
+                : `TVA ${article.tvaBps / 100} % · modifiable par un administrateur`,
+            },
+            {
+              label: 'Stock d’articles',
+              value: article.stock,
+              detail: `${plural(article.stock, 'Unité disponible', 'Unités disponibles')}`,
+            },
+            {
+              label: 'Boutique',
+              value: visibility.label,
+              detail: visibility.detail,
+            },
+          ]}
+        />
+      </Panel>
 
-        <div className="grid gap-2">
-          <p>
-            <span className="font-medium">Prix :</span>{' '}
-            {formatCurrencyFromCents(article.prixCents)}
-          </p>
-          {userCanViewStock ? (
-            <>
-              <p>
-                <span className="font-medium">Coût matières :</span>{' '}
+      {userCanViewStock ? (
+        <Panel
+          title="Production et coûts"
+          footer={
+            hasNomenclature
+              ? undefined
+              : 'Aucune nomenclature : la vente et la production restent possibles, sans consommer de matières premières.'
+          }
+        >
+          <dl className="grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs leading-[17px] text-muted-foreground">
+                Production possible
+              </dt>
+              <dd className="text-sm leading-5 font-medium">
+                {hasNomenclature
+                  ? `${capacity?.capacite ?? 0} ${plural(capacity?.capacite ?? 0, 'unité', 'unités')}`
+                  : 'Non limitée par les matières'}
+              </dd>
+              {capacity?.limitingIngredient ? (
+                <dd className="text-xs leading-[17px] text-muted-foreground">
+                  Matière limitante : {capacity.limitingIngredient.nom} (
+                  {capacity.limitingIngredient.stock}{' '}
+                  {capacity.limitingIngredient.unite})
+                </dd>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs leading-[17px] text-muted-foreground">
+                Coût matières estimé
+              </dt>
+              <dd className="text-sm leading-5 font-medium">
                 {hasNomenclature
                   ? formatCurrencyFromCents(coutTotalCents)
                   : 'Non calculé'}
-              </p>
-              <p>
-                <span className="font-medium">Marge brute estimée :</span>{' '}
+              </dd>
+              <dd className="text-xs leading-[17px] text-muted-foreground">
+                {nomenclature.length}{' '}
+                {plural(nomenclature.length, 'matière', 'matières')}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs leading-[17px] text-muted-foreground">
+                Marge brute estimée
+              </dt>
+              <dd className="text-sm leading-5 font-medium">
                 {hasNomenclature
                   ? formatCurrencyFromCents(margeCents)
                   : 'Non calculée'}
-              </p>
-            </>
-          ) : null}
-          <p>
-            <span className="font-medium">TVA :</span> {article.tvaBps / 100} %
-          </p>
-          <p>
-            <span className="font-medium">Catégorie :</span>{' '}
-            {getArticleCategoryLabel(article.category)}
-          </p>
-          <p>
-            <span className="font-medium">Stock :</span> {article.stock}
-          </p>
-          <p>
-            <span className="font-medium">En ligne :</span>{' '}
-            {article.online ? 'Oui' : 'Non'}
-          </p>
-          <p>
-            <span className="font-medium">Archivé :</span>{' '}
-            {article.archivedAt ? 'Oui' : 'Non'}
-          </p>
-        </div>
-
-        {article.description ? (
-          <div className="mt-4">
-            <h2 className="mb-1 font-medium">Description</h2>
-            <p className="text-gray-700">{article.description}</p>
-          </div>
-        ) : null}
-
-        {userCanDeleteArticle ? (
-          <div className="mt-6">
-            <DeleteArticleButton articleId={article.id} />
-          </div>
-        ) : null}
-      </div>
-
-      {userCanViewStock ? (
-        <section className="mt-8 rounded border p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold">Résumé nomenclature</h2>
-
-            {userCanManageArticleProduction ? (
-              <Link
-                href={`/articles/${article.id}/nomenclature`}
-                className="rounded border px-3 py-2 text-sm"
-              >
-                Gérer la nomenclature
-              </Link>
-            ) : null}
-          </div>
-
-          {userCanManageArticleProduction && capacity ? (
-            <div className="mt-4">
-              <ProduceArticleForm
-                articleId={article.id}
-                maxQuantity={
-                  hasNomenclature ? capacity.capacite : undefined
-                }
-              />
+              </dd>
             </div>
+          </dl>
+          {userCanManageArticleProduction && capacity && !article.archivedAt ? (
+            <ProduceArticleForm
+              articleId={article.id}
+              maxQuantity={hasNomenclature ? capacity.capacite : undefined}
+            />
           ) : null}
-
-          <div className="mt-4 rounded bg-gray-50 p-4">
-            <p>
-              <span className="font-medium">Production possible :</span>{' '}
-              {hasNomenclature
-                ? `${capacity?.capacite ?? 0} unités`
-                : 'Non limitée par les matières premières'}
-            </p>
-
-            {capacity?.limitingIngredient ? (
-              <p className="mt-1 text-sm text-gray-600">
-                Matière limitante : {capacity.limitingIngredient.nom} - stock
-                : {capacity.limitingIngredient.stock}{' '}
-                {capacity.limitingIngredient.unite}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-gray-600">
-                Aucune nomenclature définie.
-              </p>
-            )}
-          </div>
-
-          {userCanManageArticleProduction && !hasNomenclature ? (
-            <p className="mt-4 rounded bg-amber-50 p-4 text-sm text-amber-800">
-              Aucune nomenclature définie pour cet article. La création, la
-              modification, la vente et la production restent possibles. Aucune
-              matière première ne sera consommée pendant la production.
-            </p>
-          ) : null}
-
-          <div className="grid gap-2">
-            <p>
-              <span className="font-medium">Nombre de matières :</span>{' '}
-              {nomenclature.length}
-            </p>
-
-            <p>
-              <span className="font-medium">Coût matières estimé :</span>{' '}
-              {hasNomenclature
-                ? formatCurrencyFromCents(coutTotalCents)
-                : 'Non calculé'}
-            </p>
-
-            <p>
-              <span className="font-medium">Marge brute estimée :</span>{' '}
-              {hasNomenclature
-                ? formatCurrencyFromCents(margeCents)
-                : 'Non calculée'}
-            </p>
-          </div>
-        </section>
+        </Panel>
       ) : null}
-    </main>
+    </PageContainer>
   )
 }
