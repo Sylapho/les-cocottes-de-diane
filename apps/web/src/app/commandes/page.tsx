@@ -3,6 +3,7 @@ import CommandesTable from '@/components/commandes/commandes-table'
 import { FilterMenu } from '@/components/layout/filter-menu'
 import {
   Callout,
+  ListPagination,
   PageContainer,
   PageHeading,
   Panel,
@@ -17,7 +18,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
-import { PaginationSummary } from '@/components/ui/pagination'
 import { getCommandes } from '@/lib/api'
 import { requireUiPermission } from '@/lib/auth-session'
 import {
@@ -323,48 +323,15 @@ export default async function CommandesPage({
         <>
           <CommandesTable commandes={pagination.items} />
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <PaginationSummary>
-              {pagination.start}–{pagination.end} sur{' '}
-              {pagination.total > 1
-                ? `${pagination.total} commandes`
-                : '1 commande'}
-            </PaginationSummary>
-            {pagination.pageCount > 1 ? (
-              <nav aria-label="Pagination" className="flex gap-3">
-                {pagination.page > 1 ? (
-                  <Button asChild variant="secondary">
-                    <Link
-                      href={buildCommandesHref(filters, {
-                        page: pagination.page - 1,
-                      })}
-                    >
-                      <span aria-hidden="true">←</span> Précédent
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button variant="secondary" disabled>
-                    <span aria-hidden="true">←</span> Précédent
-                  </Button>
-                )}
-                {pagination.page < pagination.pageCount ? (
-                  <Button asChild variant="secondary">
-                    <Link
-                      href={buildCommandesHref(filters, {
-                        page: pagination.page + 1,
-                      })}
-                    >
-                      Suivant <span aria-hidden="true">→</span>
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button variant="secondary" disabled>
-                    Suivant <span aria-hidden="true">→</span>
-                  </Button>
-                )}
-              </nav>
-            ) : null}
-          </div>
+          <ListPagination
+            start={pagination.start}
+            end={pagination.end}
+            total={pagination.total}
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+            itemLabel={['commande', 'commandes']}
+            hrefForPage={(page) => buildCommandesHref(filters, { page })}
+          />
         </>
       ) : (
         <Empty>

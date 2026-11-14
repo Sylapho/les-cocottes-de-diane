@@ -1,16 +1,30 @@
-import NewArticleForm from '@/components/articles/new-article-form'
+import ArticleForm from '@/components/articles/article-form'
+import { PageContainer, PageHeading } from '@/components/layout/page-layout'
 import { getArticleCategories } from '@/lib/api'
 import { requireUiPermission } from '@/lib/auth-session'
-import { canManageArticles } from '@/lib/permissions'
+import {
+  canManageArticles,
+  canUpdateArticlePrice,
+  canViewStock,
+} from '@/lib/permissions'
 
 export default async function NewArticlePage() {
-  await requireUiPermission(canManageArticles)
+  const session = await requireUiPermission(canManageArticles)
   const categories = await getArticleCategories({ activeOnly: true })
 
   return (
-    <main className="p-8">
-      <h1 className="mb-6 text-2xl font-bold">Créer un article</h1>
-      <NewArticleForm categories={categories} />
-    </main>
+    <PageContainer>
+      <PageHeading
+        context="Articles"
+        contextHref="/articles"
+        title="Créer un article"
+        description="Renseignez l’essentiel pour publier votre article."
+      />
+      <ArticleForm
+        categories={categories}
+        canUpdatePrice={canUpdateArticlePrice(session.user)}
+        canViewStock={canViewStock(session.user)}
+      />
+    </PageContainer>
   )
 }

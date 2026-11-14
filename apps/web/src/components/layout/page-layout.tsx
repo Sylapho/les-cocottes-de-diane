@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import type { ComponentProps, ReactNode } from 'react'
@@ -189,5 +190,57 @@ export function Panel({
         <p className="text-xs leading-[17px] text-muted-foreground">{footer}</p>
       ) : null}
     </section>
+  )
+}
+
+export function ListPagination({
+  start,
+  end,
+  total,
+  page,
+  pageCount,
+  itemLabel,
+  hrefForPage,
+}: {
+  start: number
+  end: number
+  total: number
+  page: number
+  pageCount: number
+  itemLabel: [singular: string, plural: string]
+  hrefForPage: (page: number) => string
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs leading-[17px] text-muted-foreground">
+        {start}–{end} sur {total} {total > 1 ? itemLabel[1] : itemLabel[0]}
+      </p>
+      {pageCount > 1 ? (
+        <nav aria-label="Pagination" className="flex gap-3">
+          {page > 1 ? (
+            <Button asChild variant="secondary">
+              <Link href={hrefForPage(page - 1)}>
+                <span aria-hidden="true">←</span> Précédent
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled>
+              <span aria-hidden="true">←</span> Précédent
+            </Button>
+          )}
+          {page < pageCount ? (
+            <Button asChild variant="secondary">
+              <Link href={hrefForPage(page + 1)}>
+                Suivant <span aria-hidden="true">→</span>
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled>
+              Suivant <span aria-hidden="true">→</span>
+            </Button>
+          )}
+        </nav>
+      ) : null}
+    </div>
   )
 }

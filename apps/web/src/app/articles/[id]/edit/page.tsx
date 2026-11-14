@@ -1,11 +1,13 @@
-import Link from 'next/link'
+import ArticleForm from '@/components/articles/article-form'
+import { PageContainer, PageHeading } from '@/components/layout/page-layout'
 import { getArticle, getArticleCategories } from '@/lib/api'
-import EditArticleForm from '@/components/articles/edit-article-form'
 import { requireUiPermission } from '@/lib/auth-session'
 import {
   canManageArticles,
   canUpdateArticlePrice,
+  canViewStock,
 } from '@/lib/permissions'
+import { notFound } from 'next/navigation'
 
 type PageProps = {
   params: Promise<{
@@ -17,33 +19,35 @@ export default async function EditArticlePage({ params }: PageProps) {
   const session = await requireUiPermission(canManageArticles)
   const { id } = await params
   const articleId = Number(id)
+
+  if (!Number.isInteger(articleId)) {
+    notFound()
+  }
+
   const [article, categories] = await Promise.all([
     getArticle(articleId),
     getArticleCategories({ activeOnly: true }),
   ])
+  const userCanUpdatePrice = canUpdateArticlePrice(session.user)
 
   return (
-    <main className="p-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/articles" className="rounded border px-3 py-2 text-sm">
-          ← Retour à la liste
-        </Link>
-
-        <Link
-          href={`/articles/${article.id}`}
-          className="rounded border px-3 py-2 text-sm"
-        >
-          Voir l’article
-        </Link>
-      </div>
-
-      <h1 className="mb-6 text-2xl font-bold">Modifier : {article.nom}</h1>
-
-      <EditArticleForm
+    <PageContainer>
+      <PageHeading
+        context="Articles"
+        contextHref="/articles"
+        title={article.nom}
+        description={
+          userCanUpdatePrice
+            ? `Modifier · ${article.stock} ${Math.abs(article.stock) > 1 ? 'unités' : 'unité'} en stock`
+            : 'Modifier · prix en consultation'
+        }
+      />
+      <ArticleForm
         article={article}
         categories={categories}
-        canUpdatePrice={canUpdateArticlePrice(session.user)}
+        canUpdatePrice={userCanUpdatePrice}
+        canViewStock={canViewStock(session.user)}
       />
-    </main>
+    </PageContainer>
   )
 }
