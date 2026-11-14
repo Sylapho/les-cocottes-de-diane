@@ -59,7 +59,8 @@ export async function truncateBusinessTables(prisma: PrismaService) {
     .map(({ tablename }) => `"${tablename.replaceAll('"', '""')}"`)
     .join(', ')
 
-  await prisma.$executeRawUnsafe(
+  await truncateWithDeadlockRetry(
+    prisma,
     `TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE`,
   )
 
@@ -84,4 +85,39 @@ export async function truncateBusinessTables(prisma: PrismaService) {
       isActive: true,
     },
   })
+}
+
+const POSTGRES_DEADLOCK_CODE = '40P01'
+const TRUNCATE_MAX_ATTEMPTS = 3
+
+function isDeadlockError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const meta = (error as { meta?: { code?: unknown } }).meta
+
+  return (
+    meta?.code === POSTGRES_DEADLOCK_CODE ||
+    error.message.includes(POSTGRES_DEADLOCK_CODE)
+  )
+}
+
+// TRUNCATE takes an exclusive lock on every table. Background work started by
+// the app under test (for example the analytics cleanup run on module init)
+// can hold locks on some of them, so PostgreSQL may abort the TRUNCATE as a
+// deadlock victim. The other transaction then completes and a retry succeeds.
+async function truncateWithDeadlockRetry(prisma: PrismaService, sql: string) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await prisma.$executeRawUnsafe(sql)
+      return
+    } catch (error) {
+      if (!isDeadlockError(error) || attempt >= TRUNCATE_MAX_ATTEMPTS) {
+        throw error
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 50 * attempt))
+    }
+  }
 }
