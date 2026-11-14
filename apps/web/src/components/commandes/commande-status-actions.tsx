@@ -1,10 +1,28 @@
 'use client'
 
-import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
-import { useSessionFetch } from '@/lib/use-session-fetch'
+import CommandeStatusBadge from '@/components/commandes/commande-status-badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { CommandeStatut } from '@/lib/api'
-import { useRouter } from 'next/navigation'
+import { ChevronDownIcon } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
+import { useCommandeStatusUpdate } from './use-commande-status-update'
 
 type CommandeStatusActionsProps = {
   commandeId: number
@@ -12,138 +30,106 @@ type CommandeStatusActionsProps = {
   canManage: boolean
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+// The single primary action of the order detail, per status.
+const primaryActions: Partial<
+  Record<CommandeStatut, { next: CommandeStatut; label: string }>
+> = {
+  nouvelle: { next: 'preparee', label: 'Marquer préparée' },
+  preparee: { next: 'traitee', label: 'Marquer traitée' },
+}
 
 export default function CommandeStatusActions({
   commandeId,
   statut,
   canManage,
 }: CommandeStatusActionsProps) {
-  const router = useRouter()
-  const sessionFetch = useSessionFetch()
-  const [loadingStatus, setLoadingStatus] = useState<CommandeStatut | null>(
-    null,
-  )
-  const [error, setError] = useState('')
+  const { pendingStatus, updateStatus } = useCommandeStatusUpdate(commandeId)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const isDone = statut === 'traitee' || statut === 'annulee'
+  const primary = primaryActions[statut]
 
-  async function updateStatus(nextStatus: CommandeStatut) {
-    if (
-      nextStatus === 'annulee' &&
-      !window.confirm('Annuler cette commande et remettre le stock ?')
-    ) {
-      return
+  async function cancelCommande() {
+    if (await updateStatus('annulee')) {
+      setCancelOpen(false)
     }
-
-    setLoadingStatus(nextStatus)
-    setError('')
-
-    try {
-      const response = await sessionFetch(
-        `${API_URL}/commandes/${commandeId}/statut`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            statut: nextStatus,
-          }),
-        },
-      )
-
-      if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response))
-      }
-
-      router.refresh()
-    } catch (err) {
-      setError(getUnknownErrorMessage(err))
-    } finally {
-      setLoadingStatus(null)
-    }
-  }
-
-  if (!canManage || statut === 'traitee' || statut === 'annulee') {
-    return null
-  }
-
-  if (statut === 'paiement_en_attente') {
-    return (
-      <div className="grid gap-2">
-        <p className="max-w-md text-sm text-gray-600">
-          Paiement en attente. Cette commande ne peut pas encore être traitée.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => updateStatus('annulee')}
-          disabled={Boolean(loadingStatus)}
-          className="lc-button lc-button-danger w-fit disabled:opacity-50"
-        >
-          {loadingStatus === 'annulee' ? 'Annulation...' : 'Annuler'}
-        </button>
-
-        {error ? <p className="max-w-md text-sm text-red-600">{error}</p> : null}
-      </div>
-    )
-  }
-
-  if (statut === 'paiement_a_verifier') {
-    return (
-      <div className="grid gap-2">
-        <p className="max-w-md text-sm text-amber-700">
-          Paiement reçu, mais le stock est insuffisant. Vérifiez la commande
-          avant de contacter le client.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => updateStatus('annulee')}
-          disabled={Boolean(loadingStatus)}
-          className="lc-button lc-button-danger w-fit disabled:opacity-50"
-        >
-          {loadingStatus === 'annulee' ? 'Annulation...' : 'Annuler'}
-        </button>
-
-        {error ? <p className="max-w-md text-sm text-red-600">{error}</p> : null}
-      </div>
-    )
   }
 
   return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap gap-2">
-        {statut === 'nouvelle' ? (
-          <button
-            type="button"
-            onClick={() => updateStatus('preparee')}
-            disabled={Boolean(loadingStatus)}
-            className="lc-button lc-button-secondary disabled:opacity-50"
-          >
-            {loadingStatus === 'preparee' ? 'Préparation...' : 'Préparer'}
-          </button>
-        ) : null}
+    <div className="flex flex-wrap items-center gap-3">
+      <CommandeStatusBadge statut={statut} className="min-w-[190px]" />
 
-        <button
-          type="button"
-          onClick={() => updateStatus('traitee')}
-          disabled={Boolean(loadingStatus)}
-          className="lc-button lc-button-primary disabled:opacity-50"
+      {canManage && primary ? (
+        <Button
+          className="min-w-52"
+          onClick={() => updateStatus(primary.next)}
+          disabled={pendingStatus !== null}
+          aria-busy={pendingStatus === primary.next}
         >
-          {loadingStatus === 'traitee' ? 'Traitement...' : 'Traiter'}
-        </button>
+          {pendingStatus === primary.next ? 'Mise à jour…' : primary.label}
+        </Button>
+      ) : null}
 
-        <button
-          type="button"
-          onClick={() => updateStatus('annulee')}
-          disabled={Boolean(loadingStatus)}
-          className="lc-button lc-button-danger disabled:opacity-50"
-        >
-          {loadingStatus === 'annulee' ? 'Annulation...' : 'Annuler'}
-        </button>
-      </div>
+      {isDone ? (
+        <Button asChild variant="secondary">
+          <Link href="/commandes">Retour aux commandes</Link>
+        </Button>
+      ) : null}
 
-      {error ? <p className="max-w-md text-sm text-red-600">{error}</p> : null}
+      {canManage && !isDone ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="secondary"
+              className="min-w-44"
+              disabled={pendingStatus !== null}
+            >
+              Autres actions
+              <ChevronDownIcon aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-56">
+            {statut === 'preparee' ? (
+              <DropdownMenuItem onSelect={() => void updateStatus('nouvelle')}>
+                Remettre à préparer
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              className="text-danger focus:text-danger"
+              onSelect={() => setCancelOpen(true)}
+            >
+              Annuler la commande…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler la commande #{commandeId} ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le stock réservé sera remis en vente. Le paiement n’est pas
+              remboursé automatiquement : utilisez « Rembourser… » si besoin.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pendingStatus !== null}>
+              Garder la commande
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={pendingStatus !== null}
+              onClick={(event) => {
+                // Keep the dialog open until the request settles.
+                event.preventDefault()
+                void cancelCommande()
+              }}
+            >
+              {pendingStatus === 'annulee' ? 'Annulation…' : 'Annuler la commande'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
