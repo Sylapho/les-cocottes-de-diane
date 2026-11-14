@@ -15,7 +15,9 @@ export const ORDER_STATUS_TRANSITIONS: Readonly<
   paiement_en_attente: ['nouvelle', 'annulee'],
   paiement_a_verifier: ['annulee'],
   nouvelle: ['preparee', 'annulee'],
-  preparee: ['traitee', 'annulee'],
+  // Going back to 'nouvelle' undoes a mistaken "Marquer préparée": the
+  // stock reservation is unchanged and no customer e-mail is sent.
+  preparee: ['nouvelle', 'traitee', 'annulee'],
   traitee: [],
   annulee: [],
 }

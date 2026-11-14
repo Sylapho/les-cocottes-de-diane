@@ -10,6 +10,7 @@ describe('commande status transitions', () => {
     ['paiement_a_verifier', 'annulee'],
     ['nouvelle', 'preparee'],
     ['nouvelle', 'annulee'],
+    ['preparee', 'nouvelle'],
     ['preparee', 'traitee'],
     ['preparee', 'annulee'],
   ])('allows %s -> %s', (currentStatus, nextStatus) => {
@@ -20,7 +21,7 @@ describe('commande status transitions', () => {
     ['paiement_en_attente', 'preparee'],
     ['paiement_a_verifier', 'nouvelle'],
     ['nouvelle', 'traitee'],
-    ['preparee', 'nouvelle'],
+    ['traitee', 'preparee'],
     ['traitee', 'annulee'],
     ['annulee', 'nouvelle'],
   ])('rejects %s -> %s', (currentStatus, nextStatus) => {

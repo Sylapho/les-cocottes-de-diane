@@ -1,87 +1,55 @@
 'use client'
 
-import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
-import { useSessionFetch } from '@/lib/use-session-fetch'
+import { Button } from '@/components/ui/button'
 import type { CommandeStatut } from '@/lib/api'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { useCommandeStatusUpdate } from './use-commande-status-update'
 
 type PreparationStatusActionsProps = {
   commandeId: number
   statut: CommandeStatut
   canManage: boolean
+  className?: string
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL
 
 export default function PreparationStatusActions({
   commandeId,
   statut,
   canManage,
+  className,
 }: PreparationStatusActionsProps) {
-  const router = useRouter()
-  const sessionFetch = useSessionFetch()
-  const [loadingStatus, setLoadingStatus] = useState<CommandeStatut | null>(
-    null,
-  )
-  const [error, setError] = useState('')
-
+  const { pendingStatus, updateStatus } = useCommandeStatusUpdate(commandeId)
+  const pending = pendingStatus !== null
   const nextStatus = getNextStatus(statut)
-
-  async function updateStatus(status: CommandeStatut) {
-    setLoadingStatus(status)
-    setError('')
-
-    try {
-      const response = await sessionFetch(
-        `${API_URL}/commandes/${commandeId}/statut`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            statut: status,
-          }),
-        },
-      )
-
-      if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response))
-      }
-
-      router.refresh()
-    } catch (err) {
-      setError(getUnknownErrorMessage(err))
-    } finally {
-      setLoadingStatus(null)
-    }
-  }
 
   if (!canManage || !nextStatus) {
     return null
   }
 
   return (
-    <div className="grid gap-2">
-      <button
-        type="button"
-        onClick={() => updateStatus(nextStatus)}
-        disabled={Boolean(loadingStatus)}
-        className={
-          nextStatus === 'traitee'
-            ? 'rounded bg-black px-3 py-2 text-sm text-white disabled:opacity-50'
-            : 'rounded border px-3 py-2 text-sm disabled:opacity-50'
-        }
+    <div className={cn('flex w-full flex-col gap-2 sm:w-56', className)}>
+      <Button
+        onClick={() => void updateStatus(nextStatus)}
+        disabled={pending}
+        aria-busy={pendingStatus === nextStatus}
       >
-        {loadingStatus
-          ? 'Mise à jour...'
+        {pendingStatus === nextStatus
+          ? 'Mise à jour…'
           : nextStatus === 'preparee'
             ? 'Marquer préparée'
             : 'Marquer traitée'}
-      </button>
-
-      {error ? <p className="max-w-md text-sm text-red-600">{error}</p> : null}
+      </Button>
+      {statut === 'preparee' ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void updateStatus('nouvelle')}
+          disabled={pending}
+          aria-busy={pendingStatus === 'nouvelle'}
+        >
+          Remettre à préparer
+        </Button>
+      ) : null}
     </div>
   )
 }

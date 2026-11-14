@@ -1,311 +1,274 @@
-import Link from 'next/link'
 import AnalyticsDashboard from '@/components/analytics/analytics-dashboard'
+import CommandesTable from '@/components/commandes/commandes-table'
+import {
+  Callout,
+  KeyFigures,
+  PageContainer,
+  PageHeading,
+  Panel,
+  SectionHeading,
+} from '@/components/layout/page-layout'
+import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import {
   getArticles,
-  getCaisseToday,
   getCommandes,
   getMatieresPremieres,
   getStockLots,
   type Article,
   type MatierePremiere,
+  type StockLot,
 } from '@/lib/api'
 import { requireUiPermission } from '@/lib/auth-session'
+import { actionableStatuses, getCommandeCounts } from '@/lib/commande-list'
 import {
-  canCreateSales,
   canAccessBackOffice,
   canViewArticles,
-  canViewCashRegister,
   canViewOrders,
-  canViewStock,
   canViewShopAnalytics,
+  canViewStock,
 } from '@/lib/permissions'
-import { getProductionNeeds } from '@/lib/production-needs'
-import {
-  ButtonLink,
-  EmptyState,
-  Page,
-  PageHeader,
-  SectionCard,
-  StatCard,
-} from '@/components/ui/dashboard'
+import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
-const quickLinks = [
-  {
-    label: 'Ouvrir la caisse',
-    href: '/caisse',
-    description: 'Suivre la journée, les paiements et la clôture.',
-    section: 'cash',
-  },
-  {
-    label: 'Gérer les articles',
-    href: '/articles',
-    description: 'Prix, stock, visibilité boutique et fiches produits.',
-    section: 'articles',
-  },
-  {
-    label: 'Contrôler le stock',
-    href: '/stock',
-    description: 'Lots, DLC, matières premières et réapprovisionnement.',
-    section: 'stock',
-  },
-  {
-    label: 'Préparer les commandes',
-    href: '/commandes',
-    description: 'Suivre les retraits clients et les statuts.',
-    section: 'orders',
-  },
-] as const
+const LOW_ARTICLE_STOCK = 5
+const DASHBOARD_ORDERS_LIMIT = 8
+const ATTENTION_ITEMS_LIMIT = 5
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value / 100)
+function formatToday(now: Date) {
+  const label = new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'full',
+    timeZone: 'Europe/Paris',
+  }).format(now)
+
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-function formatDate(value: string | Date) {
+function formatShortDate(value: string) {
   return new Intl.DateTimeFormat('fr-FR', {
     dateStyle: 'medium',
     timeZone: 'Europe/Paris',
   }).format(new Date(value))
 }
 
-function formatQuantity(value: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    maximumFractionDigits: 2,
-  }).format(value)
+function plural(count: number, singular: string, pluralForm: string) {
+  return `${count} ${count > 1 ? pluralForm : singular}`
 }
 
-function getLowStockItems(articles: Article[], matieres: MatierePremiere[]) {
-  const lowArticles = articles
-    .filter((article) => article.stock <= 5)
-    .map((article) => ({
-      id: `article-${article.id}`,
-      name: article.nom,
-      detail: `${article.stock} en stock`,
-      href: `/articles/${article.id}`,
-      tone: article.stock <= 0 ? 'danger' : 'warning',
-    }))
+function getLowStockArticles(articles: Article[]) {
+  return articles
+    .filter((article) => article.stock <= LOW_ARTICLE_STOCK)
+    .sort((a, b) => a.stock - b.stock)
+    .slice(0, ATTENTION_ITEMS_LIMIT)
+}
+
+function getStockAlerts(
+  matieres: MatierePremiere[],
+  lots: StockLot[],
+  now: Date,
+) {
+  const nearLimit = new Date(now)
+  nearLimit.setDate(nearLimit.getDate() + 3)
 
   const lowMatieres = matieres
     .filter((matiere) => matiere.stock <= matiere.seuil)
     .map((matiere) => ({
       id: `matiere-${matiere.id}`,
-      name: matiere.nom,
-      detail: `${matiere.stock} ${matiere.unite} / seuil ${matiere.seuil}`,
+      label: `${matiere.nom} · ${matiere.stock} ${matiere.unite} (seuil ${matiere.seuil})`,
       href: `/matieres-premieres/${matiere.id}`,
-      tone: 'danger',
     }))
 
-  return [...lowMatieres, ...lowArticles].slice(0, 5)
-}
-
-export default async function Home() {
-  const session = await requireUiPermission(canAccessBackOffice)
-  const userCanCreateSales = canCreateSales(session.user)
-  const userCanViewArticles = canViewArticles(session.user)
-  const userCanViewCashRegister = canViewCashRegister(session.user)
-  const userCanViewOrders = canViewOrders(session.user)
-  const userCanViewStock = canViewStock(session.user)
-  const userCanViewShopAnalytics = canViewShopAnalytics(session.user)
-  const [caisse, commandes, articles, matieres, lots] = await Promise.all([
-    userCanViewCashRegister ? getCaisseToday() : Promise.resolve(null),
-    userCanViewOrders ? getCommandes() : Promise.resolve([]),
-    userCanViewArticles ? getArticles() : Promise.resolve([]),
-    userCanViewStock ? getMatieresPremieres() : Promise.resolve([]),
-    userCanViewStock ? getStockLots() : Promise.resolve([]),
-  ])
-  const visibleQuickLinks = quickLinks.filter((link) => {
-    if (link.section === 'cash') return userCanViewCashRegister
-    if (link.section === 'articles') return userCanViewArticles
-    if (link.section === 'stock') return userCanViewStock
-    return userCanViewOrders
-  })
-
-  const commandesAPreparer = commandes.filter(
-    (commande) =>
-      commande.statut === 'nouvelle' || commande.statut === 'preparee',
-  )
-  const productionNeeds = getProductionNeeds(commandes)
-  const totalProductionNeeds = productionNeeds.reduce(
-    (total, need) => total + need.quantityToProduce,
-    0,
-  )
-  const lowStockItems = getLowStockItems(articles, matieres)
-  const now = new Date()
-  const nearLimit = new Date(now)
-  nearLimit.setDate(nearLimit.getDate() + 3)
   const expiringLots = lots
-    .filter((lot) => {
-      if (!lot.expiresAt || lot.remainingQuantity <= 0) {
-        return false
-      }
-
-      const expiresAt = new Date(lot.expiresAt)
-
-      return expiresAt <= nearLimit
-    })
+    .filter(
+      (lot) =>
+        lot.expiresAt &&
+        lot.remainingQuantity > 0 &&
+        new Date(lot.expiresAt) <= nearLimit,
+    )
     .sort(
       (a, b) =>
         new Date(a.expiresAt ?? 0).getTime() -
         new Date(b.expiresAt ?? 0).getTime(),
     )
-    .slice(0, 5)
+    .map((lot) => ({
+      id: `lot-${lot.id}`,
+      label: `${
+        lot.target === 'article'
+          ? (lot.article?.nom ?? `Article #${lot.articleId}`)
+          : (lot.mp?.nom ?? `Matière #${lot.mpId}`)
+      } · DLC ${formatShortDate(lot.expiresAt as string)}`,
+      href: '/stock',
+    }))
+
+  return [...lowMatieres, ...expiringLots].slice(0, ATTENTION_ITEMS_LIMIT)
+}
+
+export default async function Home() {
+  const session = await requireUiPermission(canAccessBackOffice)
+  const userCanViewArticles = canViewArticles(session.user)
+  const userCanViewOrders = canViewOrders(session.user)
+  const userCanViewStock = canViewStock(session.user)
+  const userCanViewShopAnalytics = canViewShopAnalytics(session.user)
+  const [commandes, articles, matieres, lots] = await Promise.all([
+    userCanViewOrders ? getCommandes() : Promise.resolve([]),
+    userCanViewArticles ? getArticles() : Promise.resolve([]),
+    userCanViewStock ? getMatieresPremieres() : Promise.resolve([]),
+    userCanViewStock ? getStockLots() : Promise.resolve([]),
+  ])
+  const now = new Date()
+  const counts = getCommandeCounts(commandes, now)
+  const commandesATraiter = commandes
+    .filter((commande) => actionableStatuses.has(commande.statut))
+    .slice(0, DASHBOARD_ORDERS_LIMIT)
+  const lowStockArticles = getLowStockArticles(articles)
+  const stockAlerts = getStockAlerts(matieres, lots, now)
 
   return (
-    <Page>
-      <PageHeader
-        eyebrow="Pilotage quotidien"
-        title="Tableau de bord Les cocottes de Diane"
-        description="Les priorités de la journée au même endroit : commandes à préparer, production à prévoir, caisse et alertes stock."
-        actions={
-          userCanCreateSales ? (
-            <ButtonLink href="/ventes/new" variant="primary">
-              Nouvelle vente
-            </ButtonLink>
-          ) : null
-        }
+    <PageContainer>
+      <PageHeading
+        context="Vue d’ensemble"
+        title="Une journée bien organisée."
+        description={formatToday(now)}
       />
 
+      {userCanViewOrders ? (
+        <>
+          <KeyFigures
+            items={[
+              {
+                label: 'À préparer',
+                value: counts.toPrepare,
+                detail: 'Commandes nouvelles',
+              },
+              {
+                label: 'Prêtes au retrait',
+                value: counts.ready,
+                detail: 'Commandes préparées',
+              },
+              {
+                label: 'Retraits du jour',
+                value: counts.pickupToday,
+                detail: 'Date de retrait : aujourd’hui',
+              },
+              {
+                label: 'À vérifier',
+                value: counts.toCheck,
+                detail: 'Paiement à contrôler',
+              },
+            ]}
+          />
+
+          <Callout
+            tone="primary"
+            size="large"
+            title="La préparation du jour"
+            action={
+              <Button asChild className="w-full sm:w-60">
+                <Link href="/preparation">Ouvrir la préparation</Link>
+              </Button>
+            }
+          >
+            {counts.toPrepare > 0
+              ? `${plural(counts.toPrepare, 'commande', 'commandes')} à préparer · ${plural(counts.quantityToPrepare, 'article', 'articles')} au total`
+              : 'Aucune commande nouvelle à préparer pour le moment.'}
+          </Callout>
+
+          <SectionHeading
+            title="Les commandes à traiter"
+            action={
+              <Button asChild variant="secondary">
+                <Link href="/commandes">
+                  Tout consulter <span aria-hidden="true">→</span>
+                </Link>
+              </Button>
+            }
+          />
+
+          {commandesATraiter.length > 0 ? (
+            <CommandesTable commandes={commandesATraiter} />
+          ) : (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Aucune commande à traiter</EmptyTitle>
+                <EmptyDescription>
+                  Les nouvelles commandes, celles prêtes au retrait et les
+                  paiements à vérifier apparaîtront ici.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </>
+      ) : null}
+
+      {userCanViewArticles || userCanViewStock ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {userCanViewArticles ? (
+            <Panel
+              title="Catalogue à surveiller"
+              footer="Stock d’articles uniquement — matières séparées."
+            >
+              {lowStockArticles.length > 0 ? (
+                <ul className="flex flex-col gap-4">
+                  {lowStockArticles.map((article) => (
+                    <li key={article.id}>
+                      <Link
+                        href={`/articles/${article.id}`}
+                        className={cn(
+                          'text-sm leading-5 hover:underline',
+                          article.stock <= 0 && 'text-danger',
+                        )}
+                      >
+                        {article.nom} ·{' '}
+                        {article.stock <= 0
+                          ? 'indisponible'
+                          : `${plural(article.stock, 'unité disponible', 'unités disponibles')}`}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm leading-5 text-muted-foreground">
+                  Aucun article sous {LOW_ARTICLE_STOCK} unités.
+                </p>
+              )}
+            </Panel>
+          ) : null}
+
+          {userCanViewStock ? (
+            <Panel
+              title="Matières et DLC à surveiller"
+              footer="Matières sous leur seuil et lots à moins de 3 jours de leur DLC."
+            >
+              {stockAlerts.length > 0 ? (
+                <ul className="flex flex-col gap-4">
+                  {stockAlerts.map((alert) => (
+                    <li key={alert.id}>
+                      <Link
+                        href={alert.href}
+                        className="text-sm leading-5 hover:underline"
+                      >
+                        {alert.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm leading-5 text-muted-foreground">
+                  Rien d’urgent : aucun seuil critique ni lot proche de sa DLC.
+                </p>
+              )}
+            </Panel>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Shop analytics move to the dedicated Statistiques page in a later lot. */}
       {userCanViewShopAnalytics ? <AnalyticsDashboard /> : null}
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {caisse ? (
-          <>
-            <StatCard
-              label="Ventes du jour"
-              value={formatCurrency(caisse.totals.totalTtcCents)}
-              detail={`${caisse.totals.nbVentes} vente(s) enregistrée(s)`}
-              tone="success"
-            />
-            <StatCard
-              label="État de caisse"
-              value={caisse.status === 'closed' ? 'Clôturée' : 'Ouverte'}
-              detail={`Journée du ${formatDate(caisse.date)}`}
-              tone={caisse.status === 'closed' ? 'neutral' : 'info'}
-            />
-          </>
-        ) : null}
-
-        {userCanViewOrders ? (
-          <>
-            <StatCard
-              label="Commandes à préparer"
-              value={commandesAPreparer.length}
-              detail="Nouvelles ou déjà en préparation"
-              tone="info"
-            />
-            <StatCard
-              label="Unités à produire"
-              value={formatQuantity(totalProductionNeeds)}
-              detail="Besoin lié aux précommandes"
-              tone={totalProductionNeeds > 0 ? 'warning' : 'success'}
-            />
-          </>
-        ) : null}
-      </section>
-
-      <section className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <SectionCard
-          title="Raccourcis métier"
-          description="Accédez vite aux écrans utilisés pendant une journée de vente."
-        >
-          {visibleQuickLinks.length === 0 ? (
-            <EmptyState
-              title="Aucun raccourci disponible"
-              description="Ton rôle ne donne pas encore accès aux modules opérationnels."
-            />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {visibleQuickLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="group rounded-2xl border border-[var(--border)] bg-[var(--surface-soft)] p-4 transition hover:border-[var(--primary)] hover:bg-white"
-                >
-                  <p className="font-bold text-[var(--foreground)]">
-                    {link.label}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                    {link.description}
-                  </p>
-                  <span className="mt-3 inline-flex text-sm font-bold text-[var(--primary)]">
-                    Ouvrir
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard
-          title="Points d'attention"
-          description="Ce qui peut demander une action avant la fin de journée."
-          actions={
-            userCanViewStock ? (
-              <ButtonLink href="/stock" variant="ghost">
-                Voir le stock
-              </ButtonLink>
-            ) : null
-          }
-        >
-          {lowStockItems.length === 0 && expiringLots.length === 0 ? (
-            <EmptyState
-              title="Rien d'urgent à signaler"
-              description="Aucun seuil critique ou lot proche de DLC n'a été détecté."
-            />
-          ) : (
-            <div className="grid gap-3">
-              {lowStockItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm"
-                >
-                  <span>
-                    <strong className="block">{item.name}</strong>
-                    <span className="text-[var(--muted)]">{item.detail}</span>
-                  </span>
-                  <span
-                    className={
-                      item.tone === 'danger'
-                        ? 'rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700'
-                        : 'rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800'
-                    }
-                  >
-                    Stock
-                  </span>
-                </Link>
-              ))}
-
-              {expiringLots.map((lot) => (
-                <Link
-                  key={`lot-${lot.id}`}
-                  href="/stock"
-                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm"
-                >
-                  <span>
-                    <strong className="block">
-                      {lot.target === 'article'
-                        ? (lot.article?.nom ?? `Article #${lot.articleId}`)
-                        : (lot.mp?.nom ?? `Matière #${lot.mpId}`)}
-                    </strong>
-                    <span className="text-[var(--muted)]">
-                      DLC{' '}
-                      {lot.expiresAt
-                        ? formatDate(lot.expiresAt)
-                        : 'non renseignée'}
-                    </span>
-                  </span>
-                  <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-bold text-orange-800">
-                    DLC
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </section>
-    </Page>
+    </PageContainer>
   )
 }

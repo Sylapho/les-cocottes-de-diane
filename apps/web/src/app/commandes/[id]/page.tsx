@@ -1,17 +1,35 @@
-import ArticleImage from '@/components/articles/article-image'
 import CommandeRefundsPanel from '@/components/commandes/commande-refunds-panel'
 import CommandeStatusActions from '@/components/commandes/commande-status-actions'
-import CommandeStatusBadge, {
-  commandeStatusLabels,
-} from '@/components/commandes/commande-status-badge'
-import { ButtonLink, Page, SectionCard } from '@/components/ui/dashboard'
-import { getCommande, getCommandeRefunds } from '@/lib/api'
+import { commandeStatusLabels } from '@/components/commandes/commande-status-badge'
+import {
+  Callout,
+  PageContainer,
+  PageHeading,
+  Panel,
+} from '@/components/layout/page-layout'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  getCommande,
+  getCommandeRefunds,
+  type CommandeStatutHistorique,
+} from '@/lib/api'
 import { requireUiPermission } from '@/lib/auth-session'
+import { formatOrderDateTime } from '@/lib/commande-list'
+import { formatCurrencyFromCents } from '@/lib/money'
 import {
   canManageOrders,
   canRefundOrders,
   canViewOrders,
 } from '@/lib/permissions'
+import { getLocalDateKey } from '@/lib/preparation'
 import { notFound } from 'next/navigation'
 
 type PageProps = {
@@ -20,36 +38,69 @@ type PageProps = {
   }>
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value / 100)
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+function formatCreatedAt(value: string) {
+  const date = new Date(value)
+  const day = new Intl.DateTimeFormat('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
     timeZone: 'Europe/Paris',
-  }).format(new Date(value))
+  }).format(date)
+  const time = new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  }).format(date)
+
+  return `Créée le ${day} à ${time}`
 }
 
-function formatDate(value?: string | null) {
+function formatPickupSummary(value?: string | null) {
   if (!value) {
-    return 'Non précisée'
+    return 'Date de retrait non précisée'
   }
 
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
+  const now = new Date()
+  const key = getLocalDateKey(value)
+
+  if (key === getLocalDateKey(now)) {
+    return 'Retrait aujourd’hui'
+  }
+
+  return `Retrait le ${new Intl.DateTimeFormat('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Europe/Paris',
+  }).format(new Date(value))}`
+}
+
+function formatPickupDate(value?: string | null) {
+  if (!value) {
+    return 'Date non précisée'
+  }
+
+  const label = new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
     timeZone: 'Europe/Paris',
   }).format(new Date(value))
+
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
 function formatQuantity(value: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    maximumFractionDigits: 2,
-  }).format(value)
+  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(
+    value,
+  )
+}
+
+function getHistoryTitle(entry: CommandeStatutHistorique) {
+  if (!entry.ancienStatut) {
+    return `Commande enregistrée · ${commandeStatusLabels[entry.nouveauStatut]}`
+  }
+
+  return `${commandeStatusLabels[entry.ancienStatut]} → ${commandeStatusLabels[entry.nouveauStatut]}`
 }
 
 export default async function CommandeDetailPage({ params }: PageProps) {
@@ -67,196 +118,189 @@ export default async function CommandeDetailPage({ params }: PageProps) {
     getCommande(commandeId),
     getCommandeRefunds(commandeId),
   ])
+  const itemCount = commande.lignes.reduce(
+    (total, ligne) => total + ligne.quantite,
+    0,
+  )
   const productionLines = commande.lignes.filter(
     (ligne) => (ligne.productionQuantity ?? 0) > 0,
   )
+  const historique = commande.historique ?? []
 
   return (
-    <Page>
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <ButtonLink href="/commandes" variant="secondary">
-          Retour aux commandes
-        </ButtonLink>
-      </div>
+    <PageContainer>
+      <PageHeading
+        context="Commandes"
+        contextHref="/commandes"
+        title={`Commande #${commande.id}`}
+        description={`${formatCreatedAt(commande.createdAt)} · ${formatPickupSummary(commande.dateRetrait)}`}
+      />
 
-      <SectionCard>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold">Commande #{commande.id}</h1>
-              <CommandeStatusBadge statut={commande.statut} />
-            </div>
-            <p className="mt-1 text-sm text-gray-600">
-              Passée le {formatDateTime(commande.createdAt)}
-            </p>
-          </div>
+      <CommandeStatusActions
+        commandeId={commande.id}
+        statut={commande.statut}
+        canManage={userCanManageOrders}
+      />
 
-          <p className="text-2xl font-bold">
-            {formatCurrency(commande.totalTtcCents)}
-          </p>
-        </div>
-
-        <div className="mt-6">
-          <CommandeStatusActions
-            commandeId={commande.id}
-            statut={commande.statut}
-            canManage={userCanManageOrders}
-          />
-        </div>
-      </SectionCard>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <SectionCard>
-          <h2 className="text-lg font-semibold">Client</h2>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <div className="flex justify-between gap-4 border-b pb-2">
-              <dt className="text-gray-600">Nom</dt>
-              <dd className="font-medium">{commande.nom}</dd>
-            </div>
-            <div className="flex justify-between gap-4 border-b pb-2">
-              <dt className="text-gray-600">Email</dt>
-              <dd className="font-medium">{commande.email}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-gray-600">Téléphone</dt>
-              <dd className="font-medium">{commande.tel || '-'}</dd>
-            </div>
-          </dl>
-        </SectionCard>
-
-        <SectionCard>
-          <h2 className="text-lg font-semibold">Retrait et paiement</h2>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <div className="flex justify-between gap-4 border-b pb-2">
-              <dt className="text-gray-600">Lieu de retrait</dt>
-              <dd className="font-medium">{commande.lieu}</dd>
-            </div>
-            <div className="flex justify-between gap-4 border-b pb-2">
-              <dt className="text-gray-600">Date souhaitée</dt>
-              <dd className="font-medium">
-                {formatDate(commande.dateRetrait)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4 border-b pb-2">
-              <dt className="text-gray-600">Paiement</dt>
-              <dd className="font-medium">
-                {commande.stripeId ? 'Stripe confirmé' : 'Non renseigné'}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-gray-600">Référence Stripe</dt>
-              <dd className="max-w-[240px] truncate font-medium">
-                {commande.stripeId || '-'}
-              </dd>
-            </div>
-          </dl>
-        </SectionCard>
-      </div>
-
-      <SectionCard className="mt-6" title="Remboursements Stripe">
-        <CommandeRefundsPanel
-          commandeId={commande.id}
-          refunds={refunds}
-          canRefund={userCanRefundOrders}
-        />
-      </SectionCard>
-
-      <SectionCard className="mt-6">
-        <h2 className="text-lg font-semibold">Articles</h2>
-
-        <ul className="mt-4 divide-y">
-          {commande.lignes.map((ligne) => (
-            <li
-              key={ligne.id}
-              className="flex flex-wrap items-center justify-between gap-4 py-4"
-            >
-              <div className="flex items-center gap-3">
-                <ArticleImage
-                  article={ligne.article}
-                  className="h-14 w-14 overflow-hidden rounded border bg-gray-100"
-                />
-                <div>
-                  <p className="font-medium">{ligne.article.nom}</p>
-                  <p className="text-sm text-gray-600">
-                    {ligne.quantite} x {formatCurrency(ligne.prixUnitCents)}
-                  </p>
-                </div>
-              </div>
-
-              <p className="font-semibold">
-                {formatCurrency(ligne.prixUnitCents * ligne.quantite)}
-              </p>
-
-              {(ligne.productionQuantity ?? 0) > 0 ? (
-                <span className="rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">
-                  {formatQuantity(ligne.productionQuantity ?? 0)} à produire
-                </span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </SectionCard>
-
-      {productionLines.length > 0 ? (
-        <SectionCard className="mt-6 border-amber-200 bg-amber-50">
-          <h2 className="text-lg font-semibold text-amber-950">
-            Production requise
-          </h2>
-          <p className="mt-1 text-sm text-amber-800">
-            Cette commande a été acceptée malgré un stock insuffisant. Les
-            quantités ci-dessous sont à produire ou à ajuster avant retrait.
-          </p>
-
-          <ul className="mt-4 grid gap-2 text-sm text-amber-950">
-            {productionLines.map((ligne) => (
-              <li
-                key={ligne.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded border border-amber-200 bg-white px-3 py-2"
-              >
-                <span className="font-medium">{ligne.article.nom}</span>
-                <span className="font-bold">
-                  {formatQuantity(ligne.productionQuantity ?? 0)} à produire
-                </span>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
+      {commande.statut === 'paiement_a_verifier' ? (
+        <Callout tone="warning" title="Paiement à vérifier">
+          Paiement reçu, mais le stock était insuffisant au moment de la
+          commande. Vérifiez la commande avant de contacter le client.
+        </Callout>
       ) : null}
 
-      <SectionCard className="mt-6">
-        <h2 className="text-lg font-semibold">Historique des statuts</h2>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-full">Article</TableHead>
+                <TableHead>Qté</TableHead>
+                <TableHead>Prix unitaire</TableHead>
+                <TableHead>Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {commande.lignes.map((ligne) => (
+                <TableRow key={ligne.id}>
+                  <TableCell className="font-medium">
+                    <span className="flex flex-wrap items-center gap-2">
+                      {ligne.article.nom}
+                      {(ligne.productionQuantity ?? 0) > 0 ? (
+                        <Badge variant="warning">
+                          {formatQuantity(ligne.productionQuantity ?? 0)} à
+                          produire
+                        </Badge>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatQuantity(ligne.quantite)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {formatCurrencyFromCents(ligne.prixUnitCents)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {formatCurrencyFromCents(
+                      ligne.prixUnitCents * ligne.quantite,
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
 
-        {commande.historique && commande.historique.length > 0 ? (
-          <ol className="mt-4 divide-y">
-            {commande.historique.map((entry) => (
-              <li key={entry.id} className="py-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium">
-                      {entry.ancienStatut
-                        ? commandeStatusLabels[entry.ancienStatut]
-                        : 'Création'}{' '}
-                      {'->'} {commandeStatusLabels[entry.nouveauStatut]}
+          <Panel title="Récapitulatif">
+            <dl className="flex flex-col gap-1">
+              <dt className="text-xs leading-[17px] text-muted-foreground">
+                Total TTC
+              </dt>
+              <dd className="text-sm leading-5 font-medium">
+                {formatCurrencyFromCents(commande.totalTtcCents)}
+              </dd>
+            </dl>
+            <CommandeRefundsPanel
+              commandeId={commande.id}
+              refunds={refunds}
+              canRefund={userCanRefundOrders}
+              paymentConfirmed={Boolean(commande.stripeId)}
+            />
+            {commande.stripeId ? (
+              <p className="truncate text-xs leading-[17px] text-muted-foreground">
+                Référence Stripe : {commande.stripeId}
+              </p>
+            ) : null}
+          </Panel>
+
+          <Panel
+            title="Historique"
+            footer="Les nouveaux changements apparaîtront ici."
+          >
+            {historique.length > 0 ? (
+              <ol className="flex flex-col divide-y divide-border">
+                {historique.map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="flex flex-col gap-1 py-3 first:pt-0"
+                  >
+                    <p className="text-sm leading-5 font-medium">
+                      <time dateTime={entry.createdAt}>
+                        {formatOrderDateTime(entry.createdAt)}
+                      </time>{' '}
+                      · {getHistoryTitle(entry)}
                     </p>
                     {entry.motif ? (
-                      <p className="mt-1 text-sm text-gray-600">
+                      <p className="text-sm leading-5 text-muted-foreground">
                         Motif : {entry.motif}
                       </p>
                     ) : null}
-                  </div>
-                  <time className="text-sm text-gray-500">
-                    {formatDateTime(entry.createdAt)}
-                  </time>
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="mt-3 text-sm text-gray-600">
-            Aucun historique disponible pour cette commande.
-          </p>
-        )}
-      </SectionCard>
-    </Page>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-sm leading-5 text-muted-foreground">
+                Aucun changement de statut enregistré.
+              </p>
+            )}
+          </Panel>
+        </div>
+
+        <aside className="flex min-w-0 flex-col gap-6">
+          <Panel title="Client">
+            <p className="text-sm leading-5 font-medium">{commande.nom}</p>
+            <a
+              href={`mailto:${commande.email}`}
+              className="text-sm leading-5 break-all text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {commande.email}
+            </a>
+            {commande.tel ? (
+              <a
+                href={`tel:${commande.tel}`}
+                className="text-sm leading-5 text-muted-foreground hover:text-foreground hover:underline"
+              >
+                {commande.tel}
+              </a>
+            ) : (
+              <p className="text-xs leading-[17px] text-muted-foreground">
+                Téléphone non renseigné
+              </p>
+            )}
+          </Panel>
+
+          <Panel title="Retrait">
+            <p className="text-sm leading-5 font-medium">{commande.lieu}</p>
+            <p className="text-sm leading-5">
+              {formatPickupDate(commande.dateRetrait)}
+            </p>
+          </Panel>
+
+          {productionLines.length > 0 ? (
+            <Callout tone="warning" title="Production requise">
+              <p>
+                Commande acceptée malgré un stock insuffisant. À produire ou
+                ajuster avant retrait :
+              </p>
+              <ul className="mt-2 flex flex-col gap-1">
+                {productionLines.map((ligne) => (
+                  <li key={ligne.id}>
+                    {formatQuantity(ligne.productionQuantity ?? 0)} ×{' '}
+                    {ligne.article.nom}
+                  </li>
+                ))}
+              </ul>
+            </Callout>
+          ) : null}
+        </aside>
+      </div>
+
+      {userCanManageOrders && commande.statut === 'nouvelle' ? (
+        <Callout tone="info" title="Avant de marquer préparée">
+          Vérifiez les {itemCount > 1 ? `${itemCount} articles` : 'articles'}{' '}
+          et les quantités. Cette action fait passer la commande de nouvelle à
+          préparée.
+        </Callout>
+      ) : null}
+    </PageContainer>
   )
 }
