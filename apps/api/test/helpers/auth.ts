@@ -7,6 +7,23 @@ import {
 import { Role } from '../../src/auth/roles'
 
 export const E2E_ROLE_HEADER = 'x-e2e-user-role'
+export const E2E_USER_ID_HEADER = 'x-e2e-user-id'
+
+export function getE2eUserId(role: string) {
+  return `e2e-user-${role}`
+}
+
+function readHeader(
+  request: {
+    headers: Record<string, string | string[] | undefined>
+    get?: (name: string) => string | undefined
+  },
+  name: string,
+) {
+  const value = request.headers[name] ?? request.get?.(name)
+
+  return Array.isArray(value) ? value[0] : value
+}
 
 @Injectable()
 export class E2eBetterAuthGuard implements CanActivate {
@@ -17,15 +34,14 @@ export class E2eBetterAuthGuard implements CanActivate {
       userId?: string
       userRole?: string
     }>()
-    const roleHeader =
-      request.headers[E2E_ROLE_HEADER] ?? request.get?.(E2E_ROLE_HEADER)
-    const role = Array.isArray(roleHeader) ? roleHeader[0] : roleHeader
+    const role = readHeader(request, E2E_ROLE_HEADER)
 
     if (!role) {
       throw new UnauthorizedException('E2E session role missing')
     }
 
-    request.userId = `e2e-user-${role}`
+    request.userId =
+      readHeader(request, E2E_USER_ID_HEADER) ?? getE2eUserId(role)
     request.userRole = role
 
     return true

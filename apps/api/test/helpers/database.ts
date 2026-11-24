@@ -1,5 +1,7 @@
 import { PrismaService } from '../../src/prisma/prisma.service'
+import { ALL_ROLES } from '../../src/auth/roles'
 import { pickupPoints } from '../../src/commandes/pickup-slots'
+import { getE2eUserId } from './auth'
 
 const DEFAULT_E2E_DATABASE_URL =
   'postgresql://localco:localco_dev@localhost:5432/localco_e2e'
@@ -74,6 +76,16 @@ export async function truncateBusinessTables(prisma: PrismaService) {
       active: true,
     })),
     skipDuplicates: true,
+  })
+
+  // Back-office accounts matching the identities set by E2eBetterAuthGuard.
+  await prisma.authUser.createMany({
+    data: ALL_ROLES.map((role) => ({
+      id: getE2eUserId(role),
+      name: `E2E ${role}`,
+      email: `e2e-${role}@example.test`,
+      role,
+    })),
   })
 
   await prisma.articleCategory.create({

@@ -104,6 +104,7 @@ model AuthUser {
   updatedAt     DateTime      @default(now()) @db.Timestamp(6)
   sessions      AuthSession[]
   accounts      AuthAccount[]
+  ventes        Vente[]
 
   @@map("user")
 }
@@ -161,9 +162,15 @@ model Vente {
   tvaCents      Int
   mode          String
   remiseCents   Int          @default(0)
+  // Legacy link to the historical User model. No longer written: the seller
+  // is the authenticated Better Auth account stored in sellerId.
   userId        Int?
   user          User?        @relation(fields: [userId], references: [id])
+  sellerId      String?
+  seller        AuthUser?    @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   lignes        LigneVente[]
+
+  @@index([sellerId])
 }
 
 model LigneVente {

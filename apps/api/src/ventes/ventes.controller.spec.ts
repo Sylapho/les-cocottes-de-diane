@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
+import { UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { CreateVenteDto } from './dto/create-vente.dto'
 import { VentesController } from './ventes.controller'
@@ -64,7 +65,19 @@ describe('VentesController', () => {
 
     ventesServiceMock.create.mockResolvedValue(result)
 
-    await expect(controller.create(body)).resolves.toEqual(result)
-    expect(ventesServiceMock.create).toHaveBeenCalledWith(body)
+    await expect(
+      controller.create(body, { userId: 'auth-user-1' }),
+    ).resolves.toEqual(result)
+    expect(ventesServiceMock.create).toHaveBeenCalledWith(body, 'auth-user-1')
+  })
+
+  it('create should require an authenticated session user', () => {
+    const body: CreateVenteDto = {
+      mode: 'cb',
+      lignes: [{ articleId: 1, quantite: 1 }],
+    }
+
+    expect(() => controller.create(body, {})).toThrow(UnauthorizedException)
+    expect(ventesServiceMock.create).not.toHaveBeenCalled()
   })
 })
