@@ -24,6 +24,7 @@ import {
   canViewArticles,
   canViewOrders,
   canViewPickupPoints,
+  canViewShopAnalytics,
   canViewUsers,
   getAccessModeLabel,
   getUserRole,
@@ -102,10 +103,22 @@ const navGroups: NavGroup[] = [
     label: 'Administration',
     items: [
       {
+        label: 'Statistiques',
+        href: '/statistiques',
+        icon: 'stats',
+        canAccess: canViewShopAnalytics,
+      },
+      {
         label: 'Utilisateurs',
         href: '/admin/users',
         icon: 'users',
         canAccess: canViewUsers,
+      },
+      {
+        label: 'Mon compte',
+        href: '/mon-compte',
+        icon: 'settings',
+        canAccess: canAccessBackOffice,
       },
     ],
   },
@@ -457,6 +470,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
       ) : null}
     </>
   )
+
+  // The sign-in screen is a standalone page without navigation.
+  if (pathname === '/sign-in' || pathname.startsWith('/sign-in/')) {
+    return <>{children}</>
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">

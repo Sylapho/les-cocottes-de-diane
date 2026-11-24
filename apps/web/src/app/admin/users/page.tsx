@@ -1,17 +1,30 @@
-import AdminUsersTable from '@/components/admin/admin-users-table'
-import CreateEmployeeForm from '@/components/admin/create-employee-form'
+import { UserAccessSheet } from '@/components/admin/user-access-sheet'
 import {
-  EmptyState,
-  Page,
-  PageHeader,
-  SectionCard,
-  StatCard,
-} from '@/components/ui/dashboard'
+  Callout,
+  PageContainer,
+  PageHeading,
+} from '@/components/layout/page-layout'
+import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { filterAdminUsers, formatLastLogin } from '@/lib/admin-user-list'
 import {
   listAdminUsers,
   listAdminUsersWithLoginStatistics,
   type AdminUser,
-  type AdminUserWithLoginStatistics,
 } from '@/lib/admin-users'
 import { requireUiPermission } from '@/lib/auth-session'
 import {
@@ -20,113 +33,242 @@ import {
   canViewUserLoginStatistics,
   canViewUsers,
 } from '@/lib/permissions'
-import { roleLabels } from '@/lib/roles'
+import { roleLabels, roles, type Role } from '@/lib/roles'
+import Link from 'next/link'
 
-function hasLoginStatistics(
-  user: AdminUser,
-): user is AdminUserWithLoginStatistics {
-  return 'loginCount' in user && 'lastLoginAt' in user
+type AdminUsersPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-export default async function AdminUsersPage() {
-  const session = await requireUiPermission(canViewUsers)
-  const userCanCreateUsers = canCreateUsers(session.user)
-  const userCanManageUsers = canManageUsers(session.user)
-  const userCanViewLoginStatistics = canViewUserLoginStatistics(session.user)
-  const users = userCanViewLoginStatistics
-    ? await listAdminUsersWithLoginStatistics(session.user)
-    : await listAdminUsers()
-  const activeRoles = new Set(
-    users.flatMap((user) => (user.role === null ? [] : [user.role])),
+type UserRow = AdminUser & {
+  loginCount?: number
+  lastLoginAt?: Date | null
+}
+
+function getSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+}
+
+function getRoleLabel(role: Role | null) {
+  return role ? roleLabels[role] : 'Rôle inconnu'
+}
+
+// Only administrators manage accounts; the admin role cannot be granted by
+// anyone else (enforced again by the API route).
+function getAssignableRoles(currentRole: Role | null, target: UserRow) {
+  return roles.filter(
+    (role) =>
+      currentRole === 'admin' || role !== 'admin' || target.role === 'admin',
   )
+}
+
+export default async function AdminUsersPage({
+  searchParams,
+}: AdminUsersPageProps) {
+  const session = await requireUiPermission(canViewUsers)
+  const currentUser = session.user
+  const userCanCreateUsers = canCreateUsers(currentUser)
+  const userCanManageUsers = canManageUsers(currentUser)
+  const showLoginStatistics = canViewUserLoginStatistics(currentUser)
+  const params = (await searchParams) ?? {}
+  const query = getSearchParam(params.q).trim()
+  const users: UserRow[] = showLoginStatistics
+    ? await listAdminUsersWithLoginStatistics(currentUser)
+    : await listAdminUsers()
+  const visibleUsers = filterAdminUsers(users, query)
+  const now = new Date()
+
+  function renderAction(user: UserRow) {
+    if (user.id === currentUser.id) {
+      return (
+        <Link
+          href="/mon-compte"
+          className="rounded-sm text-sm leading-5 text-muted-foreground hover:text-foreground hover:underline"
+          aria-label={`Voir mon compte (${user.name})`}
+        >
+          Voir <span aria-hidden="true">→</span>
+        </Link>
+      )
+    }
+
+    if (!userCanManageUsers) {
+      return null
+    }
+
+    return (
+      <UserAccessSheet
+        user={{
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        }}
+        availableRoles={getAssignableRoles(currentUser.role, user)}
+        trigger={
+          <button
+            type="button"
+            className="rounded-sm text-sm leading-5 text-muted-foreground hover:text-foreground hover:underline"
+            aria-label={`Modifier les accès de ${user.name}`}
+          >
+            Modifier <span aria-hidden="true">→</span>
+          </button>
+        }
+      />
+    )
+  }
 
   return (
-    <Page>
-      <PageHeader
-        eyebrow="Administration"
+    <PageContainer>
+      <PageHeading
+        context="Utilisateurs"
         title="Utilisateurs"
-        description="Gérez les comptes équipe et les rôles qui donnent accès aux actions sensibles du back-office."
+        description="Attribuez à chacun les accès utiles à son activité."
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          label="Comptes"
-          value={users.length}
-          detail="Utilisateurs internes"
-        />
-        <StatCard
-          label="Rôles actifs"
-          value={activeRoles.size}
-          detail="Profils utilisés"
-          tone="info"
-        />
-        <StatCard
-          label="Compte courant"
-          value="Protégé"
-          detail="Votre propre rôle n'est pas modifiable ici"
-          tone="success"
-        />
-      </section>
-
-      <section
-        className={
-          userCanCreateUsers
-            ? 'mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]'
-            : 'mt-6'
-        }
-      >
-        {userCanCreateUsers ? <CreateEmployeeForm /> : null}
-
-        <SectionCard
-          title="Rôles disponibles"
-          description="Chaque rôle ouvre uniquement les écrans nécessaires au métier concerné."
+      <div className="flex flex-wrap items-start gap-4">
+        <form
+          action="/admin/users"
+          role="search"
+          className="min-w-0 flex-1 basis-72 lg:max-w-[580px]"
         >
-          <div className="grid gap-2 sm:grid-cols-2">
-            {Object.entries(roleLabels).map(([role, label]) => (
-              <div
-                key={role}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3"
-              >
-                <p className="font-bold">{label}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Code rôle : {role}
-                </p>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      </section>
+          <label htmlFor="users-search" className="sr-only">
+            Rechercher un utilisateur
+          </label>
+          <Input
+            id="users-search"
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Rechercher un nom ou un e-mail…"
+          />
+        </form>
+        {userCanCreateUsers ? (
+          <Button asChild className="w-full sm:w-[210px]">
+            <Link href="/admin/users/new">Créer un compte</Link>
+          </Button>
+        ) : null}
+      </div>
 
-      <SectionCard
-        className="mt-6"
-        title="Comptes équipe"
-        description="Modifiez les rôles avec prudence : ils contrôlent l'accès à la caisse, au stock, aux commandes et à l'administration."
-      >
-        {users.length === 0 ? (
-          <EmptyState
-            title="Aucun utilisateur pour le moment"
-            description="Créez un premier compte employé pour commencer à répartir les accès au back-office."
-          />
-        ) : (
-          <AdminUsersTable
-            users={users.map((user) => ({
-              ...user,
-              createdAt: user.createdAt.toISOString(),
-              loginCount: hasLoginStatistics(user)
-                ? user.loginCount
-                : undefined,
-              lastLoginAt:
-                hasLoginStatistics(user)
-                  ? (user.lastLoginAt?.toISOString() ?? null)
-                  : undefined,
-            }))}
-            currentUserId={session.user.id}
-            currentUserRole={session.user.role}
-            canManage={userCanManageUsers}
-            showLoginStatistics={userCanViewLoginStatistics}
-          />
-        )}
-      </SectionCard>
-    </Page>
+      {visibleUsers.length === 0 ? (
+        <Empty className="rounded-lg border border-border bg-card">
+          <EmptyHeader>
+            <EmptyTitle>
+              {query ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur'}
+            </EmptyTitle>
+            <EmptyDescription>
+              {query
+                ? `Aucun nom ni e-mail ne correspond à « ${query} ».`
+                : 'Créez un premier compte pour répartir les accès au back-office.'}
+            </EmptyDescription>
+          </EmptyHeader>
+          {query ? (
+            <Button asChild variant="secondary">
+              <Link href="/admin/users">Effacer la recherche</Link>
+            </Button>
+          ) : null}
+        </Empty>
+      ) : (
+        <>
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Utilisateur</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Rôle</TableHead>
+                  {showLoginStatistics ? (
+                    <>
+                      <TableHead>Dernière connexion</TableHead>
+                      <TableHead>Connexions</TableHead>
+                    </>
+                  ) : null}
+                  <TableHead>
+                    Action
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">
+                      {user.name}
+                      {user.id === currentUser.id ? ' · vous' : null}
+                    </TableCell>
+                    <TableCell className="break-all text-muted-foreground">
+                      {user.email}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {getRoleLabel(user.role)}
+                    </TableCell>
+                    {showLoginStatistics ? (
+                      <>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                          {formatLastLogin(
+                            user.lastLoginAt?.toISOString() ?? null,
+                            now,
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground tabular-nums">
+                          {user.loginCount ?? 0}
+                        </TableCell>
+                      </>
+                    ) : null}
+                    <TableCell className="whitespace-nowrap">
+                      {renderAction(user)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <ul className="flex flex-col gap-4 md:hidden">
+            {visibleUsers.map((user) => (
+              <li
+                key={user.id}
+                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-sm leading-5 font-medium">
+                    {user.name}
+                    {user.id === currentUser.id ? ' · vous' : null}
+                  </h2>
+                  {renderAction(user)}
+                </div>
+                <p className="text-sm leading-5 break-all text-muted-foreground">
+                  {user.email}
+                </p>
+                <p className="text-sm leading-5 text-muted-foreground">
+                  {getRoleLabel(user.role)}
+                </p>
+                {showLoginStatistics ? (
+                  <p className="text-xs leading-[17px] text-muted-foreground">
+                    Dernière connexion :{' '}
+                    {formatLastLogin(
+                      user.lastLoginAt?.toISOString() ?? null,
+                      now,
+                    )}{' '}
+                    · {user.loginCount ?? 0} connexion
+                    {(user.loginCount ?? 0) > 1 ? 's' : ''}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <Callout title="Sept rôles">
+        Administrateur, gérant, vendeur, production, stock, comptable et
+        lecture seule. Chaque rôle n’ouvre que les écrans utiles à son
+        activité.
+      </Callout>
+
+      {showLoginStatistics ? null : (
+        <p className="text-xs leading-[17px] text-muted-foreground">
+          Les statistiques de connexion sont réservées aux administrateurs.
+        </p>
+      )}
+    </PageContainer>
   )
 }

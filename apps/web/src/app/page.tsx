@@ -1,4 +1,3 @@
-import AnalyticsDashboard from '@/components/analytics/analytics-dashboard'
 import CommandesTable from '@/components/commandes/commandes-table'
 import {
   Callout,
@@ -30,7 +29,6 @@ import {
   canAccessBackOffice,
   canViewArticles,
   canViewOrders,
-  canViewShopAnalytics,
   canViewStock,
 } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -113,7 +111,6 @@ export default async function Home() {
   const userCanViewArticles = canViewArticles(session.user)
   const userCanViewOrders = canViewOrders(session.user)
   const userCanViewStock = canViewStock(session.user)
-  const userCanViewShopAnalytics = canViewShopAnalytics(session.user)
   const [commandes, articles, matieres, lots] = await Promise.all([
     userCanViewOrders ? getCommandes() : Promise.resolve([]),
     userCanViewArticles ? getArticles() : Promise.resolve([]),
@@ -267,8 +264,6 @@ export default async function Home() {
         </div>
       ) : null}
 
-      {/* Shop analytics move to the dedicated Statistiques page in a later lot. */}
-      {userCanViewShopAnalytics ? <AnalyticsDashboard /> : null}
     </PageContainer>
   )
 }

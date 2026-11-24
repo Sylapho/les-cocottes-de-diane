@@ -1,41 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  formatLastLoginAt,
-  getLoginStatisticsColumnLabels,
-  serializeAdminUserLoginStatistics,
-} from '@/lib/admin-user-login-statistics'
-import { canViewUserLoginStatistics } from '@/lib/permissions'
-
-test('shows login statistic columns only for administrators', () => {
-  assert.deepEqual(
-    getLoginStatisticsColumnLabels(
-      canViewUserLoginStatistics({ role: 'admin' }),
-    ),
-    ['Connexions', 'Dernière connexion'],
-  )
-
-  for (const role of [
-    'gerant',
-    'vendeur',
-    'production',
-    'stock',
-    'comptable',
-    'read_only',
-  ] as const) {
-    assert.deepEqual(
-      getLoginStatisticsColumnLabels(
-        canViewUserLoginStatistics({ role }),
-      ),
-      [],
-    )
-  }
-})
-
-test('displays Jamais when the user has never signed in', () => {
-  assert.equal(formatLastLoginAt(null), 'Jamais')
-  assert.equal(formatLastLoginAt(undefined), 'Jamais')
-})
+import { serializeAdminUserLoginStatistics } from '@/lib/admin-user-login-statistics'
 
 test('serializes only the approved user and login statistic fields', () => {
   const databaseRecord = {
