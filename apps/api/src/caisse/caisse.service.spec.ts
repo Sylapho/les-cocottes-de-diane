@@ -1,4 +1,5 @@
-import { BadRequestException } from '@nestjs/common'
+import { ConflictException } from '@nestjs/common'
+import { Prisma } from '../../prisma/generated/prisma/client'
 import { Test, TestingModule } from '@nestjs/testing'
 import { PrismaService } from '../prisma/prisma.service'
 import { CaisseService } from './caisse.service'
@@ -15,6 +16,8 @@ describe('CaisseService', () => {
     vente: {
       findMany: jest.fn(),
     },
+    $executeRaw: jest.fn(),
+    $transaction: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -33,6 +36,11 @@ describe('CaisseService', () => {
 
     service = module.get<CaisseService>(CaisseService)
     jest.clearAllMocks()
+
+    prismaMock.$transaction.mockImplementation(
+      (callback: (tx: typeof prismaMock) => Promise<unknown>) =>
+        callback(prismaMock),
+    )
   })
 
   afterEach(() => {
@@ -223,6 +231,10 @@ describe('CaisseService', () => {
     prismaMock.journeeCaisse.create.mockResolvedValue(created)
 
     await expect(service.closeToday()).resolves.toEqual(created)
+    expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1)
+    expect(prismaMock.$executeRaw.mock.calls[0].slice(1)).toEqual([
+      41_020, 20260523,
+    ])
     expect(prismaMock.journeeCaisse.create).toHaveBeenCalledWith({
       data: {
         date: new Date('2026-05-22T22:00:00.000Z'),
@@ -243,11 +255,29 @@ describe('CaisseService', () => {
       id: 1,
     })
 
-    await expect(service.closeToday()).rejects.toBeInstanceOf(
-      BadRequestException,
-    )
+    await expect(service.closeToday()).rejects.toMatchObject({
+      response: { code: 'CASH_REGISTER_DAY_ALREADY_CLOSED' },
+    })
     expect(prismaMock.vente.findMany).not.toHaveBeenCalled()
     expect(prismaMock.journeeCaisse.create).not.toHaveBeenCalled()
+  })
+
+  it('closeToday should translate a unique constraint race into a business conflict', async () => {
+    prismaMock.journeeCaisse.findUnique.mockResolvedValue(null)
+    prismaMock.vente.findMany.mockResolvedValue([])
+    prismaMock.journeeCaisse.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    )
+
+    const result = service.closeToday()
+
+    await expect(result).rejects.toBeInstanceOf(ConflictException)
+    await expect(result).rejects.toMatchObject({
+      response: { code: 'CASH_REGISTER_DAY_ALREADY_CLOSED' },
+    })
   })
 })
 

@@ -1,13 +1,14 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { ConflictException, Injectable } from '@nestjs/common'
+import { Prisma } from '../../prisma/generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import {
+  CASH_REGISTER_DAY_ALREADY_CLOSED,
+  getParisDayBounds,
+  lockCashRegisterDay,
+  type DayBounds,
+} from './cash-register-day'
 
-const TIME_ZONE = 'Europe/Paris'
-
-type DayBounds = {
-  dayKey: string
-  start: Date
-  end: Date
-}
+type SalesReader = Pick<Prisma.TransactionClient, 'vente'>
 
 type CaisseTotals = {
   totalTtcCents: number
@@ -63,37 +64,49 @@ export class CaisseService {
     }
   }
 
+  // Atomic closure: the day lock serializes it with sale creation, and the
+  // snapshot is computed and stored inside the same transaction.
   async closeToday() {
     const bounds = getParisDayBounds(new Date())
-    const alreadyClosed = await this.prisma.journeeCaisse.findUnique({
-      where: {
-        date: bounds.start,
-      },
-    })
 
-    if (alreadyClosed) {
-      throw new BadRequestException('La journée de caisse est déjà clôturée')
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await lockCashRegisterDay(tx, bounds)
+
+        const alreadyClosed = await tx.journeeCaisse.findUnique({
+          where: { date: bounds.start },
+          select: { id: true },
+        })
+
+        if (alreadyClosed) {
+          throw alreadyClosedError()
+        }
+
+        const totals = await this.calculateTotals(bounds, tx)
+
+        return tx.journeeCaisse.create({
+          data: {
+            date: bounds.start,
+            ...totals,
+          },
+        })
+      })
+    } catch (error) {
+      // Safety net: the unique constraint on JourneeCaisse.date still guards
+      // against a closure that would bypass the lock.
+      if (isUniqueConstraintError(error)) {
+        throw alreadyClosedError()
+      }
+
+      throw error
     }
-
-    const totals = await this.calculateTotals(bounds)
-
-    return this.prisma.journeeCaisse.create({
-      data: {
-        date: bounds.start,
-        totalTtcCents: totals.totalTtcCents,
-        totalHtCents: totals.totalHtCents,
-        tvaCents: totals.tvaCents,
-        especesCents: totals.especesCents,
-        cbCents: totals.cbCents,
-        chequesCents: totals.chequesCents,
-        margeCents: totals.margeCents,
-        nbVentes: totals.nbVentes,
-      },
-    })
   }
 
-  private async calculateTotals(bounds: DayBounds): Promise<CaisseTotals> {
-    const ventes = await this.prisma.vente.findMany({
+  private async calculateTotals(
+    bounds: DayBounds,
+    client: SalesReader = this.prisma,
+  ): Promise<CaisseTotals> {
+    const ventes = await client.vente.findMany({
       where: {
         date: {
           gte: bounds.start,
@@ -163,91 +176,16 @@ export class CaisseService {
   }
 }
 
-function getParisDayBounds(date: Date): DayBounds {
-  const parts = getTimeZoneDateParts(date, TIME_ZONE)
-  const start = zonedTimeToUtc(
-    parts.year,
-    parts.month,
-    parts.day,
-    0,
-    0,
-    0,
-    TIME_ZONE,
-  )
-  const end = zonedTimeToUtc(
-    parts.year,
-    parts.month,
-    parts.day + 1,
-    0,
-    0,
-    0,
-    TIME_ZONE,
-  )
-
-  return {
-    dayKey: `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(
-      parts.day,
-    ).padStart(2, '0')}`,
-    start,
-    end,
-  }
-}
-
-function getTimeZoneDateParts(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+function alreadyClosedError() {
+  return new ConflictException({
+    code: CASH_REGISTER_DAY_ALREADY_CLOSED,
+    message: 'La journée de caisse est déjà clôturée',
   })
-  const parts = formatter.formatToParts(date)
-
-  return {
-    year: Number(parts.find((part) => part.type === 'year')?.value),
-    month: Number(parts.find((part) => part.type === 'month')?.value),
-    day: Number(parts.find((part) => part.type === 'day')?.value),
-  }
 }
 
-function getTimeZoneOffsetMs(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-  const parts = formatter.formatToParts(date)
-  const getPart = (type: string) =>
-    Number(parts.find((part) => part.type === type)?.value)
-  const asUtc = Date.UTC(
-    getPart('year'),
-    getPart('month') - 1,
-    getPart('day'),
-    getPart('hour') % 24,
-    getPart('minute'),
-    getPart('second'),
+function isUniqueConstraintError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
   )
-
-  return asUtc - date.getTime()
-}
-
-function zonedTimeToUtc(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-  second: number,
-  timeZone: string,
-) {
-  const utcGuess = new Date(
-    Date.UTC(year, month - 1, day, hour, minute, second),
-  )
-  const offset = getTimeZoneOffsetMs(utcGuess, timeZone)
-
-  return new Date(utcGuess.getTime() - offset)
 }
