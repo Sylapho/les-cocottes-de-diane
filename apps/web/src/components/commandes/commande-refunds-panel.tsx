@@ -1,5 +1,29 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
 import type {
   CommandeRefundReason,
@@ -7,54 +31,44 @@ import type {
   RefundAggregateStatus,
   RefundStatus,
 } from '@/lib/api'
+import { formatOrderDateTime } from '@/lib/commande-list'
+import { formatCurrencyFromCents } from '@/lib/money'
 import { useSessionFetch } from '@/lib/use-session-fetch'
+import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
 
 type CommandeRefundsPanelProps = {
   commandeId: number
   refunds: CommandeRefundSummary
   canRefund: boolean
+  paymentConfirmed: boolean
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
 const refundReasonLabels: Record<CommandeRefundReason, string> = {
-  requested_by_customer: 'Demande client',
+  requested_by_customer: 'Demandé par le client',
   duplicate: 'Paiement en double',
   fraudulent: 'Paiement frauduleux',
   other: 'Autre',
 }
 
 const refundStatusLabels: Record<RefundStatus, string> = {
-  pending: 'En attente',
-  requires_action: 'Action requise',
-  succeeded: 'Reussi',
-  failed: 'Echoue',
-  canceled: 'Annule',
+  pending: 'en attente',
+  requires_action: 'action requise',
+  succeeded: 'réussi',
+  failed: 'échoué',
+  canceled: 'annulé',
 }
 
-const aggregateStatusLabels: Record<RefundAggregateStatus, string> = {
-  none: 'Aucun',
-  partial: 'Partiel',
-  full: 'Complet',
-  failed: 'Echec',
-  pending: 'En attente',
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value / 100)
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Europe/Paris',
-  }).format(new Date(value))
+const aggregateStatusTexts: Record<RefundAggregateStatus, string> = {
+  none: 'aucun remboursement enregistré',
+  partial: 'remboursement partiel',
+  full: 'remboursée intégralement',
+  failed: 'dernier remboursement en échec',
+  pending: 'remboursement en attente',
 }
 
 function createRequestId() {
@@ -79,10 +93,11 @@ export default function CommandeRefundsPanel({
   commandeId,
   refunds,
   canRefund,
+  paymentConfirmed,
 }: CommandeRefundsPanelProps) {
   const router = useRouter()
   const sessionFetch = useSessionFetch()
-  const [formOpen, setFormOpen] = useState(false)
+  const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'total' | 'partial'>('total')
   const [amount, setAmount] = useState('')
   const [reason, setReason] =
@@ -92,27 +107,35 @@ export default function CommandeRefundsPanel({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const refundableAmountLabel = useMemo(
-    () => formatCurrency(refunds.refundableAmountCents),
-    [refunds.refundableAmountCents],
-  )
   const canSubmitRefund =
     canRefund && refunds.isRefundable && refunds.refundableAmountCents > 0
+  const partialAmountCents = parseEurosToCents(amount)
+  const confirmAmountCents =
+    mode === 'total' ? refunds.refundableAmountCents : partialAmountCents
+  const statusTone =
+    refunds.refundStatus === 'failed'
+      ? 'text-danger'
+      : refunds.refundStatus === 'none' && paymentConfirmed
+        ? 'text-success'
+        : 'text-foreground'
 
-  function openForm() {
-    setFormOpen(true)
+  function openDialog() {
+    setMode('total')
+    setAmount('')
+    setReason('requested_by_customer')
+    setInternalNote('')
     setRequestId(createRequestId())
     setError('')
+    setOpen(true)
   }
 
   async function submitRefund(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const amountCents =
-      mode === 'partial' ? parseEurosToCents(amount) : undefined
+    const amountCents = mode === 'partial' ? partialAmountCents : undefined
 
     if (mode === 'partial' && !amountCents) {
-      setError('Montant invalide.')
+      setError('Saisissez un montant valide, par exemple 7,50.')
       return
     }
 
@@ -120,20 +143,9 @@ export default function CommandeRefundsPanel({
       amountCents !== undefined &&
       amountCents > refunds.refundableAmountCents
     ) {
-      setError('Le montant depasse le restant remboursable.')
-      return
-    }
-
-    const confirmedAmount =
-      mode === 'total'
-        ? refunds.refundableAmountCents
-        : (amountCents ?? refunds.refundableAmountCents)
-
-    if (
-      !window.confirm(
-        `Confirmer le remboursement de ${formatCurrency(confirmedAmount)} ? Le stock ne sera pas remis automatiquement.`,
+      setError(
+        `Le montant dépasse le restant remboursable (${formatCurrencyFromCents(refunds.refundableAmountCents)}).`,
       )
-    ) {
       return
     }
 
@@ -145,9 +157,7 @@ export default function CommandeRefundsPanel({
         `${API_URL}/commandes/${commandeId}/refunds`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             amountCents,
             reason,
@@ -161,11 +171,10 @@ export default function CommandeRefundsPanel({
         throw new Error(await getApiErrorMessage(response))
       }
 
-      setFormOpen(false)
-      setMode('total')
-      setAmount('')
-      setInternalNote('')
-      setRequestId(createRequestId())
+      setOpen(false)
+      toast.success('Remboursement demandé à Stripe', {
+        description: `Commande #${commandeId} · ${formatCurrencyFromCents(amountCents ?? refunds.refundableAmountCents)}`,
+      })
       router.refresh()
     } catch (err) {
       setError(getUnknownErrorMessage(err))
@@ -175,172 +184,201 @@ export default function CommandeRefundsPanel({
   }
 
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-3 sm:grid-cols-4">
-        <RefundMetric label="Total" value={formatCurrency(refunds.totalAmountCents)} />
-        <RefundMetric
-          label="Rembourse"
-          value={formatCurrency(refunds.refundedAmountCents)}
-        />
-        <RefundMetric
-          label="En attente"
-          value={formatCurrency(refunds.pendingAmountCents)}
-        />
-        <RefundMetric label="Restant" value={refundableAmountLabel} />
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className={cn('text-sm leading-5', statusTone)}>
+        {paymentConfirmed ? 'Paiement confirmé' : 'Paiement non confirmé'} ·{' '}
+        {aggregateStatusTexts[refunds.refundStatus]}
+        {refunds.refundedAmountCents > 0
+          ? ` · ${formatCurrencyFromCents(refunds.refundedAmountCents)} remboursés`
+          : ''}
+        {refunds.pendingAmountCents > 0
+          ? ` · ${formatCurrencyFromCents(refunds.pendingAmountCents)} en attente`
+          : ''}
+      </p>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-medium text-gray-700">
-          Statut : {aggregateStatusLabels[refunds.refundStatus]}
-        </p>
-
-        {canRefund ? (
-          <button
-            type="button"
-            onClick={openForm}
-            disabled={!canSubmitRefund || submitting}
-            className="lc-button lc-button-primary disabled:opacity-50"
-          >
-            Rembourser
-          </button>
-        ) : null}
-      </div>
-
-      {formOpen && canSubmitRefund ? (
-        <form onSubmit={submitRefund} className="grid gap-4 rounded border p-4">
-          <div className="flex w-fit rounded border bg-gray-50 p-1">
-            <button
-              type="button"
-              onClick={() => setMode('total')}
-              className={
-                mode === 'total'
-                  ? 'rounded bg-white px-3 py-2 text-sm font-semibold shadow-sm'
-                  : 'px-3 py-2 text-sm font-medium text-gray-600'
-              }
-            >
-              Total
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('partial')}
-              className={
-                mode === 'partial'
-                  ? 'rounded bg-white px-3 py-2 text-sm font-semibold shadow-sm'
-                  : 'px-3 py-2 text-sm font-medium text-gray-600'
-              }
-            >
-              Partiel
-            </button>
-          </div>
-
-          {mode === 'partial' ? (
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Montant</span>
-              <input
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                inputMode="decimal"
-                placeholder="0,00"
-                className="rounded border px-3 py-2"
-                disabled={submitting}
-              />
-            </label>
-          ) : null}
-
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Raison</span>
-            <select
-              value={reason}
-              onChange={(event) =>
-                setReason(event.target.value as CommandeRefundReason)
-              }
-              className="rounded border px-3 py-2"
-              disabled={submitting}
-            >
-              {Object.entries(refundReasonLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Note interne</span>
-            <textarea
-              value={internalNote}
-              onChange={(event) => setInternalNote(event.target.value)}
-              className="min-h-24 rounded border px-3 py-2"
-              maxLength={500}
-              disabled={submitting}
-            />
-          </label>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="lc-button lc-button-danger disabled:opacity-50"
-            >
-              {submitting ? 'Remboursement...' : 'Confirmer'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormOpen(false)}
-              disabled={submitting}
-              className="lc-button lc-button-secondary disabled:opacity-50"
-            >
-              Annuler
-            </button>
-          </div>
-        </form>
+      {canRefund ? (
+        <Button
+          variant="secondary"
+          className="w-full sm:w-44"
+          onClick={openDialog}
+          disabled={!canSubmitRefund}
+        >
+          Rembourser…
+        </Button>
       ) : null}
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
       {refunds.refunds.length > 0 ? (
-        <ul className="divide-y">
+        <ul className="flex flex-col divide-y divide-border border-t border-border">
           {refunds.refunds.map((refund) => (
-            <li key={refund.id} className="grid gap-2 py-4 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold">
-                    {formatCurrency(refund.amountCents)} -{' '}
-                    {refundStatusLabels[refund.status]}
-                  </p>
-                  <p className="text-gray-600">
-                    {refundReasonLabels[
-                      refund.reason as CommandeRefundReason
-                    ] ?? refund.reason}
-                  </p>
-                </div>
-                <time className="text-gray-500">
-                  {formatDateTime(refund.createdAt)}
-                </time>
-              </div>
+            <li key={refund.id} className="flex flex-col gap-1 py-3 text-sm">
+              <p className="leading-5 font-medium">
+                {formatCurrencyFromCents(refund.amountCents)} ·{' '}
+                {refundStatusLabels[refund.status]}
+              </p>
+              <p className="text-xs leading-[17px] text-muted-foreground">
+                {formatOrderDateTime(refund.createdAt)} ·{' '}
+                {refundReasonLabels[refund.reason as CommandeRefundReason] ??
+                  refund.reason}
+              </p>
               {refund.internalNote ? (
-                <p className="rounded bg-gray-50 px-3 py-2 text-gray-700">
+                <p className="leading-5 text-muted-foreground">
                   {refund.internalNote}
                 </p>
               ) : null}
               {refund.failureReason ? (
-                <p className="text-red-600">{refund.failureReason}</p>
+                <p className="leading-5 text-danger">{refund.failureReason}</p>
               ) : null}
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="text-sm text-gray-600">Aucun remboursement.</p>
-      )}
-    </div>
-  )
-}
+      ) : null}
 
-function RefundMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded border bg-gray-50 px-3 py-2">
-      <p className="text-xs font-medium uppercase text-gray-500">{label}</p>
-      <p className="mt-1 font-semibold">{value}</p>
+      <Dialog open={open} onOpenChange={(next) => !submitting && setOpen(next)}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-3xl leading-[42px]">
+              Rembourser la commande #{commandeId}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Remboursement total ou partiel demandé à Stripe.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={submitRefund} className="flex flex-col gap-5">
+            <dl className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1">
+                <dt className="text-xs leading-[17px] text-muted-foreground">
+                  Total payé
+                </dt>
+                <dd className="text-sm leading-5 font-medium">
+                  {formatCurrencyFromCents(refunds.totalAmountCents)}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="text-xs leading-[17px] text-muted-foreground">
+                  Déjà remboursé / en attente
+                </dt>
+                <dd className="text-sm leading-5 font-medium">
+                  {formatCurrencyFromCents(refunds.refundedAmountCents)} /{' '}
+                  {formatCurrencyFromCents(refunds.pendingAmountCents)}
+                </dd>
+              </div>
+            </dl>
+
+            <FieldGroup className="gap-5">
+              <Field>
+                <FieldLabel htmlFor="refund-mode">Type</FieldLabel>
+                <Select
+                  value={mode}
+                  onValueChange={(value) =>
+                    setMode(value as 'total' | 'partial')
+                  }
+                  disabled={submitting}
+                >
+                  <SelectTrigger id="refund-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="total">
+                      Remboursement total (
+                      {formatCurrencyFromCents(refunds.refundableAmountCents)})
+                    </SelectItem>
+                    <SelectItem value="partial">Remboursement partiel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              {mode === 'partial' ? (
+                <Field data-invalid={Boolean(error) || undefined}>
+                  <FieldLabel htmlFor="refund-amount">Montant (€) *</FieldLabel>
+                  <Input
+                    id="refund-amount"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    required
+                    disabled={submitting}
+                    aria-invalid={Boolean(error) || undefined}
+                    aria-describedby="refund-amount-help"
+                  />
+                  <FieldDescription id="refund-amount-help">
+                    Restant remboursable :{' '}
+                    {formatCurrencyFromCents(refunds.refundableAmountCents)}
+                  </FieldDescription>
+                </Field>
+              ) : null}
+
+              <Field>
+                <FieldLabel htmlFor="refund-reason">Motif *</FieldLabel>
+                <Select
+                  value={reason}
+                  onValueChange={(value) =>
+                    setReason(value as CommandeRefundReason)
+                  }
+                  disabled={submitting}
+                >
+                  <SelectTrigger id="refund-reason">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(refundReasonLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="refund-note">Note interne</FieldLabel>
+                <Textarea
+                  id="refund-note"
+                  value={internalNote}
+                  onChange={(event) => setInternalNote(event.target.value)}
+                  maxLength={500}
+                  disabled={submitting}
+                />
+              </Field>
+            </FieldGroup>
+
+            {error ? <FieldError role="alert">{error}</FieldError> : null}
+
+            <div className="flex flex-col gap-1 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning">
+              <p className="font-medium">Confirmer l’opération</p>
+              <p>
+                Le remboursement sera demandé à Stripe. Vérifiez le montant et
+                le motif avant validation. Le stock n’est pas remis
+                automatiquement.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={submitting}
+                aria-busy={submitting}
+              >
+                {submitting
+                  ? 'Remboursement en cours…'
+                  : confirmAmountCents
+                    ? `Confirmer ${formatCurrencyFromCents(confirmAmountCents)}`
+                    : 'Confirmer'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setOpen(false)}
+                disabled={submitting}
+              >
+                Annuler
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

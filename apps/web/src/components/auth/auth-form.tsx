@@ -1,5 +1,9 @@
 'use client'
 
+import { PasswordInput } from '@/components/auth/password-input'
+import { Button } from '@/components/ui/button'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { getUnknownErrorMessage } from '@/lib/api-error'
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
@@ -38,50 +42,52 @@ export default function AuthForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid w-full max-w-sm gap-4 rounded border bg-white p-6 shadow-sm">
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">
-          Les cocottes de Diane
-        </p>
-        <h1 className="mt-2 text-2xl font-bold">
-          Connexion
+    <form
+      onSubmit={handleSubmit}
+      className="flex w-full max-w-[440px] flex-col gap-4 rounded-lg border border-border bg-card p-6"
+    >
+      <div className="flex flex-col gap-4">
+        <h1 className="text-lg leading-[26px] font-semibold">
+          Bienvenue dans votre espace.
         </h1>
+        <p className="text-sm leading-5 text-muted-foreground">
+          Connectez-vous pour gérer l’activité du commerce.
+        </p>
       </div>
 
-      <div className="grid gap-1">
-        <label htmlFor="email">Email</label>
-        <input
+      <Field>
+        <FieldLabel htmlFor="email">Adresse e-mail</FieldLabel>
+        <Input
           id="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="rounded border px-3 py-2"
           required
         />
-      </div>
+      </Field>
 
-      <div className="grid gap-1">
-        <label htmlFor="password">Mot de passe</label>
-        <input
+      <Field>
+        <FieldLabel htmlFor="password">Mot de passe</FieldLabel>
+        <PasswordInput
           id="password"
-          type="password"
+          autoComplete="current-password"
           minLength={8}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="rounded border px-3 py-2"
           required
         />
-      </div>
+      </Field>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <FieldError role="alert">{error}</FieldError> : null}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-      >
-        {loading ? 'Chargement...' : 'Se connecter'}
-      </button>
+      <Button type="submit" disabled={loading} aria-busy={loading}>
+        {loading ? 'Connexion…' : 'Se connecter'}
+      </Button>
+
+      <p className="text-xs leading-[17px] text-muted-foreground">
+        Besoin d’accès ? Contactez l’administrateur.
+      </p>
     </form>
   )
 }

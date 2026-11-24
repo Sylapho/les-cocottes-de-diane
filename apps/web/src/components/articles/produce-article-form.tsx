@@ -1,5 +1,13 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { getApiErrorMessage, getUnknownErrorMessage } from '@/lib/api-error'
 import { useSessionFetch } from '@/lib/use-session-fetch'
 import { useRouter } from 'next/navigation'
@@ -54,38 +62,41 @@ export default function ProduceArticleForm({ articleId, maxQuantity }: Props) {
   }
 
   return (
-    <section className="mt-8 rounded border p-6">
-      <h2 className="mb-4 text-xl font-bold">Produire</h2>
-
-      <form onSubmit={handleSubmit} className="grid gap-3">
-        <input
-          type="number"
-          min="1"
-          max={maxQuantity && maxQuantity > 0 ? maxQuantity : undefined}
-          value={quantite}
-          onChange={(e) => setQuantite(e.target.value)}
-          className="rounded border px-3 py-2"
-          placeholder="Quantité à produire"
-          required
-        />
-
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <Field>
+        <FieldLabel htmlFor="produce-quantity">Quantité à produire</FieldLabel>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input
+            id="produce-quantity"
+            type="number"
+            min="1"
+            max={maxQuantity && maxQuantity > 0 ? maxQuantity : undefined}
+            value={quantite}
+            onChange={(e) => setQuantite(e.target.value)}
+            className="sm:max-w-40"
+            required
+          />
+          <Button
+            type="submit"
+            disabled={loading || Number(quantite) <= 0}
+            aria-busy={loading}
+          >
+            {loading ? 'Production…' : 'Produire'}
+          </Button>
+        </div>
         {typeof maxQuantity === 'number' ? (
-          <p className="text-sm text-gray-600">
+          <FieldDescription>
             Production max possible : {maxQuantity} unité(s)
-          </p>
+          </FieldDescription>
         ) : null}
+      </Field>
 
-        {message ? <p className="text-sm text-green-600">{message}</p> : null}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        <button
-          type="submit"
-          disabled={loading || Number(quantite) <= 0}
-          className="w-fit rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-        >
-          {loading ? 'Production...' : 'Produire'}
-        </button>
-      </form>
-    </section>
+      {message ? (
+        <p role="status" className="text-sm leading-5 text-success">
+          {message}
+        </p>
+      ) : null}
+      {error ? <FieldError role="alert">{error}</FieldError> : null}
+    </form>
   )
 }
