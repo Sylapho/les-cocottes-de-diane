@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { getApiErrorMessage } from '@/lib/api-error'
+import type { AnalyticsOverview } from '@/lib/analytics'
 import type { ArticleCategory } from '@/lib/article-categories'
 import { serverApiFetch } from '@/lib/server-api'
 import { headers as nextHeaders } from 'next/headers'
@@ -884,4 +885,12 @@ export async function reactivatePickupPoint(id: number): Promise<PickupPoint> {
   })
 
   return parseResponse<PickupPoint>(response)
+}
+
+export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
+  const response = await apiFetch('/admin/analytics/overview', {
+    cache: 'no-store',
+  })
+
+  return parseResponse<AnalyticsOverview>(response)
 }

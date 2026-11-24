@@ -9,6 +9,8 @@ import { redirect } from 'next/navigation'
 export type CurrentAuthSession = {
   user: {
     id: string
+    name?: string | null
+    email?: string | null
     role: Role | null
   }
 }
@@ -16,6 +18,8 @@ export type CurrentAuthSession = {
 type BetterAuthSession = {
   user: {
     id: string
+    name?: string | null
+    email?: string | null
     role?: unknown
   }
 }

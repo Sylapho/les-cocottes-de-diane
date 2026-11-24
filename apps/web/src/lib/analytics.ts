@@ -24,6 +24,30 @@ export const analyticsPeriodLabels: Record<AnalyticsPeriodKey, string> = {
   monthly: '30 derniers jours',
 }
 
+export const analyticsPeriodKeys: AnalyticsPeriodKey[] = [
+  'daily',
+  'weekly',
+  'monthly',
+]
+
+export const DEFAULT_ANALYTICS_PERIOD: AnalyticsPeriodKey = 'weekly'
+
+export function parseAnalyticsPeriod(
+  value: string | string[] | undefined,
+): AnalyticsPeriodKey {
+  const raw = Array.isArray(value) ? value[0] : value
+
+  return analyticsPeriodKeys.find((key) => key === raw) ??
+    DEFAULT_ANALYTICS_PERIOD
+}
+
+export function formatAnalyticsDecimal(value: number) {
+  return new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
 export function formatAnalyticsNumber(value: number) {
   return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(
     value,
