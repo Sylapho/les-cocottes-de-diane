@@ -5,6 +5,11 @@ import {
   Injectable,
 } from '@nestjs/common'
 import { Prisma } from '../../prisma/generated/prisma/client'
+import {
+  assertCashRegisterDayOpen,
+  getParisDayBounds,
+  lockCashRegisterDay,
+} from '../caisse/cash-register-day'
 import { PrismaService } from '../prisma/prisma.service'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { CreateVenteDto } from './dto/create-vente.dto'
@@ -71,8 +76,15 @@ export class VentesService {
   // sellerId always comes from the authenticated session, never from the body.
   async create(data: CreateVenteDto, sellerId: string) {
     const lignesAgregees = this.aggregateSaleLines(data)
+    // The sale belongs to the cash register day of this instant (Paris time).
+    const saleDate = new Date()
+    const cashRegisterDay = getParisDayBounds(saleDate)
 
     return this.prisma.$transaction(async (tx) => {
+      // Taken first so that a concurrent closure is fully before or after us.
+      await lockCashRegisterDay(tx, cashRegisterDay)
+      await assertCashRegisterDayOpen(tx, cashRegisterDay)
+
       const seller = await tx.authUser.findUnique({
         where: { id: sellerId },
         select: { id: true },
@@ -161,6 +173,7 @@ export class VentesService {
 
       const vente = await tx.vente.create({
         data: {
+          date: saleDate,
           mode: data.mode,
           remiseCents,
           totalTtcCents,

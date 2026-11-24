@@ -15,6 +15,9 @@ describe('VentesService', () => {
   const SELLER_ID = 'auth-user-seller'
 
   const prismaMock = {
+    journeeCaisse: {
+      findUnique: jest.fn(),
+    },
     authUser: {
       findUnique: jest.fn(),
     },
@@ -31,6 +34,7 @@ describe('VentesService', () => {
       create: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   }
 
@@ -41,6 +45,8 @@ describe('VentesService', () => {
 
   type TransactionClient = {
     $queryRaw: typeof prismaMock.$queryRaw
+    $executeRaw: typeof prismaMock.$executeRaw
+    journeeCaisse: typeof prismaMock.journeeCaisse
     authUser: typeof prismaMock.authUser
     article: typeof prismaMock.article
     stockLot: typeof prismaMock.stockLot
@@ -51,6 +57,8 @@ describe('VentesService', () => {
 
   const transactionClient: TransactionClient = {
     $queryRaw: prismaMock.$queryRaw,
+    $executeRaw: prismaMock.$executeRaw,
+    journeeCaisse: prismaMock.journeeCaisse,
     authUser: prismaMock.authUser,
     article: prismaMock.article,
     stockLot: prismaMock.stockLot,
@@ -80,6 +88,7 @@ describe('VentesService', () => {
     )
     prismaMock.$queryRaw.mockResolvedValue([])
     prismaMock.authUser.findUnique.mockResolvedValue({ id: SELLER_ID })
+    prismaMock.journeeCaisse.findUnique.mockResolvedValue(null)
     prismaMock.stockLot.findMany.mockResolvedValue([])
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       id: 1,
@@ -208,6 +217,7 @@ describe('VentesService', () => {
     })
     expect(prismaMock.vente.create).toHaveBeenCalledWith({
       data: {
+        date: expect.any(Date),
         mode: 'cb',
         remiseCents: 100,
         totalTtcCents: 470,
@@ -297,6 +307,7 @@ describe('VentesService', () => {
 
     expect(prismaMock.vente.create).toHaveBeenCalledWith({
       data: {
+        date: expect.any(Date),
         mode: 'cb',
         remiseCents: 0,
         totalTtcCents: 30,
@@ -422,6 +433,26 @@ describe('VentesService', () => {
     await expect(service.create(body, 'unknown-user')).rejects.toBeInstanceOf(
       ForbiddenException,
     )
+    expect(prismaMock.article.update).not.toHaveBeenCalled()
+    expect(prismaMock.vente.create).not.toHaveBeenCalled()
+  })
+
+  it('create should refuse a sale once the cash register day is closed', async () => {
+    const body: CreateVenteDto = {
+      mode: 'cb',
+      lignes: [{ articleId: 1, quantite: 1 }],
+    }
+
+    prismaMock.journeeCaisse.findUnique.mockResolvedValue({ id: 3 })
+
+    const result = service.create(body, SELLER_ID)
+
+    await expect(result).rejects.toBeInstanceOf(ConflictException)
+    await expect(result).rejects.toMatchObject({
+      response: { code: 'CASH_REGISTER_DAY_CLOSED' },
+    })
+    expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1)
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled()
     expect(prismaMock.article.update).not.toHaveBeenCalled()
     expect(prismaMock.vente.create).not.toHaveBeenCalled()
   })
