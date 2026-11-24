@@ -380,12 +380,10 @@ export type LigneVente = {
   article: Article
 }
 
-export type VenteUser = {
-  id: number
-  nom: string
-  email: string
-  role: string
-  createdAt: string
+// Seller derived by the API from the authenticated session.
+export type VenteSeller = {
+  id: string
+  name: string
 }
 
 export type Vente = {
@@ -396,15 +394,14 @@ export type Vente = {
   tvaCents: number
   mode: VenteMode
   remiseCents: number
-  userId?: number | null
-  user?: VenteUser | null
+  sellerId?: string | null
+  seller?: VenteSeller | null
   lignes: LigneVente[]
 }
 
 export type VentePayload = {
   mode: VenteMode
   remiseCents?: number
-  userId?: number
   lignes: {
     articleId: number
     quantite: number

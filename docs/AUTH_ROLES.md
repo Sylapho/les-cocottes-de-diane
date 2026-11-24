@@ -39,12 +39,34 @@ Le schema Prisma contient deux notions differentes :
 
 | Modele     | Table    | Usage                                                              |
 | ---------- | -------- | ------------------------------------------------------------------ |
-| `User`     | `"User"` | Utilisateur metier historique lie aux ventes (`Vente.userId`).     |
+| `User`     | `"User"` | Utilisateur metier historique, plus alimente (`Vente.userId`).     |
 | `AuthUser` | `"user"` | Utilisateur Better Auth pour les sessions, mots de passe et roles. |
 
 Ces deux modeles ne doivent pas etre melanges. Les autorisations et les sessions
-doivent utiliser `AuthUser` / Better Auth. Le modele `User` reste lie au domaine
-metier des ventes tant qu'il n'est pas migre explicitement.
+doivent utiliser `AuthUser` / Better Auth.
+
+### Vendeur d'une vente
+
+Le vendeur d'une vente est le compte Better Auth authentifie qui la cree
+(`Vente.sellerId`, cle etrangere vers `"user".id`, migration
+`20261124230000_add_vente_seller`) :
+
+- `POST /api/ventes` n'accepte aucun identifiant d'utilisateur dans le corps :
+  `CreateVenteDto` ne declare ni `userId` ni `sellerId`, et le `ValidationPipe`
+  global (`forbidNonWhitelisted`) rejette ces champs avec un `400` ;
+- le controleur lit `request.userId`, renseigne par `BetterAuthGuard` a partir
+  de la session, et le transmet au service ;
+- les mouvements de stock de la vente recoivent la meme identite
+  (`MouvementStock.createdByUserId`) ;
+- si le compte de la session n'existe plus en base, la vente est refusee
+  (`403`, "Compte vendeur introuvable") avant toute modification de stock ;
+- si un compte est supprime ensuite, `sellerId` passe a `NULL`
+  (`ON DELETE SET NULL`) : la vente et son historique sont conserves.
+
+Aucun identifiant Better Auth (chaine) n'est converti vers l'identifiant
+numerique du modele `User`. La colonne `Vente.userId` et le modele `User` sont
+conserves pour les ventes anterieures mais ne sont plus ecrits ; les ventes
+creees avant la migration ont `sellerId = NULL` (vendeur inconnu).
 
 ## Statistiques de connexion
 

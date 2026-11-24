@@ -5,6 +5,8 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common'
 import { VentesService } from './ventes.service'
@@ -13,6 +15,10 @@ import { BetterAuthGuard } from '../auth/better-auth.guard'
 import { Roles } from '../auth/roles.decorator'
 import { RolesGuard } from '../auth/roles.guard'
 import { ROLES } from '../auth/roles'
+
+type RequestWithUser = {
+  userId?: string
+}
 
 @Controller('ventes')
 @UseGuards(BetterAuthGuard, RolesGuard)
@@ -33,7 +39,11 @@ export class VentesController {
 
   @Post()
   @Roles(ROLES.GERANT, ROLES.VENDEUR)
-  create(@Body() body: CreateVenteDto) {
-    return this.ventesService.create(body)
+  create(@Body() body: CreateVenteDto, @Req() request: RequestWithUser) {
+    if (!request.userId) {
+      throw new UnauthorizedException('Session manquante')
+    }
+
+    return this.ventesService.create(body, request.userId)
   }
 }

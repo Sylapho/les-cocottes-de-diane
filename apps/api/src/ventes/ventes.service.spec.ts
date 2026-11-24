@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -8,7 +12,12 @@ import { VentesService } from './ventes.service'
 describe('VentesService', () => {
   let service: VentesService
 
+  const SELLER_ID = 'auth-user-seller'
+
   const prismaMock = {
+    authUser: {
+      findUnique: jest.fn(),
+    },
     article: {
       findMany: jest.fn(),
       update: jest.fn(),
@@ -32,6 +41,7 @@ describe('VentesService', () => {
 
   type TransactionClient = {
     $queryRaw: typeof prismaMock.$queryRaw
+    authUser: typeof prismaMock.authUser
     article: typeof prismaMock.article
     stockLot: typeof prismaMock.stockLot
     vente: typeof prismaMock.vente
@@ -41,6 +51,7 @@ describe('VentesService', () => {
 
   const transactionClient: TransactionClient = {
     $queryRaw: prismaMock.$queryRaw,
+    authUser: prismaMock.authUser,
     article: prismaMock.article,
     stockLot: prismaMock.stockLot,
     vente: prismaMock.vente,
@@ -68,6 +79,7 @@ describe('VentesService', () => {
       <T>(callback: TransactionCallback<T>) => callback(transactionClient),
     )
     prismaMock.$queryRaw.mockResolvedValue([])
+    prismaMock.authUser.findUnique.mockResolvedValue({ id: SELLER_ID })
     prismaMock.stockLot.findMany.mockResolvedValue([])
     mouvementsStockServiceMock.recordArticleMovement.mockResolvedValue({
       id: 1,
@@ -97,7 +109,7 @@ describe('VentesService', () => {
     await expect(service.findAll()).resolves.toEqual(ventes)
     expect(prismaMock.vente.findMany).toHaveBeenCalledWith({
       include: {
-        user: true,
+        seller: { select: { id: true, name: true } },
         lignes: {
           include: {
             article: true,
@@ -110,13 +122,13 @@ describe('VentesService', () => {
     })
   })
 
-  it('findOne should return one vente with lines and user', async () => {
+  it('findOne should return one vente with lines and seller', async () => {
     const vente = {
       id: 1,
       mode: 'especes',
       totalTtcCents: 800,
       lignes: [],
-      user: null,
+      seller: null,
     }
 
     prismaMock.vente.findUniqueOrThrow.mockResolvedValue(vente)
@@ -125,7 +137,7 @@ describe('VentesService', () => {
     expect(prismaMock.vente.findUniqueOrThrow).toHaveBeenCalledWith({
       where: { id: 1 },
       include: {
-        user: true,
+        seller: { select: { id: true, name: true } },
         lignes: {
           include: {
             article: true,
@@ -175,7 +187,7 @@ describe('VentesService', () => {
     prismaMock.$queryRaw.mockResolvedValue(articles)
     prismaMock.vente.create.mockResolvedValue(created)
 
-    await expect(service.create(body)).resolves.toEqual(created)
+    await expect(service.create(body, SELLER_ID)).resolves.toEqual(created)
 
     expect(prismaMock.$queryRaw).toHaveBeenCalled()
     expect(prismaMock.article.update).toHaveBeenNthCalledWith(1, {
@@ -201,7 +213,7 @@ describe('VentesService', () => {
         totalTtcCents: 470,
         totalHtCents: 431,
         tvaCents: 39,
-        userId: undefined,
+        sellerId: SELLER_ID,
         lignes: {
           create: [
             {
@@ -220,7 +232,7 @@ describe('VentesService', () => {
         },
       },
       include: {
-        user: true,
+        seller: { select: { id: true, name: true } },
         lignes: {
           include: {
             article: true,
@@ -238,7 +250,7 @@ describe('VentesService', () => {
       type: 'vente',
       motif: 'Vente #10',
       reference: 'vente:10',
-      createdByUserId: undefined,
+      createdByUserId: SELLER_ID,
     })
     expect(
       mouvementsStockServiceMock.recordArticleMovement,
@@ -250,7 +262,7 @@ describe('VentesService', () => {
       type: 'vente',
       motif: 'Vente #10',
       reference: 'vente:10',
-      createdByUserId: undefined,
+      createdByUserId: SELLER_ID,
     })
   })
 
@@ -281,7 +293,7 @@ describe('VentesService', () => {
     ])
     prismaMock.vente.create.mockResolvedValue({ id: 11 })
 
-    await service.create(body)
+    await service.create(body, SELLER_ID)
 
     expect(prismaMock.vente.create).toHaveBeenCalledWith({
       data: {
@@ -290,7 +302,7 @@ describe('VentesService', () => {
         totalTtcCents: 30,
         totalHtCents: 28,
         tvaCents: 2,
-        userId: undefined,
+        sellerId: SELLER_ID,
         lignes: {
           create: [
             {
@@ -309,7 +321,7 @@ describe('VentesService', () => {
         },
       },
       include: {
-        user: true,
+        seller: { select: { id: true, name: true } },
         lignes: {
           include: {
             article: true,
@@ -325,7 +337,7 @@ describe('VentesService', () => {
       lignes: [],
     }
 
-    await expect(service.create(body)).rejects.toBeInstanceOf(
+    await expect(service.create(body, SELLER_ID)).rejects.toBeInstanceOf(
       BadRequestException,
     )
     expect(prismaMock.article.findMany).not.toHaveBeenCalled()
@@ -340,7 +352,7 @@ describe('VentesService', () => {
 
     prismaMock.$queryRaw.mockResolvedValue([])
 
-    await expect(service.create(body)).rejects.toBeInstanceOf(
+    await expect(service.create(body, SELLER_ID)).rejects.toBeInstanceOf(
       BadRequestException,
     )
     expect(prismaMock.$transaction).toHaveBeenCalled()
@@ -362,8 +374,55 @@ describe('VentesService', () => {
       },
     ])
 
-    await expect(service.create(body)).rejects.toBeInstanceOf(ConflictException)
+    await expect(service.create(body, SELLER_ID)).rejects.toBeInstanceOf(
+      ConflictException,
+    )
     expect(prismaMock.$transaction).toHaveBeenCalled()
+    expect(prismaMock.vente.create).not.toHaveBeenCalled()
+  })
+
+  it('create should attribute the sale and its stock movements to the session seller', async () => {
+    const body: CreateVenteDto = {
+      mode: 'cb',
+      lignes: [{ articleId: 1, quantite: 1 }],
+    }
+
+    prismaMock.$queryRaw.mockResolvedValue([
+      { id: 1, nom: 'Baguette', prixCents: 210, tvaBps: 550, stock: 5 },
+    ])
+    prismaMock.vente.create.mockResolvedValue({ id: 11, lignes: [] })
+
+    await service.create(body, SELLER_ID)
+
+    expect(prismaMock.authUser.findUnique).toHaveBeenCalledWith({
+      where: { id: SELLER_ID },
+      select: { id: true },
+    })
+    expect(prismaMock.vente.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ sellerId: SELLER_ID }),
+      }),
+    )
+    expect(
+      mouvementsStockServiceMock.recordArticleMovement,
+    ).toHaveBeenCalledWith(
+      transactionClient,
+      expect.objectContaining({ createdByUserId: SELLER_ID }),
+    )
+  })
+
+  it('create should refuse a sale when the session account does not exist', async () => {
+    const body: CreateVenteDto = {
+      mode: 'cb',
+      lignes: [{ articleId: 1, quantite: 1 }],
+    }
+
+    prismaMock.authUser.findUnique.mockResolvedValue(null)
+
+    await expect(service.create(body, 'unknown-user')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    )
+    expect(prismaMock.article.update).not.toHaveBeenCalled()
     expect(prismaMock.vente.create).not.toHaveBeenCalled()
   })
 })

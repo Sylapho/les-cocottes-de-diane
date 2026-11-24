@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
 } from '@nestjs/common'
 import { Prisma } from '../../prisma/generated/prisma/client'
@@ -13,6 +14,14 @@ type AggregatedSaleLine = {
   articleId: number
   quantite: number
 }
+
+// Only expose the seller's public identity, never auth fields.
+const saleSellerSelect = {
+  select: {
+    id: true,
+    name: true,
+  },
+} as const
 
 type LockedSaleArticle = {
   id: number
@@ -32,7 +41,7 @@ export class VentesService {
   findAll() {
     return this.prisma.vente.findMany({
       include: {
-        user: true,
+        seller: saleSellerSelect,
         lignes: {
           include: {
             article: true,
@@ -49,7 +58,7 @@ export class VentesService {
     return this.prisma.vente.findUniqueOrThrow({
       where: { id },
       include: {
-        user: true,
+        seller: saleSellerSelect,
         lignes: {
           include: {
             article: true,
@@ -59,10 +68,22 @@ export class VentesService {
     })
   }
 
-  async create(data: CreateVenteDto) {
+  // sellerId always comes from the authenticated session, never from the body.
+  async create(data: CreateVenteDto, sellerId: string) {
     const lignesAgregees = this.aggregateSaleLines(data)
 
     return this.prisma.$transaction(async (tx) => {
+      const seller = await tx.authUser.findUnique({
+        where: { id: sellerId },
+        select: { id: true },
+      })
+
+      if (!seller) {
+        throw new ForbiddenException(
+          'Compte vendeur introuvable : impossible d’attribuer la vente',
+        )
+      }
+
       const articles = await this.lockSaleArticles(tx, lignesAgregees)
       const articleIds = lignesAgregees.map((ligne) => ligne.articleId)
 
@@ -145,7 +166,7 @@ export class VentesService {
           totalTtcCents,
           totalHtCents,
           tvaCents,
-          userId: data.userId,
+          sellerId: seller.id,
           lignes: {
             create: lignesCalculees.map((ligne) => ({
               articleId: ligne.article.id,
@@ -156,7 +177,7 @@ export class VentesService {
           },
         },
         include: {
-          user: true,
+          seller: saleSellerSelect,
           lignes: {
             include: {
               article: true,
@@ -174,10 +195,7 @@ export class VentesService {
           type: 'vente',
           motif: `Vente #${vente.id}`,
           reference: `vente:${vente.id}`,
-          createdByUserId:
-            typeof data.userId === 'number'
-              ? data.userId.toString()
-              : undefined,
+          createdByUserId: seller.id,
         })
       }
 

@@ -18,6 +18,8 @@ class CreateLigneVenteDto {
   quantite!: number
 }
 
+// The seller is never part of the client contract: the API derives it from the
+// authenticated session, and the global ValidationPipe rejects unknown fields.
 export class CreateVenteDto {
   @IsIn(['cb', 'especes', 'cheque'])
   mode!: string
@@ -26,10 +28,6 @@ export class CreateVenteDto {
   @IsNumber()
   @Min(0)
   remiseCents?: number
-
-  @IsOptional()
-  @IsInt()
-  userId?: number
 
   @IsArray()
   @ValidateNested({ each: true })
