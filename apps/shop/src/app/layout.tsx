@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Playfair_Display } from 'next/font/google'
+import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import ShopFooter from '@/components/shop/shop-footer'
 import ShopAnalytics from '@/components/analytics/shop-analytics'
 import {
@@ -12,15 +12,16 @@ import {
 } from '@/lib/seo'
 import './globals.css'
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-dm-sans',
   display: 'swap',
 })
 
-const playfair = Playfair_Display({
+const dmSerifDisplay = DM_Serif_Display({
   subsets: ['latin'],
-  variable: '--font-playfair',
+  weight: '400',
+  variable: '--font-dm-serif',
   display: 'swap',
 })
 
@@ -75,8 +76,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="fr" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="flex min-h-screen flex-col bg-stone-50 font-sans text-stone-900 antialiased">
+    <html lang="fr" className={`${dmSans.variable} ${dmSerifDisplay.variable}`}>
+      <body className="flex min-h-screen flex-col bg-cream font-sans text-ink antialiased">
         {children}
         <ShopFooter />
         <ShopAnalytics />
