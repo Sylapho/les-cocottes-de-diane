@@ -21,15 +21,24 @@ test('checkout displays an empty cart state', async ({ page }) => {
 test('checkout removes tomorrow at 14:00 Paris and selects the next valid date', async ({
   page,
 }) => {
+  // Start a full minute before 13:59 Paris so slow hydration cannot skip it.
   await page.clock.install({
-    time: new Date('2026-07-20T11:58:59.000Z'),
+    time: new Date('2026-07-20T11:58:00.000Z'),
   })
   await page.addInitScript(() => {
     window.localStorage.setItem('localco-shop-cart', JSON.stringify({ 1: 1 }))
   })
 
   await page.goto('/checkout')
-  await page.clock.fastForward(1_100)
+
+  // The stored cart is only read on the client: once it shows, the checkout
+  // has hydrated and scheduled its minute-boundary availability refresh.
+  await expect(page.getByText('Terrine de volaille')).toBeVisible()
+
+  // Cross the next minute boundary (11:59 UTC, 13:59 Paris) so the checkout
+  // switches from the server time to the browser clock.
+  const now = await page.evaluate(() => Date.now())
+  await page.clock.fastForward(60_000 - (now % 60_000) + 100)
 
   await page.locator('#dateRetrait').selectOption('2026-07-21')
   await expect(page.locator('#dateRetrait')).toHaveValue('2026-07-21')
@@ -85,10 +94,10 @@ test('shop user can add a product and create a checkout session', async ({
   await expect(page.getByRole('button', { name: 'Panier (1)' })).toBeVisible()
   await page.getByRole('button', { name: 'Panier (1)' }).click()
   await expect(
-    page.getByRole('heading', { name: 'Votre commande' }),
+    page.getByRole('heading', { name: 'Votre panier' }),
   ).toBeVisible()
 
-  await page.getByRole('link', { name: 'Continuer vers le paiement' }).click()
+  await page.getByRole('link', { name: 'Choisir mon retrait' }).click()
 
   await expect(
     page.getByRole('heading', { name: 'Finaliser ma commande' }),

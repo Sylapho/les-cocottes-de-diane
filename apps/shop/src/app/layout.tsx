@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
+import CartProvider from '@/components/cart/cart-provider'
+import BrandLogotype from '@/components/layout/brand-logotype'
+import SiteHeader from '@/components/layout/site-header'
 import ShopFooter from '@/components/shop/shop-footer'
 import ShopAnalytics from '@/components/analytics/shop-analytics'
 import {
@@ -78,8 +81,11 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${dmSans.variable} ${dmSerifDisplay.variable}`}>
       <body className="flex min-h-screen flex-col bg-cream font-sans text-ink antialiased">
-        {children}
-        <ShopFooter />
+        <CartProvider>
+          <SiteHeader logotype={<BrandLogotype />} />
+          {children}
+          <ShopFooter />
+        </CartProvider>
         <ShopAnalytics />
       </body>
     </html>

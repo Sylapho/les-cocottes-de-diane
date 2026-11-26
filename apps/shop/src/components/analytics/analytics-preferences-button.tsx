@@ -7,7 +7,7 @@ export default function AnalyticsPreferencesButton() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new Event(ANALYTICS_CONSENT_EVENT))}
-      className="rounded-sm font-semibold hover:text-[#b5006e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b5006e]"
+      className="rounded-sm underline-offset-4 hover:underline"
     >
       Gérer mes préférences
     </button>

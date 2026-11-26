@@ -14,6 +14,11 @@ colors:
   line: "#dcc6d1"
   error: "#9c2b24"
 typography:
+  display:
+    fontFamily: "DM Serif Display"
+    fontSize: "5rem"
+    fontWeight: 400
+    lineHeight: "5.25rem"
   h1:
     fontFamily: "DM Serif Display"
     fontSize: "3.5rem"
@@ -24,6 +29,21 @@ typography:
     fontSize: "2.5rem"
     fontWeight: 400
     lineHeight: "2.875rem"
+  h3:
+    fontFamily: "DM Serif Display"
+    fontSize: "1.75rem"
+    fontWeight: 400
+    lineHeight: "2.125rem"
+  price:
+    fontFamily: "DM Sans"
+    fontSize: "1.5rem"
+    fontWeight: 700
+    lineHeight: "1.875rem"
+  eyebrow:
+    fontFamily: "DM Sans"
+    fontSize: "0.75rem"
+    fontWeight: 700
+    lineHeight: "1.125rem"
   body:
     fontFamily: "DM Sans"
     fontSize: "1rem"
@@ -149,12 +169,15 @@ Les noms de variables Figma (`red`, `sage`, `cream`…) sont hérités d'une anc
 
 ### Hierarchy
 
+- **Display** (`text-display`, 80/84, serif) : code d'erreur (404, 500) uniquement.
 - **H1** (`text-h1`, 56/62, serif) : titre de page desktop. Sur mobile, les titres de page passent à 40/46 (`text-h2`).
-- **H2** (`text-h2`, 40/46, serif) : titres de section.
+- **H2** (`text-h2`, 40/46, serif) : titres de section, titre du tiroir panier.
+- **H3** (`text-h3`, 28/34, serif) : sous-titres, nom de marque, liens du menu mobile.
+- **Price** (`text-price`, 24/30, bold) : totaux et montants de ligne.
 - **Body** (`text-body`, 16/25) : texte courant, prix, informations métier.
 - **Small** (`text-small`, 14/21) : texte secondaire, badges, aides.
 - **Label** (`text-label`, 14/20, bold) : libellés de champs, boutons, chips.
-- **Eyebrow** : label en capitales, framboise, au-dessus d'un titre de page.
+- **Eyebrow** (`text-eyebrow`, 12/18, bold) : label en capitales, framboise, au-dessus d'un titre de page.
 
 **The Clarity Before Flourish Rule.** Les prix, dates, stocks et libellés d'action n'utilisent jamais la serif.
 
@@ -193,7 +216,16 @@ Composants de base dans `src/components/ui/` :
 
 Icônes : `lucide-react`, trait fin, toujours `aria-hidden` lorsqu'un texte accompagne l'icône.
 
-Les composants d'écran (en-tête, pied de page, carte produit, ligne de panier, tiroir, progression de commande) arrivent avec les lots suivants de la refonte.
+Structure commune (rendue par le layout racine) :
+
+- **`SiteHeader`** (`src/components/layout/`) : logotype, navigation, bouton panier. Sous `lg`, icônes panier et menu (`MobileMenu`, `<dialog>` plein écran). Sur `/checkout`, variante « commande » : cadenas, « Votre commande en toute simplicité », retour au panier.
+- **`ShopFooter`** : fond prune, logo, liens pratiques, liens légaux, préférences de mesure d'audience, réseaux sociaux.
+- **`CartProvider` / `CartDrawer` / `CartLine`** (`src/components/cart/`) : panier partagé (localStorage via `useSyncExternalStore`) et tiroir `<dialog>` à droite (480px max). Les prix sont rechargés depuis l'API à chaque ouverture.
+- **`ErrorState`** : gabarit des pages 404 (`not-found.tsx`) et 500 (`error.tsx`).
+
+Les routes de navigation sont centralisées dans `src/lib/site-nav.ts`.
+
+La carte produit et la progression de commande arrivent avec les lots suivants de la refonte.
 
 ## Do's and Don'ts
 
