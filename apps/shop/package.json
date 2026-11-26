@@ -16,6 +16,7 @@
     "screenshots:run": "playwright test --config playwright.screenshots.config.ts"
   },
   "dependencies": {
+    "lucide-react": "^1.72.0",
     "next": "16.4.6",
     "react": "19.2.7",
     "react-dom": "19.2.7"
