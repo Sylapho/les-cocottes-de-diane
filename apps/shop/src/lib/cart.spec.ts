@@ -4,11 +4,14 @@ import type { ShopArticle } from './api'
 import {
   buildCartLines,
   CART_STORAGE_KEY,
+  changeCartQuantity,
   clearStoredCart,
   formatCurrency,
   getCartCount,
   getCartTotal,
+  parseStoredCart,
   readStoredCart,
+  removeCartItem,
   writeStoredCart,
 } from './cart'
 
@@ -81,4 +84,28 @@ test('reads, writes and clears browser cart storage safely', () => {
   } finally {
     Reflect.deleteProperty(globalThis, 'window')
   }
+})
+
+test('parseStoredCart ignores missing, malformed and non-object values', () => {
+  assert.deepEqual(parseStoredCart(null), {})
+  assert.deepEqual(parseStoredCart('{invalid json'), {})
+  assert.deepEqual(parseStoredCart('[1,2]'), {})
+  assert.deepEqual(parseStoredCart('null'), {})
+  assert.deepEqual(parseStoredCart('{"3":1}'), { 3: 1 })
+})
+
+test('changeCartQuantity clamps quantities and drops empty lines', () => {
+  assert.deepEqual(changeCartQuantity({}, 1, 1), { 1: 1 })
+  assert.deepEqual(changeCartQuantity({ 1: 2 }, 1, -1), { 1: 1 })
+  assert.deepEqual(changeCartQuantity({ 1: 1, 2: 3 }, 1, -1), { 2: 3 })
+  assert.deepEqual(changeCartQuantity({ 1: 99 }, 1, 1), { 1: 99 })
+  assert.deepEqual(changeCartQuantity({ 1: 4 }, 1, 1, 5), { 1: 5 })
+})
+
+test('changeCartQuantity and removeCartItem do not mutate the input cart', () => {
+  const cart = { 1: 2, 2: 1 }
+
+  changeCartQuantity(cart, 1, 1)
+  assert.deepEqual(removeCartItem(cart, 1), { 2: 1 })
+  assert.deepEqual(cart, { 1: 2, 2: 1 })
 })

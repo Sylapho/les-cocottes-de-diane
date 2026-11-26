@@ -9,15 +9,54 @@ export function formatCurrency(value: number) {
   return formatCurrencyFromCents(value)
 }
 
+export const MAX_CART_QUANTITY = 99
+
+export function parseStoredCart(raw: string | null): Cart {
+  if (!raw) return {}
+
+  try {
+    const parsed: unknown = JSON.parse(raw)
+
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Cart)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
 export function readStoredCart(): Cart {
   if (typeof window === 'undefined') return {}
 
   try {
-    const stored = window.localStorage.getItem(CART_STORAGE_KEY)
-    return stored ? (JSON.parse(stored) as Cart) : {}
+    return parseStoredCart(window.localStorage.getItem(CART_STORAGE_KEY))
   } catch {
     return {}
   }
+}
+
+export function changeCartQuantity(
+  cart: Cart,
+  articleId: number,
+  delta: number,
+  max = MAX_CART_QUANTITY,
+): Cart {
+  const nextQuantity = Math.max(0, Math.min(max, (cart[articleId] ?? 0) + delta))
+  const next = { ...cart }
+
+  if (nextQuantity === 0) {
+    delete next[articleId]
+  } else {
+    next[articleId] = nextQuantity
+  }
+
+  return next
+}
+
+export function removeCartItem(cart: Cart, articleId: number): Cart {
+  const next = { ...cart }
+  delete next[articleId]
+  return next
 }
 
 export function writeStoredCart(cart: Cart) {

@@ -5,14 +5,8 @@ import {
   getArticleCategory,
   type CategoryFilter,
 } from '@/lib/article-categories'
-import {
-  buildCartLines,
-  formatCurrency,
-  getCartCount,
-  readStoredCart,
-  writeStoredCart,
-  type Cart,
-} from '@/lib/cart'
+import { useCart } from '@/components/cart/cart-provider'
+import { buildCartLines, formatCurrency, MAX_CART_QUANTITY } from '@/lib/cart'
 import { getImageUrl } from '@/lib/image-url'
 import { formatPickupPoint } from '@/lib/pickup-points'
 import { getArticlePath } from '@/lib/seo'
@@ -26,7 +20,7 @@ type ShopClientProps = {
   pickupPoints: PickupPoint[]
 }
 
-const maxCartQuantity = 99
+const maxCartQuantity = MAX_CART_QUANTITY
 
 function compareArticlesByPrice(first: ShopArticle, second: ShopArticle) {
   const priceDifference = first.prixCents - second.prixCents
@@ -47,9 +41,7 @@ function compareArticlesByPrice(first: ShopArticle, second: ShopArticle) {
 }
 
 export default function ShopClient({ articles, pickupPoints }: ShopClientProps) {
-  const [cart, setCart] = useState<Cart>({})
-  const [cartReady, setCartReady] = useState(false)
-  const [panelOpen, setPanelOpen] = useState(false)
+  const { cart, count, changeQuantity, openCart } = useCart()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<CategoryFilter>('ALL')
   const [onlyAvailable, setOnlyAvailable] = useState(false)
@@ -58,24 +50,8 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
   >({})
 
 
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setCart(readStoredCart())
-      setCartReady(true)
-    }, 0)
-
-    return () => window.clearTimeout(handle)
-  }, [])
-
-  useEffect(() => {
-    if (!cartReady) return
-
-    writeStoredCart(cart)
-  }, [cart, cartReady])
-
   const lines = useMemo(() => buildCartLines(cart, articles), [cart, articles])
   const total = lines.reduce((sum, line) => sum + line.totalCents, 0)
-  const count = getCartCount(cart)
   const categories = useMemo(() => {
     const categoriesBySlug = new Map(
       articles.map((article) => {
@@ -157,37 +133,8 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
     }))
   }
 
-  function updateCart(article: ShopArticle, delta: number) {
-    setCart((current) => {
-      const nextQuantity = Math.max(
-        0,
-        Math.min(maxCartQuantity, (current[article.id] ?? 0) + delta),
-      )
-
-      const next = { ...current }
-
-      if (nextQuantity === 0) {
-        delete next[article.id]
-      } else {
-        next[article.id] = nextQuantity
-      }
-
-      return next
-    })
-  }
-
-  function removeFromCart(article: ShopArticle) {
-    setCart((current) => {
-      const next = { ...current }
-      delete next[article.id]
-      return next
-    })
-  }
-
   return (
     <main className="min-h-screen bg-[#faf7f8]">
-      <Header count={count} onCartClick={() => setPanelOpen(true)} />
-
       <section className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-14">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#b5006e]">
@@ -389,8 +336,8 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
                           key={article.id}
                           article={article}
                           quantity={cart[article.id] ?? 0}
-                          onDecrease={() => updateCart(article, -1)}
-                          onIncrease={() => updateCart(article, 1)}
+                          onDecrease={() => changeQuantity(article.id, -1)}
+                          onIncrease={() => changeQuantity(article.id, 1)}
                         />
                       ))}
                     </div>
@@ -405,7 +352,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
       {count > 0 ? (
         <button
           type="button"
-          onClick={() => setPanelOpen(true)}
+          onClick={openCart}
           className="fixed bottom-4 left-4 right-4 z-30 rounded-full bg-[#181014] px-5 py-3 text-sm font-bold text-white shadow-lg sm:hidden"
         >
           Voir le panier · {count} article{count > 1 ? 's' : ''} ·{' '}
@@ -413,66 +360,7 @@ export default function ShopClient({ articles, pickupPoints }: ShopClientProps) 
         </button>
       ) : null}
 
-      {panelOpen ? (
-        <CartDrawer
-          lines={lines}
-          total={total}
-          onClose={() => setPanelOpen(false)}
-          onDecrease={(article) => updateCart(article, -1)}
-          onIncrease={(article) => updateCart(article, 1)}
-          onRemove={removeFromCart}
-        />
-      ) : null}
     </main>
-  )
-}
-
-function Header({
-  count,
-  onCartClick,
-}: {
-  count: number
-  onCartClick: () => void
-}) {
-  return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#5a0037] text-white shadow-sm">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="flex items-center gap-3">
-          <Image
-            src="/logo.svg"
-            alt=""
-            width={48}
-            height={48}
-            className="h-12 w-12 rounded-full bg-white object-contain p-1"
-            aria-hidden="true"
-          />
-
-          <div>
-            <p className="font-black leading-tight">
-              Les Cocottes de <span className="text-[#fde68a]">Diane</span>
-            </p>
-            <p className="text-xs text-white/70">Commande en ligne</p>
-          </div>
-        </Link>
-
-        <nav className="hidden items-center gap-5 text-sm font-semibold text-white/80 md:flex">
-          <a href="#produits" className="hover:text-white">
-            Boutique
-          </a>
-          <a href="#retrait" className="hover:text-white">
-            Retrait
-          </a>
-        </nav>
-
-        <button
-          type="button"
-          onClick={onCartClick}
-          className="rounded-full border border-white/25 bg-white/15 px-4 py-2 text-sm font-bold transition hover:bg-white/25"
-        >
-          Panier ({count})
-        </button>
-      </div>
-    </header>
   )
 }
 
@@ -675,132 +563,6 @@ function QuantityStepper({
       >
         +
       </button>
-    </div>
-  )
-}
-
-function CartDrawer({
-  lines,
-  total,
-  onClose,
-  onDecrease,
-  onIncrease,
-  onRemove,
-}: {
-  lines: {
-    article: ShopArticle
-    quantite: number
-    totalCents: number
-  }[]
-  total: number
-  onClose: () => void
-  onDecrease: (article: ShopArticle) => void
-  onIncrease: (article: ShopArticle) => void
-  onRemove: (article: ShopArticle) => void
-}) {
-  return (
-    <div className="fixed inset-0 z-40">
-      <button
-        type="button"
-        aria-label="Fermer le panier"
-        className="absolute inset-0 bg-black/45"
-        onClick={onClose}
-      />
-
-      <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-[#eee2e7] p-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#b5006e]">
-              Panier
-            </p>
-            <h2 className="text-xl font-black text-[#181014]">Votre commande</h2>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-[#e8e1e4] px-4 py-2 text-sm font-bold text-[#4a3d43]"
-          >
-            Fermer
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          {lines.length === 0 ? (
-            <div className="rounded-2xl bg-[#faf7f8] p-5 text-sm text-[#7a6d73]">
-              Votre panier est vide. Ajoutez un produit pour commencer votre
-              commande.
-            </div>
-          ) : (
-            <ul className="grid gap-3">
-              {lines.map((line) => (
-                <li
-                  key={line.article.id}
-                  className="grid gap-3 rounded-2xl border border-[#eee2e7] p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black text-[#181014]">
-                        {line.article.nom}
-                      </p>
-                      <p className="text-sm text-[#7a6d73]">
-                        {line.quantite} x {formatCurrency(line.article.prixCents)}
-                      </p>
-                    </div>
-
-                    <p className="font-black text-[#b5006e]">
-                      {formatCurrency(line.totalCents)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <QuantityStepper
-                      quantity={line.quantite}
-                      onDecrease={() => onDecrease(line.article)}
-                      onIncrease={() => onIncrease(line.article)}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => onRemove(line.article)}
-                      className="text-sm font-bold text-red-600"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="grid gap-4 border-t border-[#eee2e7] p-4">
-          <div className="rounded-2xl bg-[#fceef6] p-3 text-xs leading-5 text-[#8c0055]">
-            Le choix du point de retrait, la date et vos informations client se
-            font à l’étape suivante.
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-[#7a6d73]">
-              Total TTC
-            </span>
-            <strong className="text-2xl text-[#181014]">
-              {formatCurrency(total)}
-            </strong>
-          </div>
-
-          <Link
-            href="/checkout"
-            className={`rounded-full px-4 py-3 text-center font-black text-white ${
-              lines.length === 0
-                ? 'pointer-events-none bg-[#181014]/30'
-                : 'bg-[#b5006e] hover:bg-[#8c0055]'
-            }`}
-          >
-            Continuer vers le paiement
-          </Link>
-        </div>
-      </aside>
     </div>
   )
 }

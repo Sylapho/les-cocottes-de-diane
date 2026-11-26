@@ -17,10 +17,18 @@
   --color-line: #dcc6d1;
   --color-error: #9c2b24;
 
+  --text-display: 5rem;
+  --text-display--line-height: 5.25rem;
   --text-h1: 3.5rem;
   --text-h1--line-height: 3.875rem;
   --text-h2: 2.5rem;
   --text-h2--line-height: 2.875rem;
+  --text-h3: 1.75rem;
+  --text-h3--line-height: 2.125rem;
+  --text-price: 1.5rem;
+  --text-price--line-height: 1.875rem;
+  --text-eyebrow: 0.75rem;
+  --text-eyebrow--line-height: 1.125rem;
   --text-body: 1rem;
   --text-body--line-height: 1.5625rem;
   --text-small: 0.875rem;

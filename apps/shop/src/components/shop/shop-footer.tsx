@@ -1,15 +1,24 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import type { SVGProps } from 'react'
 import { getSocialLinks } from '@/lib/social-links'
+import { contactEmail, shopRoutes } from '@/lib/site-nav'
 import AnalyticsPreferencesButton from '@/components/analytics/analytics-preferences-button'
+
+const practicalLinks = [
+  { href: shopRoutes.catalogue, label: 'La boutique' },
+  { href: shopRoutes.pickup, label: 'Commande & retrait' },
+  { href: shopRoutes.tracking, label: 'Suivre ma commande' },
+]
 
 const legalLinks = [
   { href: '/mentions-legales', label: 'Mentions légales' },
-  { href: '/cgv', label: 'CGV' },
+  { href: '/cgv', label: 'Conditions générales de vente' },
   { href: '/confidentialite', label: 'Confidentialité' },
   { href: '/cookies', label: 'Cookies' },
-  { href: '/click-and-collect', label: 'Click & Collect' },
 ]
+
+const linkClassName = 'rounded-sm underline-offset-4 hover:underline'
 
 export default function ShopFooter() {
   const socialLinks = getSocialLinks()
@@ -29,47 +38,84 @@ export default function ShopFooter() {
   ].filter((link): link is typeof link & { href: string } => Boolean(link.href))
 
   return (
-    <footer className="mt-auto border-t border-[#eee2e7] bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 text-xs text-[#7a6d73] sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-semibold text-[#181014]">
-          © {new Date().getFullYear()} Les cocottes de Diane
-        </p>
+    <footer className="mt-auto bg-ink text-cream [&_:focus-visible]:outline-cream">
+      <div className="mx-auto flex max-w-360 flex-col gap-8 px-5 py-10 lg:p-20">
+        <div className="flex flex-col gap-10 lg:flex-row lg:gap-16">
+          <div className="flex flex-col gap-4 lg:w-120">
+            <Image
+              src="/logo.svg"
+              alt=""
+              width={112}
+              height={112}
+              className="size-28 bg-paper"
+            />
+            <p className="font-serif text-h2">
+              Les Cocottes
+              <br />
+              de Diane
+            </p>
+            <p className="text-body">Le goût des choses simples.</p>
+            <a href={`mailto:${contactEmail}`} className={`w-fit text-small ${linkClassName}`}>
+              {contactEmail}
+            </a>
+          </div>
 
-        <div className="flex flex-col gap-3 sm:items-end">
-          {configuredSocialLinks.length > 0 ? (
-            <nav aria-label="Réseaux sociaux" className="flex flex-wrap gap-2">
-              {configuredSocialLinks.map(({ href, label, shortLabel, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#eee2e7] px-3 py-1.5 font-semibold text-[#4a3d43] transition hover:border-[#b5006e] hover:text-[#b5006e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b5006e]"
-                >
-                  <Icon aria-hidden="true" className="size-4" />
-                  <span>{shortLabel}</span>
-                </a>
+          <nav aria-label="Informations pratiques" className="lg:w-65">
+            <ul className="flex flex-col gap-4 text-body">
+              {practicalLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className={linkClassName}>
+                    {link.label}
+                  </Link>
+                </li>
               ))}
-            </nav>
-          ) : null}
-
-          <nav
-            aria-label="Liens légaux"
-            className="flex flex-wrap gap-x-3 gap-y-1"
-          >
-            {legalLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-sm font-semibold hover:text-[#b5006e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b5006e]"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <AnalyticsPreferencesButton />
+            </ul>
           </nav>
+
+          <div className="flex flex-col gap-6">
+            <nav aria-label="Liens légaux">
+              <ul className="flex flex-col gap-4 text-small">
+                {legalLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className={linkClassName}>
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <AnalyticsPreferencesButton />
+                </li>
+              </ul>
+            </nav>
+
+            {configuredSocialLinks.length > 0 ? (
+              <nav aria-label="Réseaux sociaux">
+                <ul className="flex flex-wrap gap-4 text-small">
+                  {configuredSocialLinks.map(({ href, label, shortLabel, Icon }) => (
+                    <li key={label}>
+                      <a
+                        href={href}
+                        aria-label={label}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-2 ${linkClassName}`}
+                      >
+                        <Icon aria-hidden="true" className="size-5" />
+                        <span>{shortLabel}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
+          </div>
         </div>
+
+        <hr className="border-line" />
+
+        <p className="text-small">
+          © {new Date().getFullYear()} Les Cocottes de Diane · Clef Vallée d’Eure
+        </p>
       </div>
     </footer>
   )
